@@ -1,6 +1,6 @@
 use derive_more::Constructor;
 
-use crate::skeleton::expr::expression::Expression;
+use crate::basic::expr::expression::Expression;
 
 use super::prefix::VariablePrefix;
 
