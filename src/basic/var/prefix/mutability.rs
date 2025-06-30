@@ -1,32 +1,16 @@
-use std::fmt::Display;
+use derive_more::Display;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Display)]
 pub enum VariableMutability {
+    #[display("{} ", Self::VAL_REPR)]
     #[default]
     Val,
+
+    #[display("{} ", Self::VAR_REPR)]
     Var,
 }
 
 impl VariableMutability {
     pub const VAL_REPR: &str = "val";
     pub const VAR_REPR: &str = "var";
-}
-
-impl Display for VariableMutability {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Val => write!(f, "{} ", Self::VAL_REPR),
-            Self::Var => write!(f, "{} ", Self::VAR_REPR),
-        }
-    }
-}
-
-impl From<VariableMutability> for String {
-    fn from(value: VariableMutability) -> Self {
-        match value {
-            VariableMutability::Val => VariableMutability::VAL_REPR,
-            VariableMutability::Var => VariableMutability::VAR_REPR,
-        }
-        .to_string()
-    }
 }

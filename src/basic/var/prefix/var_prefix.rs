@@ -1,16 +1,11 @@
-use std::fmt::Display;
+use derive_more::Display;
 
 use super::{init::VariableInit, mutability::VariableMutability, scope::VariableScope};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Display)]
+#[display("{scope}{init}{mutability}")]
 pub struct VariablePrefix {
     scope: VariableScope,
     init: VariableInit,
     mutability: VariableMutability,
-}
-
-impl Display for VariablePrefix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}{}", self.scope, self.init, self.mutability)
-    }
 }

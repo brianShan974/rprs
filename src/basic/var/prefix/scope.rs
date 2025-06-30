@@ -1,12 +1,21 @@
-use std::fmt::Display;
+use derive_more::Display;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Display)]
 pub enum VariableScope {
+    #[display("{}", Self::STACK_REPR)]
     #[default]
     Stack,
+
+    #[display("{} ", Self::INTERNAL_REPR)]
     Internal,
+
+    #[display("{} ", Self::PUBLIC_REPR)]
     Public,
+
+    #[display("{} ", Self::PRIVATE_REPR)]
     Private,
+
+    #[display("{} ", Self::PROTECTED_REPR)]
     Protected,
 }
 
@@ -16,29 +25,4 @@ impl VariableScope {
     pub const PUBLIC_REPR: &str = "public";
     pub const PRIVATE_REPR: &str = "private";
     pub const PROTECTED_REPR: &str = "protected";
-}
-
-impl Display for VariableScope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Stack => write!(f, ""),
-            Self::Internal => write!(f, "{} ", Self::INTERNAL_REPR),
-            Self::Public => write!(f, "{} ", Self::PUBLIC_REPR),
-            Self::Private => write!(f, "{} ", Self::PRIVATE_REPR),
-            Self::Protected => write!(f, "{} ", Self::PROTECTED_REPR),
-        }
-    }
-}
-
-impl From<VariableScope> for String {
-    fn from(value: VariableScope) -> Self {
-        match value {
-            VariableScope::Stack => VariableScope::STACK_REPR,
-            VariableScope::Internal => VariableScope::INTERNAL_REPR,
-            VariableScope::Public => VariableScope::PUBLIC_REPR,
-            VariableScope::Private => VariableScope::PRIVATE_REPR,
-            VariableScope::Protected => VariableScope::PROTECTED_REPR,
-        }
-        .to_string()
-    }
 }
