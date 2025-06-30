@@ -2,7 +2,7 @@ use derive_more::Constructor;
 
 use crate::basic::expr::expression::Expression;
 
-use super::prefix::VariablePrefix;
+use super::prefix::var_prefix::VariablePrefix;
 
 #[derive(Constructor, Debug)]
 pub struct Variable {
