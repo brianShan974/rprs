@@ -3,4 +3,4 @@ pub mod cnst;
 pub mod expr;
 pub mod var;
 
-pub mod stmt;
+pub mod body;
