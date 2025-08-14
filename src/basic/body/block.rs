@@ -12,8 +12,6 @@ const INDENTATION: usize = 4;
 pub struct Block {
     statements: Vec<Statement>,
     current_indentation_layer: usize,
-    new_variables: Vec<Variable>,
-    external_variables: Vec<Variable>,
 }
 
 impl Block {
@@ -58,8 +56,6 @@ impl Block {
         Block {
             statements,
             current_indentation_layer,
-            new_variables,
-            external_variables,
         }
     }
 }

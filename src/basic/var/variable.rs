@@ -100,7 +100,10 @@ pub struct Variable {
 
 impl Variable {
     pub fn output_declaration(&self) -> String {
-        format!("{}{}", self.prefix, self.name)
+        match self.ty {
+            Some(ref ty) => format!("{}{}: {}", self.prefix, self.name, ty),
+            _ => format!("{}{}", self.prefix, self.name),
+        }
     }
 
     pub fn output_assignment(&self) -> Option<String> {
