@@ -1,4 +1,5 @@
 use derive_more::Display;
+// use rand::Rng;
 
 use crate::basic::cls::basic_types::BasicType;
 use crate::basic::cls::custom_class::CustomClass;
@@ -8,4 +9,17 @@ use crate::basic::cls::custom_class::CustomClass;
 pub enum Class {
     Basic(BasicType),
     Custom(CustomClass),
+}
+
+impl Class {
+    pub fn generate_random_class() -> Self {
+        // let mut rng = rand::rng();
+
+        // // 80% chance for basic types, 20% chance for custom types
+        // match rng.random_range(0..10) {
+        //     0..7 => Class::Basic(BasicType::generate_random_basic_type()),
+        //     _ => Class::Custom(CustomClass),
+        // }
+        Class::Basic(BasicType::generate_random_basic_type())
+    }
 }
