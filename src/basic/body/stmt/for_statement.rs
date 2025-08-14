@@ -1,4 +1,5 @@
 use crate::basic::body::block::Block;
+use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::variable::Variable;
 use rand::Rng;
 use std::fmt::Display;
@@ -26,7 +27,7 @@ impl ForStatement {
         let mut rng = rand::rng();
 
         // Generate loop variable name
-        let loop_variable_name = Variable::generate_random_variable_name();
+        let loop_variable_name = generate_random_identifier();
 
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
