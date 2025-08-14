@@ -1,12 +1,18 @@
-use std::fmt::Display;
+use super::arithmetich_expression::ArithmeticExpression;
+use derive_more::Display;
 
-use derive_more::Constructor;
+#[derive(Clone, Debug, Display)]
+#[display("{}", _0)]
+pub enum Expression {
+    Arithmetic(ArithmeticExpression),
+}
 
-#[derive(Debug, Constructor, Clone)]
-pub struct Expression;
+impl Expression {
+    pub fn generate_random_expression(max_depth: usize) -> Self {
+        Self::Arithmetic(ArithmeticExpression::generate_random_expression(max_depth))
+    }
 
-impl Display for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
+    pub fn is_arithmetic(&self) -> bool {
+        matches!(self, Self::Arithmetic(_))
     }
 }

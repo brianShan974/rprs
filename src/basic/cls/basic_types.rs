@@ -1,3 +1,4 @@
+#[derive(Clone, Debug)]
 pub enum BasicType {
     Number(NumberType),
     Boolean,
@@ -5,12 +6,14 @@ pub enum BasicType {
     String,
 }
 
+#[derive(Clone, Debug)]
 pub enum NumberType {
     SignedInteger(SignedIntegerType),
     UnsignedInteger(UnsignedIntegerType),
     FloatingPoint(FloatingPointType),
 }
 
+#[derive(Clone, Debug)]
 pub enum SignedIntegerType {
     Byte,
     Short,
@@ -18,6 +21,7 @@ pub enum SignedIntegerType {
     Long,
 }
 
+#[derive(Clone, Debug)]
 pub enum UnsignedIntegerType {
     UByte,
     UShort,
@@ -25,6 +29,7 @@ pub enum UnsignedIntegerType {
     ULong,
 }
 
+#[derive(Clone, Debug)]
 pub enum FloatingPointType {
     Float,
     Double,
