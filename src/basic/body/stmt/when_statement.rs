@@ -1,10 +1,11 @@
-use crate::basic::body::block::Block;
+use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
 use rand::Rng;
 use std::fmt::Display;
 
 pub struct WhenStatement {
+    current_indentation_layer: usize,
     subject: Variable,
     arms: Vec<(Expression, Block)>,
     else_arm: Block,
@@ -12,24 +13,31 @@ pub struct WhenStatement {
 
 impl Display for WhenStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "when ({}) {{", self.subject.output_declaration())?;
+        let indentation = SPACE.repeat(self.current_indentation_layer * INDENT_SIZE);
+        writeln!(f, "{indentation}when ({}) {{", self.subject.get_name())?;
 
         for (condition, block) in &self.arms {
-            writeln!(f, " {} -> {}", condition, block)?;
+            writeln!(f, "{indentation}{} -> {}", condition, block)?;
         }
 
-        writeln!(f, " else -> {}", self.else_arm)?;
-        write!(f, " }}")?;
+        writeln!(f, "{indentation}else -> {}", self.else_arm)?;
 
         Ok(())
     }
 }
 
 impl WhenStatement {
+    pub const MAX_DEPTH: usize = 5;
+
     pub fn generate_random_when_statement(
         external_variables: Vec<Variable>,
         current_indentation_layer: usize,
-    ) -> Self {
+        max_depth: usize,
+    ) -> Option<Self> {
+        if max_depth == 0 {
+            return None;
+        }
+
         let mut rng = rand::rng();
 
         // Generate subject variable
@@ -41,25 +49,28 @@ impl WhenStatement {
 
         for _ in 0..num_arms {
             let condition = Expression::generate_random_expression(3);
-            let block = Block::generate_random_block_with_depth(
+            let block = Block::generate_random_block(
                 external_variables.clone(),
-                current_indentation_layer + 1,
-                2, // Use smaller depth limit
+                current_indentation_layer,
+                false,
+                max_depth - 1,
             );
-            arms.push((condition, block));
+            arms.push((condition, block?));
         }
 
         // Generate else arm
-        let else_arm = Block::generate_random_block_with_depth(
+        let else_arm = Block::generate_random_block(
             external_variables,
-            current_indentation_layer + 1,
-            2, // Use smaller depth limit
+            current_indentation_layer,
+            false,
+            max_depth - 1,
         );
 
-        Self {
+        Some(Self {
+            current_indentation_layer,
             subject,
             arms,
-            else_arm,
-        }
+            else_arm: else_arm?,
+        })
     }
 }

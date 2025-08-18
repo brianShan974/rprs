@@ -1,4 +1,4 @@
-use crate::basic::body::block::Block;
+use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::variable::Variable;
 use rand::Rng;
@@ -14,16 +14,24 @@ enum ForLoopType {
 }
 
 pub struct ForStatement {
+    current_indentation_layer: usize,
     loop_variable_name: String,
     loop_block: Block,
     loop_type: ForLoopType,
 }
 
 impl ForStatement {
+    pub const MAX_DEPTH: usize = 5;
+
     pub fn generate_random_for_statement(
         external_variables: Vec<Variable>,
         current_indentation_layer: usize,
-    ) -> Self {
+        max_depth: usize,
+    ) -> Option<Self> {
+        if max_depth == 0 {
+            return None;
+        }
+
         let mut rng = rand::rng();
 
         // Generate loop variable name
@@ -41,29 +49,36 @@ impl ForStatement {
         };
 
         // Generate loop body with smaller depth limit
-        let loop_block = Block::generate_random_block_with_depth(
+        let loop_block = Block::generate_random_block(
             external_variables,
             current_indentation_layer,
-            2, // Use smaller depth limit
-        );
+            false,
+            max_depth - 1,
+        )?;
 
-        Self {
+        Some(Self {
+            current_indentation_layer,
             loop_variable_name,
             loop_block,
             loop_type,
-        }
+        })
     }
 }
 
 impl Display for ForStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let indentation = SPACE.repeat(self.current_indentation_layer * INDENT_SIZE);
         match &self.loop_type {
             ForLoopType::RangeLoop { start, end, step } => {
-                write!(f, "for ({} in {}..{})", self.loop_variable_name, start, end)?;
+                write!(
+                    f,
+                    "{indentation}for ({} in {}..{}) ",
+                    self.loop_variable_name, start, end
+                )?;
                 if let Some(step_val) = step {
-                    write!(f, " step {}", step_val)?;
+                    write!(f, "step {} ", step_val)?;
                 }
-                writeln!(f, " {}", self.loop_block)?;
+                write!(f, "{}", self.loop_block)?;
             }
         }
         Ok(())

@@ -10,13 +10,7 @@ pub enum SingleStatement {
 }
 
 impl SingleStatement {
-    pub fn generate_random_single_statement() -> Self {
-        Self::generate_random_single_statement_with_variables(Vec::new())
-    }
-
-    pub fn generate_random_single_statement_with_variables(
-        external_variables: Vec<Variable>,
-    ) -> Self {
+    pub fn generate_random_single_statement(external_variables: Vec<Variable>) -> Self {
         let mut rng = rand::rng();
 
         match rng.random_range(0..4) {

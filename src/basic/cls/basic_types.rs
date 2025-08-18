@@ -38,13 +38,22 @@ impl NumberType {
     pub fn generate_random_number_type() -> Self {
         let mut rng = rand::rng();
 
-        match rng.random_range(0..3) {
+        // match rng.random_range(0..3) {
+        //     0 => {
+        //         NumberType::SignedInteger(SignedIntegerType::generate_random_signed_integer_type())
+        //     }
+        //     1 => NumberType::UnsignedInteger(
+        //         UnsignedIntegerType::generate_random_unsigned_integer_type(),
+        //     ),
+        //     _ => {
+        //         NumberType::FloatingPoint(FloatingPointType::generate_random_floating_point_type())
+        //     }
+        // }
+
+        match rng.random_range(0..=1) {
             0 => {
                 NumberType::SignedInteger(SignedIntegerType::generate_random_signed_integer_type())
             }
-            1 => NumberType::UnsignedInteger(
-                UnsignedIntegerType::generate_random_unsigned_integer_type(),
-            ),
             _ => {
                 NumberType::FloatingPoint(FloatingPointType::generate_random_floating_point_type())
             }

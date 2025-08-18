@@ -4,32 +4,30 @@ use std::fmt::Display;
 
 use super::stmt::statement::Statement;
 
-const MAX_NUM_STATEMENTS: usize = 3;
-const MAX_NUM_NEW_VARS: usize = 1;
-
-const INDENTATION: usize = 4;
+pub const SPACE: &str = " ";
+pub const INDENT_SIZE: usize = 4;
 
 pub struct Block {
+    is_independent: bool,
     statements: Vec<Statement>,
     current_indentation_layer: usize,
 }
 
 impl Block {
+    pub const MAX_DEPTH: usize = 5;
+
+    pub const MAX_NUM_STATEMENTS: usize = 3;
+    pub const MAX_NUM_NEW_VARS: usize = 1;
+
     pub fn generate_random_block(
         external_variables: Vec<Variable>,
         current_indentation_layer: usize,
-    ) -> Self {
-        Self::generate_random_block_with_depth(external_variables, current_indentation_layer, 3)
-    }
-
-    pub fn generate_random_block_with_depth(
-        external_variables: Vec<Variable>,
-        current_indentation_layer: usize,
+        is_independent: bool,
         max_depth: usize,
-    ) -> Self {
+    ) -> Option<Self> {
         let mut rng = rand::rng();
 
-        let num_new_vars = rng.random_range(0..=MAX_NUM_NEW_VARS);
+        let num_new_vars = rng.random_range(0..=Self::MAX_NUM_NEW_VARS);
         let mut new_variables = Vec::with_capacity(num_new_vars);
 
         // Generate new variables (but don't add them to external_variables)
@@ -42,34 +40,46 @@ impl Block {
         let mut combined_external_variables = external_variables.clone();
         combined_external_variables.extend(new_variables.clone());
 
-        let num_statements = rng.random_range(1..=MAX_NUM_STATEMENTS);
+        let num_statements = rng.random_range(1..=Self::MAX_NUM_STATEMENTS);
         let mut statements = Vec::with_capacity(num_statements);
 
         // Generate random statements with depth limit
         for _ in 0..num_statements {
-            statements.push(Statement::generate_random_statement_with_depth(
+            statements.push(Statement::generate_random_statement(
                 combined_external_variables.clone(),
-                max_depth,
-            ));
+                current_indentation_layer + 1,
+                Some(max_depth - 1),
+            )?);
         }
 
-        Block {
+        Some(Block {
+            is_independent,
             statements,
             current_indentation_layer,
-        }
+        })
     }
 }
 
 impl Display for Block {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let space = " ";
-        let outer_indentation = space.repeat(self.current_indentation_layer * INDENTATION);
-        let inner_indentation = space.repeat((self.current_indentation_layer + 1) * INDENTATION);
-        writeln!(f, "{outer_indentation}{{")?;
-        for stmt in self.statements.iter() {
-            writeln!(f, "{inner_indentation}{stmt}")?
+        let outer_indentation = SPACE.repeat(self.current_indentation_layer * INDENT_SIZE);
+        let inner_indentation = SPACE.repeat(INDENT_SIZE);
+
+        if self.is_independent {
+            write!(f, "{outer_indentation}")?;
         }
-        writeln!(f, "{outer_indentation}}}")?;
+        writeln!(f, "{{")?;
+        for stmt in self.statements.iter() {
+            match stmt {
+                Statement::Single(single_stmt) => {
+                    writeln!(f, "{outer_indentation}{inner_indentation}{single_stmt}")?;
+                }
+                _ => {
+                    writeln!(f, "{stmt}")?;
+                }
+            }
+        }
+        write!(f, "{outer_indentation}}}")?;
 
         Ok(())
     }
