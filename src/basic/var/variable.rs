@@ -59,7 +59,7 @@ impl Variable {
         let prefix = VariablePrefix::generate_random_prefix(is_stack);
         let name = generate_random_identifier(rng);
         let value = if with_initial_value {
-            Some(Expression::generate_random_expression(5, rng))
+            Some(Expression::generate_random_expression(5, None, rng))
         } else {
             None
         };
@@ -95,22 +95,22 @@ impl Variable {
             match &target_type {
                 Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
                     // Generate integer expression
-                    let expr = Expression::generate_random_expression(3, rng);
+                    let expr = Expression::generate_random_expression(3, None, rng);
                     (Some(expr), target_type.clone())
                 }
                 Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
                     // Generate float expression
-                    let expr = Expression::generate_random_expression(3, rng);
+                    let expr = Expression::generate_random_expression(3, None, rng);
                     (Some(expr), target_type.clone())
                 }
                 Some(Class::Basic(BasicType::Boolean)) => {
                     // Generate boolean expression (comparison or literal)
-                    let expr = Expression::generate_random_expression(2, rng);
+                    let expr = Expression::generate_random_expression(2, None, rng);
                     (Some(expr), target_type.clone())
                 }
                 Some(Class::Basic(BasicType::String)) => {
                     // For now, generate arithmetic expression (string literals not implemented)
-                    let expr = Expression::generate_random_expression(2, rng);
+                    let expr = Expression::generate_random_expression(2, None, rng);
                     (
                         Some(expr),
                         Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
@@ -120,7 +120,7 @@ impl Variable {
                 }
                 _ => {
                     // Default to arithmetic expression
-                    let expr = Expression::generate_random_expression(3, rng);
+                    let expr = Expression::generate_random_expression(3, None, rng);
                     let inferred_type = Some(Class::Basic(BasicType::Number(
                         NumberType::FloatingPoint(FloatingPointType::Float),
                     )));

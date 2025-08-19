@@ -45,7 +45,11 @@ impl SingleStatement {
                     // Choose a random mutable variable
                     let var_name =
                         available_vars[rng.random_range(0..available_vars.len())].clone();
-                    let expr = Expression::generate_random_expression(3, rng);
+                    let expr = Expression::generate_random_expression(
+                        3,
+                        Some(external_functions.clone()),
+                        rng,
+                    );
                     SingleStatement::Assignment(var_name, expr)
                 }
             }
@@ -65,7 +69,11 @@ impl SingleStatement {
                     let num_args = rng.random_range(0..=3);
                     let mut args = Vec::with_capacity(num_args);
                     for _ in 0..num_args {
-                        args.push(Expression::generate_random_expression(2, rng));
+                        args.push(Expression::generate_random_expression(
+                            2,
+                            Some(external_functions.clone()),
+                            rng,
+                        ));
                     }
 
                     SingleStatement::FunctionCall(function_name, args)
@@ -73,7 +81,11 @@ impl SingleStatement {
             }
             _ => {
                 if rng.random() {
-                    SingleStatement::Return(Some(Expression::generate_random_expression(3, rng)))
+                    SingleStatement::Return(Some(Expression::generate_random_expression(
+                        3,
+                        Some(external_functions.clone()),
+                        rng,
+                    )))
                 } else {
                     SingleStatement::Return(None)
                 }

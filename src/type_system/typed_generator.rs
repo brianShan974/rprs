@@ -80,7 +80,11 @@ impl TypedGenerationContext {
         if let Some(var_type) = self.variable_types.get(var) {
             // Check if variable is mutable by looking it up in external variables
             // For now, generate a compatible expression
-            let expr = self.generate_expression_for_type(var_type, rng)?;
+            let expr = self.generate_expression_for_type(
+                var_type,
+                Some(self.external_functions.clone()),
+                rng,
+            )?;
             Ok(SingleStatement::Assignment(
                 var.get_name().to_string(),
                 expr,
@@ -108,7 +112,11 @@ impl TypedGenerationContext {
 
                     // Generate arguments that match the parameter types
                     for param_type in param_types {
-                        let arg = self.generate_expression_for_type(param_type, rng)?;
+                        let arg = self.generate_expression_for_type(
+                            param_type,
+                            Some(self.external_functions.clone()),
+                            rng,
+                        )?;
                         args.push(arg);
                     }
 
@@ -128,6 +136,147 @@ impl TypedGenerationContext {
                 expected: None,
                 found: None,
             })
+        }
+    }
+
+    /// Generate a type-safe function call expression that returns a specific type
+    pub fn generate_type_safe_function_call_expression<T: Rng + SeedableRng>(
+        &self,
+        target_type: &Type,
+        rng: &mut T,
+    ) -> TypeResult<Expression> {
+        let functions = &self.external_functions;
+        let functions_borrowed = functions.borrow();
+        
+        // Find functions that return the target type
+        let compatible_functions: Vec<_> = functions_borrowed
+            .iter()
+            .filter(|func| {
+                if let Some(func_type) = self.function_signatures.get(func.get_name()) {
+                    if let Type::Function(_, return_type) = func_type {
+                        // Check if return type is compatible with target type
+                        self.type_checker.check_compatibility(return_type, target_type).is_ok()
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            })
+            .collect();
+
+        if compatible_functions.is_empty() {
+            // Fallback to generating a simple expression of the target type
+            return self.generate_expression_for_type(target_type, Some(functions.clone()), rng);
+        }
+
+        // Randomly select a compatible function
+        let function = &compatible_functions[rng.random_range(0..compatible_functions.len())];
+        let func_name = function.get_name();
+        
+        if let Some(func_type) = self.function_signatures.get(func_name) {
+            if let Type::Function(param_types, _) = func_type {
+                let mut args = Vec::new();
+
+                // Generate arguments that match the parameter types
+                for param_type in param_types {
+                    let arg = self.generate_expression_for_type(
+                        param_type,
+                        Some(functions.clone()),
+                        rng,
+                    )?;
+                    args.push(arg);
+                }
+
+                Ok(Expression::Arithmetic(ArithmeticExpression::FunctionCall(
+                    func_name.to_string(),
+                    args,
+                )))
+            } else {
+                // Fallback
+                self.generate_expression_for_type(target_type, Some(functions.clone()), rng)
+            }
+        } else {
+            // Fallback
+            self.generate_expression_for_type(target_type, Some(functions.clone()), rng)
+        }
+    }
+
+    /// Generate a type-safe arithmetic expression
+    pub fn generate_type_safe_arithmetic_expression<T: Rng + SeedableRng>(
+        &self,
+        target_type: &Type,
+        max_depth: usize,
+        rng: &mut T,
+    ) -> TypeResult<ArithmeticExpression> {
+        if max_depth == 0 {
+            // Generate simple literal based on target type
+            match target_type {
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
+                    Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                }
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
+                    Ok(ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)))
+                }
+                _ => {
+                    // Default to int for other types
+                    Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                }
+            }
+        } else {
+            // 40% chance for function call, 30% chance for binary op, 30% chance for literal
+            match rng.random_range(0..10) {
+                0..=3 => {
+                    // Generate type-safe function call
+                    match self.generate_type_safe_function_call_expression(target_type, rng) {
+                        Ok(Expression::Arithmetic(arith_expr)) => Ok(arith_expr),
+                        _ => {
+                            // Fallback to literal
+                            match target_type {
+                                Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
+                                    Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                                }
+                                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
+                                    Ok(ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)))
+                                }
+                                _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                            }
+                        }
+                    }
+                }
+                4..=6 => {
+                    // Generate binary operation
+                    let left = self.generate_type_safe_arithmetic_expression(
+                        target_type,
+                        max_depth - 1,
+                        rng,
+                    )?;
+                    let right = self.generate_type_safe_arithmetic_expression(
+                        target_type,
+                        max_depth - 1,
+                        rng,
+                    )?;
+                    let op = Operator::generate_random_operator(rng);
+                    Ok(ArithmeticExpression::BinaryOp {
+                        left: Box::new(left),
+                        op,
+                        right: Box::new(right),
+                    })
+                }
+                7..=9 => {
+                    // Generate literal
+                    match target_type {
+                        Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
+                            Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                        }
+                        Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
+                            Ok(ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)))
+                        }
+                        _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                    }
+                }
+                _ => unreachable!(),
+            }
         }
     }
 
@@ -319,14 +468,28 @@ impl TypedGenerationContext {
                     Type::Basic(Class::Basic(BasicType::Number(_))) => {
                         // Numeric return type - generate return with expression
                         let expr = self
-                            .generate_expression_for_type(return_type, rng)
-                            .unwrap_or_else(|_| Expression::generate_random_expression(2, rng));
+                            .generate_expression_for_type(
+                                return_type,
+                                Some(self.external_functions.clone()),
+                                rng,
+                            )
+                            .unwrap_or_else(|_| {
+                                Expression::generate_random_expression(
+                                    2,
+                                    Some(self.external_functions.clone()),
+                                    rng,
+                                )
+                            });
                         SingleStatement::Return(Some(expr))
                     }
                     Type::Basic(Class::Basic(BasicType::Boolean)) => {
                         // Boolean return type - generate boolean expression
                         let expr = self
-                            .generate_expression_for_type(return_type, rng)
+                            .generate_expression_for_type(
+                                return_type,
+                                Some(self.external_functions.clone()),
+                                rng,
+                            )
                             .unwrap_or_else(|_| self.generate_boolean_expression(rng));
                         SingleStatement::Return(Some(expr))
                     }
@@ -348,6 +511,7 @@ impl TypedGenerationContext {
     fn generate_expression_for_type<T: Rng + SeedableRng>(
         &self,
         target_type: &Type,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
         rng: &mut T,
     ) -> TypeResult<Expression> {
         match target_type {
@@ -401,32 +565,61 @@ impl TypedGenerationContext {
             }
             Type::Basic(Class::Basic(BasicType::String)) => {
                 // For string, generate a simple expression (string literals not implemented yet)
-                Ok(Expression::generate_random_expression(1, rng))
+                Ok(Expression::generate_random_expression(
+                    1,
+                    external_functions,
+                    rng,
+                ))
             }
             _ => {
                 // Default to simple arithmetic expression
-                Ok(Expression::generate_random_expression(2, rng))
+                Ok(Expression::generate_random_expression(
+                    2,
+                    external_functions,
+                    rng,
+                ))
             }
         }
     }
 
     /// Generate a float expression specifically
     fn generate_float_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
-        // 70% chance to generate float literal, 30% chance to generate float arithmetic
-        if rng.random_range(0..10) < 7 {
-            // Generate float literal
-            let float_value = rng.random::<f32>() * 100.0;
-            Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(float_value)))
-        } else {
-            // Generate float arithmetic expression
-            let left = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
-            let right = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
-            let op = Operator::generate_random_operator(rng);
-            Expression::Arithmetic(ArithmeticExpression::BinaryOp {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            })
+        // 40% chance to generate float literal, 25% chance to generate float arithmetic, 35% chance to generate function call
+        match rng.random_range(0..10) {
+            0..=3 => {
+                // Generate float literal
+                let float_value = rng.random::<f32>() * 100.0;
+                Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(float_value)))
+            }
+            4..=5 => {
+                // Generate float arithmetic expression
+                let left =
+                    ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
+                let right =
+                    ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
+                let op = Operator::generate_random_operator(rng);
+                Expression::Arithmetic(ArithmeticExpression::BinaryOp {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                })
+            }
+            6..=9 => {
+                // Generate type-safe function call that returns float
+                let float_type = Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                    FloatingPointType::Float,
+                ))));
+                
+                match self.generate_type_safe_function_call_expression(&float_type, rng) {
+                    Ok(expr) => expr,
+                    Err(_) => {
+                        // Fallback to float literal
+                        let float_value = rng.random::<f32>() * 100.0;
+                        Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(float_value)))
+                    }
+                }
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -454,21 +647,40 @@ impl TypedGenerationContext {
 
     /// Generate an integer expression specifically
     fn generate_int_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
-        // 70% chance to generate integer literal, 30% chance to generate integer arithmetic
-        if rng.random_range(0..10) < 7 {
-            // Generate integer literal
-            let int_value = rng.random_range(-100..100);
-            Expression::Arithmetic(ArithmeticExpression::Int(int_value))
-        } else {
-            // Generate integer arithmetic expression
-            let left = ArithmeticExpression::Int(rng.random_range(-50..50));
-            let right = ArithmeticExpression::Int(rng.random_range(-50..50));
-            let op = Operator::generate_random_operator(rng);
-            Expression::Arithmetic(ArithmeticExpression::BinaryOp {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            })
+        // 40% chance to generate integer literal, 20% chance to generate integer arithmetic, 40% chance to generate function call
+        match rng.random_range(0..10) {
+            0..=3 => {
+                // Generate integer literal
+                let int_value = rng.random_range(-100..100);
+                Expression::Arithmetic(ArithmeticExpression::Int(int_value))
+            }
+            4..=5 => {
+                // Generate integer arithmetic expression
+                let left = ArithmeticExpression::Int(rng.random_range(-50..50));
+                let right = ArithmeticExpression::Int(rng.random_range(-50..50));
+                let op = Operator::generate_random_operator(rng);
+                Expression::Arithmetic(ArithmeticExpression::BinaryOp {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                })
+            }
+            6..=9 => {
+                // Generate type-safe function call that returns int
+                let int_type = Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(
+                    SignedIntegerType::Int,
+                ))));
+                
+                match self.generate_type_safe_function_call_expression(&int_type, rng) {
+                    Ok(expr) => expr,
+                    Err(_) => {
+                        // Fallback to integer literal
+                        let int_value = rng.random_range(-100..100);
+                        Expression::Arithmetic(ArithmeticExpression::Int(int_value))
+                    }
+                }
+            }
+            _ => unreachable!(),
         }
     }
 

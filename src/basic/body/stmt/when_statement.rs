@@ -54,7 +54,7 @@ impl WhenStatement {
         let mut arms = Vec::with_capacity(num_arms);
 
         for _ in 0..num_arms {
-            let condition = Expression::generate_random_expression(3, rng);
+            let condition = Expression::generate_random_expression(3, None, rng);
             let block = Block::generate_random_block(
                 external_variables.clone(),
                 external_functions.clone(),

@@ -1,27 +1,86 @@
-use derive_more::Display;
 use rand::{Rng, SeedableRng};
+
+use std::cell::RefCell;
+use std::fmt;
+use std::rc::Rc;
 
 use super::arithmetich_expression::ArithmeticExpression;
 use super::boolean_expression::BooleanExpression;
+use crate::basic::body::fun::function::Function;
 
-#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
-#[display("{}", _0)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Expression {
     Arithmetic(ArithmeticExpression),
     Boolean(BooleanExpression),
+    FunctionCall(String, Vec<Expression>),
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expression::Arithmetic(arith) => write!(f, "{}", arith),
+            Expression::Boolean(boolean) => write!(f, "{}", boolean),
+            Expression::FunctionCall(name, args) => {
+                if args.is_empty() {
+                    write!(f, "{}()", name)
+                } else {
+                    let args_str = args
+                        .iter()
+                        .map(|arg| arg.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    write!(f, "{}({})", name, args_str)
+                }
+            }
+        }
+    }
 }
 
 impl Expression {
-    pub fn generate_random_expression<T: Rng + SeedableRng>(max_depth: usize, rng: &mut T) -> Self {
-        // 70% chance to generate arithmetic expression, 30% chance to generate boolean expression
-        if rng.random_range(0..10) < 7 {
-            Self::Arithmetic(ArithmeticExpression::generate_random_expression(
+    pub fn generate_random_expression<T: Rng + SeedableRng>(
+        max_depth: usize,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
+        rng: &mut T,
+    ) -> Self {
+        // 20% chance to generate arithmetic expression, 15% chance to generate boolean expression, 65% chance to generate function call
+        match rng.random_range(0..10) {
+            0..=1 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
+                max_depth,
+                external_functions.clone(),
+                rng,
+            )),
+            2..=3 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
                 max_depth, rng,
-            ))
-        } else {
-            Self::Boolean(BooleanExpression::generate_random_boolean_expression(
-                max_depth, rng,
-            ))
+            )),
+            _ => {
+                // Generate function call if external_functions is provided and not empty
+                if let Some(functions) = external_functions {
+                    let functions_borrowed = functions.borrow();
+                    if !functions_borrowed.is_empty() {
+                        let function =
+                            &functions_borrowed[rng.random_range(0..functions_borrowed.len())];
+                        let function_name = function.get_name().to_string();
+
+                        // Generate random arguments (0-3 expressions)
+                        let num_args = rng.random_range(0..=3);
+                        let mut args = Vec::with_capacity(num_args);
+                        for _ in 0..num_args {
+                            args.push(Self::generate_random_expression(
+                                max_depth.saturating_sub(1),
+                                Some(functions.clone()),
+                                rng,
+                            ));
+                        }
+
+                        return Self::FunctionCall(function_name, args);
+                    }
+                }
+
+                // Fallback to arithmetic expression if no functions available
+                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
+                    max_depth, None, rng,
+                ))
+            }
         }
     }
 
@@ -33,11 +92,16 @@ impl Expression {
         matches!(self, Self::Boolean(_))
     }
 
+    pub fn is_function_call(&self) -> bool {
+        matches!(self, Self::FunctionCall(_, _))
+    }
+
     /// Check if this expression is primarily an integer type
     pub fn is_int(&self) -> bool {
         match self {
             Self::Arithmetic(arith) => arith.is_int(),
             Self::Boolean(_) => false,
+            Self::FunctionCall(_, _) => false, // Function calls are not considered int by default
         }
     }
 
@@ -46,6 +110,7 @@ impl Expression {
         match self {
             Self::Arithmetic(arith) => arith.is_float(),
             Self::Boolean(_) => false,
+            Self::FunctionCall(_, _) => false, // Function calls are not considered float by default
         }
     }
 }
