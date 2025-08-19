@@ -1,7 +1,9 @@
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
+use crate::basic::body::fun::function::Function;
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::variable::Variable;
-use rand::Rng;
+use crate::type_system::{Type, TypedGenerationContext};
+use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -26,20 +28,19 @@ pub struct ForStatement {
 impl ForStatement {
     pub const MAX_DEPTH: usize = 5;
 
-    pub fn generate_random_for_statement(
+    pub fn generate_random_for_statement<T: Rng + SeedableRng>(
         external_variables: Vec<Variable>,
-        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
+        external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
+        rng: &mut T,
     ) -> Option<Self> {
         if max_depth == 0 {
             return None;
         }
 
-        let mut rng = rand::rng();
-
         // Generate loop variable name
-        let loop_variable_name = generate_random_identifier();
+        let loop_variable_name = generate_random_identifier(rng);
 
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
@@ -59,6 +60,59 @@ impl ForStatement {
             current_indentation_layer,
             false,
             max_depth - 1,
+            rng,
+        )?;
+
+        Some(Self {
+            current_indentation_layer,
+            loop_variable_name,
+            loop_block,
+            loop_type,
+        })
+    }
+
+    pub fn get_loop_block(&self) -> &Block {
+        &self.loop_block
+    }
+
+    /// Generate a type-safe for statement with expected return type
+    pub fn generate_type_safe_for_statement<T: Rng + SeedableRng>(
+        external_variables: Vec<Variable>,
+        external_functions: Rc<RefCell<Vec<Function>>>,
+        current_indentation_layer: usize,
+        max_depth: usize,
+        typed_context: &mut TypedGenerationContext,
+        expected_return_type: Option<&Type>,
+        rng: &mut T,
+    ) -> Option<Self> {
+        if max_depth == 0 {
+            return None;
+        }
+
+        // Generate loop variable name
+        let loop_variable_name = generate_random_identifier(rng);
+
+        // Only generate range loop
+        let loop_type = ForLoopType::RangeLoop {
+            start: rng.random_range(0..10),
+            end: rng.random_range(10..50),
+            step: if rng.random() {
+                Some(rng.random_range(1..5))
+            } else {
+                None
+            },
+        };
+
+        // Generate loop body with return type awareness
+        let loop_block = Block::generate_type_safe_block_with_return_type(
+            external_variables,
+            external_functions,
+            current_indentation_layer,
+            false,
+            max_depth - 1,
+            typed_context,
+            expected_return_type,
+            rng,
         )?;
 
         Some(Self {

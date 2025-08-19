@@ -1,7 +1,7 @@
 use derive_more::Display;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, PartialEq)]
 pub enum BasicType {
     Number(NumberType),
     #[display("Boolean")]
@@ -13,20 +13,18 @@ pub enum BasicType {
 }
 
 impl BasicType {
-    pub fn generate_random_basic_type() -> Self {
-        // let mut rng = rand::rng();
-
+    pub fn generate_random_basic_type<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         // match rng.random_range(0..4) {
         //     0..=1 => BasicType::Number(NumberType::generate_random_number_type()),
         //     2 => BasicType::Boolean,
         //     3 => BasicType::Char,
         //     _ => BasicType::String,
         // }
-        BasicType::Number(NumberType::generate_random_number_type())
+        BasicType::Number(NumberType::generate_random_number_type(rng))
     }
 }
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, PartialEq)]
 #[display("{}", _0)]
 pub enum NumberType {
     SignedInteger(SignedIntegerType),
@@ -35,9 +33,7 @@ pub enum NumberType {
 }
 
 impl NumberType {
-    pub fn generate_random_number_type() -> Self {
-        let mut rng = rand::rng();
-
+    pub fn generate_random_number_type<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         // match rng.random_range(0..3) {
         //     0 => {
         //         NumberType::SignedInteger(SignedIntegerType::generate_random_signed_integer_type())
@@ -51,17 +47,17 @@ impl NumberType {
         // }
 
         match rng.random_range(0..=1) {
-            0 => {
-                NumberType::SignedInteger(SignedIntegerType::generate_random_signed_integer_type())
-            }
-            _ => {
-                NumberType::FloatingPoint(FloatingPointType::generate_random_floating_point_type())
-            }
+            0 => NumberType::SignedInteger(SignedIntegerType::generate_random_signed_integer_type(
+                rng,
+            )),
+            _ => NumberType::FloatingPoint(FloatingPointType::generate_random_floating_point_type(
+                rng,
+            )),
         }
     }
 }
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, PartialEq)]
 pub enum SignedIntegerType {
     #[display("Byte")]
     Byte,
@@ -74,9 +70,7 @@ pub enum SignedIntegerType {
 }
 
 impl SignedIntegerType {
-    pub fn generate_random_signed_integer_type() -> Self {
-        let mut rng = rand::rng();
-
+    pub fn generate_random_signed_integer_type<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         match rng.random_range(0..4) {
             0 => SignedIntegerType::Byte,
             1 => SignedIntegerType::Short,
@@ -86,7 +80,7 @@ impl SignedIntegerType {
     }
 }
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, PartialEq)]
 pub enum UnsignedIntegerType {
     #[display("UByte")]
     UByte,
@@ -98,9 +92,7 @@ pub enum UnsignedIntegerType {
 }
 
 impl UnsignedIntegerType {
-    pub fn generate_random_unsigned_integer_type() -> Self {
-        let mut rng = rand::rng();
-
+    pub fn generate_random_unsigned_integer_type<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         match rng.random_range(0..4) {
             0 => UnsignedIntegerType::UByte,
             1 => UnsignedIntegerType::UShort,
@@ -110,7 +102,7 @@ impl UnsignedIntegerType {
     }
 }
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, PartialEq)]
 pub enum FloatingPointType {
     #[display("Float")]
     Float,
@@ -119,9 +111,7 @@ pub enum FloatingPointType {
 }
 
 impl FloatingPointType {
-    pub fn generate_random_floating_point_type() -> Self {
-        let mut rng = rand::rng();
-
+    pub fn generate_random_floating_point_type<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         match rng.random_range(0..2) {
             0 => FloatingPointType::Float,
             _ => FloatingPointType::Double,

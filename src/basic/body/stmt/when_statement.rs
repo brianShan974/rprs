@@ -1,7 +1,8 @@
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
+use crate::basic::body::fun::function::Function;
 use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -32,33 +33,33 @@ impl Display for WhenStatement {
 impl WhenStatement {
     pub const MAX_DEPTH: usize = 5;
 
-    pub fn generate_random_when_statement(
+    pub fn generate_random_when_statement<T: Rng + SeedableRng>(
         external_variables: Vec<Variable>,
-        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
+        external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
+        rng: &mut T,
     ) -> Option<Self> {
         if max_depth == 0 {
             return None;
         }
 
-        let mut rng = rand::rng();
-
         // Generate subject variable
-        let subject = Variable::generate_random_variable(true, false);
+        let subject = Variable::generate_random_variable(true, false, rng);
 
         // Generate arms
         let num_arms = rng.random_range(1..=2);
         let mut arms = Vec::with_capacity(num_arms);
 
         for _ in 0..num_arms {
-            let condition = Expression::generate_random_expression(3);
+            let condition = Expression::generate_random_expression(3, rng);
             let block = Block::generate_random_block(
                 external_variables.clone(),
                 external_functions.clone(),
                 current_indentation_layer,
                 false,
                 max_depth - 1,
+                rng,
             );
             arms.push((condition, block?));
         }
@@ -70,6 +71,7 @@ impl WhenStatement {
             current_indentation_layer,
             false,
             max_depth - 1,
+            rng,
         );
 
         Some(Self {
@@ -78,5 +80,17 @@ impl WhenStatement {
             arms,
             else_arm: else_arm?,
         })
+    }
+
+    pub fn get_subject(&self) -> &Variable {
+        &self.subject
+    }
+
+    pub fn get_arms(&self) -> &Vec<(Expression, Block)> {
+        &self.arms
+    }
+
+    pub fn get_else_arm(&self) -> &Block {
+        &self.else_arm
     }
 }

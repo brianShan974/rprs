@@ -1,5 +1,7 @@
 use crate::basic::body::fun::function::Function;
-use rand::Rng;
+use crate::basic::utils::generate_random_identifier;
+use crate::type_system::TypedGenerationContext;
+use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -12,23 +14,24 @@ pub struct File {
 impl File {
     pub const MAX_FUNCTIONS: usize = 5;
 
-    pub fn generate_random_file() -> Self {
-        let mut rng = rand::rng();
-
+    pub fn generate_random_file<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         // Generate random file name
-        let name = Self::generate_random_filename();
+        let name = Self::generate_random_filename(rng);
 
-        // Generate random functions
+        // Generate type-safe functions (using the same method as type-safe file)
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
+        let mut typed_context = TypedGenerationContext::new(external_functions.clone());
 
         for _ in 0..num_functions {
-            if let Some(function) = Function::generate_random_function(
+            if let Some(function) = Function::generate_type_safe_function(
                 Vec::new(),
                 external_functions.clone(),
                 None,
                 None,
+                &mut typed_context,
+                rng,
             ) {
                 functions.push(function);
             }
@@ -37,9 +40,35 @@ impl File {
         Self { name, functions }
     }
 
-    fn generate_random_filename() -> String {
-        let name = crate::basic::utils::generate_random_identifier();
-        format!("{}.kt", name)
+    /// Generate a type-safe file using typed generation context
+    pub fn generate_type_safe_file<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        // Generate random file name
+        let name = Self::generate_random_filename(rng);
+
+        // Generate type-safe functions
+        let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
+        let mut functions = Vec::with_capacity(num_functions);
+        let external_functions = Rc::new(RefCell::new(Vec::new()));
+        let mut typed_context = TypedGenerationContext::new(external_functions.clone());
+
+        for _ in 0..num_functions {
+            if let Some(function) = Function::generate_type_safe_function(
+                Vec::new(),
+                external_functions.clone(),
+                None,
+                None,
+                &mut typed_context,
+                rng,
+            ) {
+                functions.push(function);
+            }
+        }
+
+        Self { name, functions }
+    }
+
+    fn generate_random_filename<T: Rng + SeedableRng>(rng: &mut T) -> String {
+        format!("{}.kt", generate_random_identifier(rng))
     }
 
     pub fn get_name(&self) -> &str {

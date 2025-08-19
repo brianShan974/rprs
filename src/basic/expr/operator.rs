@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use rand::random_range;
+use rand::{Rng, SeedableRng};
 
 #[derive(Debug, Clone)]
 pub enum Operator {
@@ -11,8 +11,8 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn generate_random_operator() -> Self {
-        match random_range(0..4) {
+    pub fn generate_random_operator<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        match rng.random_range(0..4) {
             0 => Self::Add,
             1 => Self::Sub,
             2 => Self::Mul,

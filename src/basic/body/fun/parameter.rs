@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
 use crate::basic::{
     cls::class::Class,
@@ -17,21 +17,33 @@ pub struct Parameter {
 impl Parameter {
     pub const MAX_COUNT: usize = 4;
 
-    pub fn generate_random_parameter() -> Self {
+    pub fn generate_random_parameter<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         Self {
-            name: generate_random_identifier(),
-            ty: Class::generate_random_class(),
+            name: generate_random_identifier(rng),
+            ty: Class::generate_random_class(rng),
         }
     }
 
-    pub fn generate_random_parameters() -> Vec<Self> {
-        let mut rng = rand::rng();
+    pub fn generate_random_parameters<T: Rng + SeedableRng>(rng: &mut T) -> Vec<Self> {
+        let num_params = rng.random_range(0..=3);
+        let mut parameters = Vec::with_capacity(num_params);
 
-        let count = rng.random_range(0..=Self::MAX_COUNT);
+        for _ in 0..num_params {
+            parameters.push(Self {
+                name: generate_random_identifier(rng),
+                ty: Class::generate_random_class(rng),
+            });
+        }
 
-        (0..count)
-            .map(|_| Self::generate_random_parameter())
-            .collect()
+        parameters
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_type(&self) -> &Class {
+        &self.ty
     }
 }
 

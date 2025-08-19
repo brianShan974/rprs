@@ -1,4 +1,4 @@
-use rand::{Rng, seq::IteratorRandom};
+use rand::{Rng, SeedableRng};
 
 const LETTERS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 const LETTERS_AND_DIGITS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
@@ -85,22 +85,28 @@ const MODIFIER_KEYWORDS: &[&str] = &[
     "vararg",
 ];
 
-pub fn generate_random_identifier() -> String {
-    let mut rng = rand::rng();
-
+pub fn generate_random_identifier<T: Rng + SeedableRng>(rng: &mut T) -> String {
     // First character: letter or underscore
-    let first_char = LETTERS.chars().choose(&mut rng).unwrap();
+    let first_char = LETTERS
+        .chars()
+        .nth(rng.random_range(0..LETTERS.len()))
+        .unwrap();
 
     // Remaining characters: letters, digits or underscores
     let remaining_chars: String = (0..rng.random_range(0..10))
-        .map(|_| LETTERS_AND_DIGITS.chars().choose(&mut rng).unwrap())
+        .map(|_| {
+            LETTERS_AND_DIGITS
+                .chars()
+                .nth(rng.random_range(0..LETTERS_AND_DIGITS.len()))
+                .unwrap()
+        })
         .collect();
 
     let name = format!("{first_char}{remaining_chars}");
 
     // Check if it's a reserved keyword (extensible list)
     if is_reserved_keyword(&name) {
-        generate_random_identifier()
+        generate_random_identifier(rng)
     } else {
         name
     }
