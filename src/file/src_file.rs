@@ -1,10 +1,12 @@
-use crate::basic::body::fun::function::Function;
-use crate::basic::utils::generate_random_identifier;
-use crate::type_system::TypedGenerationContext;
 use rand::{Rng, SeedableRng};
+
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
+
+use crate::basic::body::fun::function::Function;
+use crate::basic::utils::generate_random_identifier;
+use crate::type_system::TypedGenerationContext;
 
 pub struct File {
     name: String,

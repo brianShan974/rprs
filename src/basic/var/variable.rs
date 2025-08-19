@@ -1,10 +1,11 @@
+use derive_more::Constructor;
+use rand::{Rng, SeedableRng};
+
 use super::prefix::var_prefix::VariablePrefix;
 use crate::basic::cls::basic_types::{BasicType, FloatingPointType, NumberType};
 use crate::basic::cls::class::Class;
 use crate::basic::expr::expression::Expression;
 use crate::basic::utils::generate_random_identifier;
-use derive_more::Constructor;
-use rand::{Rng, SeedableRng};
 
 #[derive(Constructor, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable {

@@ -1,10 +1,12 @@
+use rand::{Rng, SeedableRng};
+
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::basic::body::fun::function::Function;
 use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
-use rand::{Rng, SeedableRng};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum SingleStatement {

@@ -1,4 +1,5 @@
 use rand::Rng;
+
 use std::fmt::Display;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]

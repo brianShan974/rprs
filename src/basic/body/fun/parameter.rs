@@ -1,6 +1,6 @@
-use std::fmt::Display;
-
 use rand::{Rng, SeedableRng};
+
+use std::fmt::Display;
 
 use crate::basic::{
     cls::class::Class,

@@ -1,12 +1,14 @@
+use rand::{Rng, SeedableRng};
+
+use std::cell::RefCell;
+use std::fmt::Display;
+use std::rc::Rc;
+
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
 use crate::basic::expr::boolean_expression::BooleanExpression;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
-use rand::{Rng, SeedableRng};
-use std::cell::RefCell;
-use std::fmt::Display;
-use std::rc::Rc;
 
 const MAX_ELSEIF_BLOCKS: usize = 2;
 

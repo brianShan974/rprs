@@ -1,5 +1,6 @@
 use ordered_float::OrderedFloat;
 use rand::{Rng, SeedableRng};
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

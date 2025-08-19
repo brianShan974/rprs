@@ -1,24 +1,23 @@
 use rand::{Rng, SeedableRng};
+
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::basic::body::stmt::single_statement::SingleStatement;
-use crate::basic::cls::basic_types::{BasicType, FloatingPointType, NumberType, SignedIntegerType};
-use crate::type_system::TypedGenerationContext;
-use crate::{
-    basic::{
-        body::{
-            block::{Block, INDENT_SIZE, SPACE},
-            fun::parameter::Parameter,
-            stmt::statement::Statement,
-        },
-        cls::class::Class,
-        utils::generate_random_identifier,
-        var::variable::Variable,
+use crate::basic::{
+    body::{
+        block::{Block, INDENT_SIZE, SPACE},
+        fun::parameter::Parameter,
+        stmt::{single_statement::SingleStatement, statement::Statement},
     },
-    type_system::Type,
+    cls::{
+        basic_types::{BasicType, FloatingPointType, NumberType, SignedIntegerType},
+        class::Class,
+    },
+    utils::generate_random_identifier,
+    var::variable::Variable,
 };
+use crate::type_system::{Type, TypedGenerationContext};
 
 #[derive(Clone)]
 pub struct Function {

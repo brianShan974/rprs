@@ -1,3 +1,9 @@
+use rand::{Rng, SeedableRng};
+
+use std::cell::RefCell;
+use std::fmt::Display;
+use std::rc::Rc;
+
 use crate::basic::{
     body::{
         fun::function::Function,
@@ -6,10 +12,6 @@ use crate::basic::{
     var::variable::Variable,
 };
 use crate::type_system::{Type, TypedGenerationContext};
-use rand::{Rng, SeedableRng};
-use std::cell::RefCell;
-use std::fmt::Display;
-use std::rc::Rc;
 
 pub const SPACE: &str = " ";
 pub const INDENT_SIZE: usize = 4;

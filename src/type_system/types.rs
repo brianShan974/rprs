@@ -1,7 +1,7 @@
+use rand::{Rng, SeedableRng};
+
 use std::collections::HashMap;
 use std::fmt::Display;
-
-use rand::{Rng, SeedableRng};
 
 use crate::basic::cls::{basic_types::BasicType, class::Class};
 

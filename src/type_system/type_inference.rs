@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     basic::cls::{
         basic_types::{BasicType, FloatingPointType, NumberType, SignedIntegerType},
@@ -5,7 +7,6 @@ use crate::{
     },
     type_system::{Type, TypeContext, TypeError, TypeResult},
 };
-use std::collections::HashMap;
 
 /// Simplified type inference engine
 pub struct TypeInference {

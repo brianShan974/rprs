@@ -1,7 +1,8 @@
-use super::arithmetich_expression::ArithmeticExpression;
-use super::boolean_expression::BooleanExpression;
 use derive_more::Display;
 use rand::{Rng, SeedableRng};
+
+use super::arithmetich_expression::ArithmeticExpression;
+use super::boolean_expression::BooleanExpression;
 
 #[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 #[display("{}", _0)]

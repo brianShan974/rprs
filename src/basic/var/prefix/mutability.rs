@@ -1,6 +1,8 @@
-use super::init::VariableInit;
 use rand::Rng;
+
 use std::fmt::Display;
+
+use super::init::VariableInit;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum VariableMutability {

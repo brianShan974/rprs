@@ -1,6 +1,6 @@
-use std::fmt::Display;
-
 use rand::{Rng, SeedableRng};
+
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Operator {

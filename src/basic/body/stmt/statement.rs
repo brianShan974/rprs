@@ -1,4 +1,8 @@
 use derive_more::Display;
+use rand::{Rng, SeedableRng};
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
 use crate::basic::body::stmt::{
@@ -7,9 +11,6 @@ use crate::basic::body::stmt::{
 };
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
-use rand::{Rng, SeedableRng};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Clone, Display)]
 #[display("{}", _0)]

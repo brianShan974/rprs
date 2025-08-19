@@ -1,7 +1,7 @@
-use std::fmt::Display;
-
 use ordered_float::OrderedFloat;
 use rand::{Rng, SeedableRng};
+
+use std::fmt::Display;
 
 use super::operator::Operator;
 
