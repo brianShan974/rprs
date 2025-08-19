@@ -2,8 +2,11 @@ use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
 use rand::Rng;
+use std::cell::RefCell;
 use std::fmt::Display;
+use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct WhenStatement {
     current_indentation_layer: usize,
     subject: Variable,
@@ -31,6 +34,7 @@ impl WhenStatement {
 
     pub fn generate_random_when_statement(
         external_variables: Vec<Variable>,
+        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
     ) -> Option<Self> {
@@ -51,6 +55,7 @@ impl WhenStatement {
             let condition = Expression::generate_random_expression(3);
             let block = Block::generate_random_block(
                 external_variables.clone(),
+                external_functions.clone(),
                 current_indentation_layer,
                 false,
                 max_depth - 1,
@@ -61,6 +66,7 @@ impl WhenStatement {
         // Generate else arm
         let else_arm = Block::generate_random_block(
             external_variables,
+            external_functions,
             current_indentation_layer,
             false,
             max_depth - 1,

@@ -1,8 +1,11 @@
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
+use std::cell::RefCell;
 use std::fmt::Display;
+use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct WhileStatement {
     current_indentation_layer: usize,
     condition: Expression,
@@ -25,6 +28,7 @@ impl Display for WhileStatement {
 impl WhileStatement {
     pub fn generate_random_while_statement(
         external_variables: Vec<Variable>,
+        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
     ) -> Option<Self> {
@@ -35,6 +39,7 @@ impl WhileStatement {
         let condition = Expression::generate_random_expression(3);
         let block = Block::generate_random_block(
             external_variables,
+            external_functions,
             current_indentation_layer,
             false,
             max_depth - 1,

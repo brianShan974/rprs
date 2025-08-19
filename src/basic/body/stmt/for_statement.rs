@@ -2,9 +2,11 @@ use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::variable::Variable;
 use rand::Rng;
+use std::cell::RefCell;
 use std::fmt::Display;
+use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum ForLoopType {
     RangeLoop {
         start: i32,
@@ -13,6 +15,7 @@ enum ForLoopType {
     },
 }
 
+#[derive(Clone)]
 pub struct ForStatement {
     current_indentation_layer: usize,
     loop_variable_name: String,
@@ -25,6 +28,7 @@ impl ForStatement {
 
     pub fn generate_random_for_statement(
         external_variables: Vec<Variable>,
+        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
     ) -> Option<Self> {
@@ -51,6 +55,7 @@ impl ForStatement {
         // Generate loop body with smaller depth limit
         let loop_block = Block::generate_random_block(
             external_variables,
+            external_functions,
             current_indentation_layer,
             false,
             max_depth - 1,

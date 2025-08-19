@@ -6,8 +6,10 @@ use crate::basic::body::stmt::{
 };
 use crate::basic::var::variable::Variable;
 use rand::Rng;
+use std::rc::Rc;
+use std::cell::RefCell;
 
-#[derive(Display)]
+#[derive(Clone, Display)]
 #[display("{}", _0)]
 pub enum Statement {
     Single(SingleStatement),
@@ -22,6 +24,7 @@ impl Statement {
 
     pub fn generate_random_statement(
         external_variables: Vec<Variable>,
+        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
         current_indentation_layer: usize,
         max_depth: Option<usize>,
     ) -> Option<Self> {
@@ -35,7 +38,10 @@ impl Statement {
         // If depth is 1, only generate simple statements
         if max_depth == 1 {
             return Some(Statement::Single(
-                SingleStatement::generate_random_single_statement(external_variables),
+                SingleStatement::generate_random_single_statement(
+                    external_variables,
+                    external_functions,
+                ),
             ));
         }
 
@@ -43,24 +49,29 @@ impl Statement {
         Some(match rng.random_range(0..10) {
             0..=5 => Statement::Single(SingleStatement::generate_random_single_statement(
                 external_variables,
+                external_functions.clone(),
             )),
             6..=7 => Statement::If(IfStatement::generate_random_if_statement(
                 external_variables,
+                external_functions,
                 current_indentation_layer,
                 max_depth - 1,
             )?),
             8 => Statement::For(ForStatement::generate_random_for_statement(
                 external_variables,
+                external_functions,
                 current_indentation_layer,
                 max_depth - 1,
             )?),
             9 => Statement::While(WhileStatement::generate_random_while_statement(
                 external_variables,
+                external_functions,
                 current_indentation_layer,
                 max_depth - 1,
             )?),
             _ => Statement::When(WhenStatement::generate_random_when_statement(
                 external_variables,
+                external_functions,
                 current_indentation_layer,
                 max_depth - 1,
             )?),

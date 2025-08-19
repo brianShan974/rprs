@@ -3,9 +3,12 @@ use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
 use rand::Rng;
 use std::fmt::Display;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 const MAX_ELSEIF_BLOCKS: usize = 2;
 
+#[derive(Clone)]
 pub struct IfStatement {
     current_indentation_layer: usize,
     condition: Expression,
@@ -19,6 +22,7 @@ impl IfStatement {
 
     pub fn generate_random_if_statement(
         external_variables: Vec<Variable>,
+        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
     ) -> Option<Self> {
@@ -34,6 +38,7 @@ impl IfStatement {
         // Generate if block
         let if_block = Block::generate_random_block(
             external_variables.clone(),
+            external_functions.clone(),
             current_indentation_layer,
             false,
             max_depth - 1,
@@ -47,6 +52,7 @@ impl IfStatement {
             let elseif_condition = Expression::generate_random_expression(3);
             if let Some(elseif_block) = Block::generate_random_block(
                 external_variables.clone(),
+                external_functions.clone(),
                 current_indentation_layer,
                 false,
                 max_depth - 1,
@@ -59,6 +65,7 @@ impl IfStatement {
         let else_block = if rng.random() {
             Some(Block::generate_random_block(
                 external_variables,
+                external_functions,
                 current_indentation_layer,
                 false,
                 max_depth - 1,

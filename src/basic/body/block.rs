@@ -1,12 +1,15 @@
 use crate::basic::var::variable::Variable;
 use rand::Rng;
+use std::cell::RefCell;
 use std::fmt::Display;
+use std::rc::Rc;
 
 use super::stmt::statement::Statement;
 
 pub const SPACE: &str = " ";
 pub const INDENT_SIZE: usize = 4;
 
+#[derive(Clone)]
 pub struct Block {
     is_independent: bool,
     statements: Vec<Statement>,
@@ -21,6 +24,7 @@ impl Block {
 
     pub fn generate_random_block(
         external_variables: Vec<Variable>,
+        external_functions: Rc<RefCell<Vec<crate::basic::body::fun::function::Function>>>,
         current_indentation_layer: usize,
         is_independent: bool,
         max_depth: usize,
@@ -47,6 +51,7 @@ impl Block {
         for _ in 0..num_statements {
             statements.push(Statement::generate_random_statement(
                 combined_external_variables.clone(),
+                external_functions.clone(),
                 current_indentation_layer + 1,
                 Some(max_depth - 1),
             )?);

@@ -1,13 +1,14 @@
-use randprog_rs::basic::body::fun::function::Function;
+use randprog_rs::file::src_file::File;
 
 fn main() {
-    println!("=== Function Generation with Proper Indentation ===\n");
+    println!("=== Random Kotlin File Generation ===\n");
 
-    // Generate multiple functions to test indentation
+    // Generate multiple random files
     for i in 1..=3 {
-        let function = Function::generate_random_function(Vec::new(), None, None).unwrap();
-        println!("Function #{}:", i);
-        println!("{}", function);
+        let file = File::generate_random_file();
+        println!("File #{}: {}", i, file.get_name());
+        println!("{}", file);
+        println!("{}", "=".repeat(80));
         println!();
     }
 }

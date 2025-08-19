@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::basic::{
     body::{
@@ -10,6 +12,7 @@ use crate::basic::{
     var::variable::Variable,
 };
 
+#[derive(Clone)]
 pub struct Function {
     name: String,
     parameters: Vec<Parameter>,
@@ -23,6 +26,7 @@ impl Function {
 
     pub fn generate_random_function(
         external_variables: Vec<Parameter>,
+        external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: Option<usize>,
         max_depth: Option<usize>,
     ) -> Option<Self> {
@@ -39,18 +43,28 @@ impl Function {
             .map(|p| p.into())
             .collect();
 
-        Some(Self {
+        let function = Self {
             name: generate_random_identifier(),
             parameters,
             return_type: None,
             body: Block::generate_random_block(
                 all_identifiers,
+                external_functions.clone(),
                 current_indentation_layer,
                 false,
                 max_depth,
             )?,
             current_indentation_layer,
-        })
+        };
+
+        // Add the generated function to external_functions
+        external_functions.borrow_mut().push(function.clone());
+
+        Some(function)
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }
 
