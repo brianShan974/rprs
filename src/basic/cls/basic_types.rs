@@ -1,7 +1,7 @@
 use derive_more::Display;
 use rand::{Rng, SeedableRng};
 
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 pub enum BasicType {
     Number(NumberType),
     #[display("Boolean")]
@@ -24,7 +24,7 @@ impl BasicType {
     }
 }
 
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 #[display("{}", _0)]
 pub enum NumberType {
     SignedInteger(SignedIntegerType),
@@ -57,7 +57,7 @@ impl NumberType {
     }
 }
 
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 pub enum SignedIntegerType {
     #[display("Byte")]
     Byte,
@@ -80,7 +80,7 @@ impl SignedIntegerType {
     }
 }
 
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 pub enum UnsignedIntegerType {
     #[display("UByte")]
     UByte,
@@ -102,7 +102,7 @@ impl UnsignedIntegerType {
     }
 }
 
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 pub enum FloatingPointType {
     #[display("Float")]
     Float,

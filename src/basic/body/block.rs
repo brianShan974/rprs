@@ -1,5 +1,8 @@
 use crate::basic::{
-    body::{fun::function::Function, stmt::statement::Statement},
+    body::{
+        fun::function::Function,
+        stmt::{single_statement::SingleStatement, statement::Statement},
+    },
     var::variable::Variable,
 };
 use crate::type_system::{Type, TypedGenerationContext};
@@ -139,7 +142,14 @@ impl Block {
         combined_external_variables.extend(new_variables.clone());
 
         let num_statements = rng.random_range(1..=Self::MAX_NUM_STATEMENTS);
-        let mut statements = Vec::with_capacity(num_statements);
+        let mut statements = Vec::with_capacity(num_statements + new_variables.len());
+
+        // Add variable declaration statements for new variables
+        for new_var in &new_variables {
+            statements.push(Statement::Single(SingleStatement::VariableDeclaration(
+                new_var.clone(),
+            )));
+        }
 
         // Generate type-safe statements with return type awareness
         for _ in 0..num_statements {

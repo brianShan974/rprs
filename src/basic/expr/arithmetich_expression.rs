@@ -1,13 +1,14 @@
 use std::fmt::Display;
 
+use ordered_float::OrderedFloat;
 use rand::{Rng, SeedableRng};
 
 use super::operator::Operator;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ArithmeticExpression {
     Int(i32),
-    Float(f32),
+    Float(OrderedFloat<f32>),
     BinaryOp {
         left: Box<ArithmeticExpression>,
         op: Operator,
@@ -38,14 +39,14 @@ impl ArithmeticExpression {
         if max_depth == 0 {
             return match rng.random_range(0..=1) {
                 0 => ArithmeticExpression::Int(rng.random_range(-100..=100)),
-                1 => ArithmeticExpression::Float(rng.random::<f32>() * 100.0),
+                1 => ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)),
                 _ => unreachable!(),
             };
         }
 
         match rng.random_range(0..=2) {
             0 => ArithmeticExpression::Int(rng.random_range(-100..=100)),
-            1 => ArithmeticExpression::Float(rng.random::<f32>() * 100.0),
+            1 => ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)),
             2 => ArithmeticExpression::BinaryOp {
                 left: Box::new(Self::generate_random_expression(max_depth - 1, rng)),
                 op: Operator::generate_random_operator(rng),
@@ -67,7 +68,7 @@ impl Display for ArithmeticExpression {
                 }
             }
             ArithmeticExpression::Float(x) => {
-                if *x < 0.0 {
+                if x.into_inner() < 0.0 {
                     write!(f, "({})", x)
                 } else {
                     write!(f, "{}", x)

@@ -3,7 +3,7 @@ use super::boolean_expression::BooleanExpression;
 use derive_more::Display;
 use rand::{Rng, SeedableRng};
 
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 #[display("{}", _0)]
 pub enum Expression {
     Arithmetic(ArithmeticExpression),

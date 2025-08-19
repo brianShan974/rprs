@@ -22,9 +22,10 @@ impl File {
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
-        let mut typed_context = TypedGenerationContext::new(external_functions.clone());
 
         for _ in 0..num_functions {
+            // Create a new typed context for each function to avoid variable scope pollution
+            let mut typed_context = TypedGenerationContext::new(external_functions.clone());
             if let Some(function) = Function::generate_type_safe_function(
                 Vec::new(),
                 external_functions.clone(),
@@ -49,9 +50,10 @@ impl File {
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
-        let mut typed_context = TypedGenerationContext::new(external_functions.clone());
 
         for _ in 0..num_functions {
+            // Create a new typed context for each function to avoid variable scope pollution
+            let mut typed_context = TypedGenerationContext::new(external_functions.clone());
             if let Some(function) = Function::generate_type_safe_function(
                 Vec::new(),
                 external_functions.clone(),

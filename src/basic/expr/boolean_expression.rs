@@ -2,7 +2,7 @@ use super::arithmetich_expression::ArithmeticExpression;
 use rand::{Rng, SeedableRng};
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BooleanExpression {
     Literal(bool),
     Comparison {
@@ -17,7 +17,7 @@ pub enum BooleanExpression {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ComparisonOperator {
     Equal,        // ==
     NotEqual,     // !=
@@ -27,7 +27,7 @@ pub enum ComparisonOperator {
     GreaterEqual, // >=
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LogicalOperator {
     And, // &&
     Or,  // ||

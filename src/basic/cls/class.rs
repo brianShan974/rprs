@@ -4,7 +4,7 @@ use rand::{Rng, SeedableRng};
 use crate::basic::cls::basic_types::BasicType;
 use crate::basic::cls::custom_class::CustomClass;
 
-#[derive(Clone, Debug, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash)]
 #[display("{}", _0)]
 pub enum Class {
     Basic(BasicType),

@@ -1,6 +1,9 @@
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
+use crate::basic::cls::basic_types::{BasicType, NumberType, SignedIntegerType};
+use crate::basic::cls::class::Class;
 use crate::basic::utils::generate_random_identifier;
+use crate::basic::var::prefix::var_prefix::VariablePrefix;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 use rand::{Rng, SeedableRng};
@@ -42,6 +45,18 @@ impl ForStatement {
         // Generate loop variable name
         let loop_variable_name = generate_random_identifier(rng);
 
+        // Create loop variable and add it to external variables for the loop body
+        let loop_variable = Variable::new(
+            VariablePrefix::default(),
+            loop_variable_name.clone(),
+            None,
+            Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
+                SignedIntegerType::Int,
+            )))),
+        );
+        let mut loop_body_variables = external_variables.clone();
+        loop_body_variables.push(loop_variable);
+
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
             start: rng.random_range(0..10),
@@ -55,7 +70,7 @@ impl ForStatement {
 
         // Generate loop body with smaller depth limit
         let loop_block = Block::generate_random_block(
-            external_variables,
+            loop_body_variables,
             external_functions,
             current_indentation_layer,
             false,
@@ -92,6 +107,21 @@ impl ForStatement {
         // Generate loop variable name
         let loop_variable_name = generate_random_identifier(rng);
 
+        // Create loop variable and add it to the context
+        let loop_variable = Variable::new(
+            VariablePrefix::default(),
+            loop_variable_name.clone(),
+            None,
+            Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
+                SignedIntegerType::Int,
+            )))),
+        );
+        let _ = typed_context.add_variable(&loop_variable);
+
+        // Add loop variable to external variables for the loop body
+        let mut loop_body_variables = external_variables.clone();
+        loop_body_variables.push(loop_variable);
+
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
             start: rng.random_range(0..10),
@@ -105,7 +135,7 @@ impl ForStatement {
 
         // Generate loop body with return type awareness
         let loop_block = Block::generate_type_safe_block_with_return_type(
-            external_variables,
+            loop_body_variables,
             external_functions,
             current_indentation_layer,
             false,

@@ -1,3 +1,4 @@
+use ordered_float::OrderedFloat;
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -27,7 +28,7 @@ pub struct TypedGenerationContext {
     /// Type checker for validation
     type_checker: TypeChecker,
     /// Current variable types in scope
-    variable_types: HashMap<String, Type>,
+    variable_types: HashMap<Variable, Type>,
     /// Available functions with their signatures
     function_signatures: HashMap<String, Type>,
     /// External functions reference
@@ -50,7 +51,7 @@ impl TypedGenerationContext {
         let type_system_type = self.class_to_type_system_type(var_type);
 
         self.variable_types
-            .insert(var.get_name().to_string(), type_system_type.clone());
+            .insert(var.clone(), type_system_type.clone());
         self.type_checker
             .add_variable(var.get_name().to_string(), type_system_type)?;
 
@@ -72,17 +73,20 @@ impl TypedGenerationContext {
     /// Generate a type-safe variable assignment
     pub fn generate_type_safe_assignment<T: Rng + SeedableRng>(
         &self,
-        var_name: &str,
+        var: &Variable,
         rng: &mut T,
     ) -> TypeResult<SingleStatement> {
-        if let Some(var_type) = self.variable_types.get(var_name) {
+        if let Some(var_type) = self.variable_types.get(var) {
             // Check if variable is mutable by looking it up in external variables
             // For now, generate a compatible expression
             let expr = self.generate_expression_for_type(var_type, rng)?;
-            Ok(SingleStatement::Assignment(var_name.to_string(), expr))
+            Ok(SingleStatement::Assignment(
+                var.get_name().to_string(),
+                expr,
+            ))
         } else {
             Err(TypeError {
-                message: format!("Variable '{}' not found in context", var_name),
+                message: format!("Variable '{}' not found in context", var.get_name()),
                 location: "typed assignment generation".to_string(),
                 expected: None,
                 found: None,
@@ -137,11 +141,11 @@ impl TypedGenerationContext {
     }
 
     /// Get available mutable variables for assignment
-    pub fn get_mutable_variables(&self, external_variables: &[Variable]) -> Vec<String> {
-        external_variables
-            .iter()
-            .filter(|v| v.is_mutable())
-            .map(|v| v.get_name().to_string())
+    pub fn get_mutable_variables(&self) -> Vec<Variable> {
+        self.variable_types
+            .keys()
+            .filter(|var| var.is_mutable())
+            .cloned()
             .collect()
     }
 
@@ -168,7 +172,13 @@ impl TypedGenerationContext {
                 Ok(())
             }
             SingleStatement::Assignment(var_name, expr) => {
-                if let Some(var_type) = self.variable_types.get(var_name) {
+                // Find the variable in our context by name
+                let var = self
+                    .variable_types
+                    .keys()
+                    .find(|v| v.get_name() == var_name);
+                if let Some(var) = var {
+                    let var_type = self.variable_types.get(var).unwrap();
                     let expr_type = self.infer_expression_type(expr)?;
                     self.type_checker.check_compatibility(&expr_type, var_type)
                 } else {
@@ -405,11 +415,11 @@ impl TypedGenerationContext {
         if rng.random_range(0..10) < 7 {
             // Generate float literal
             let float_value = rng.random::<f32>() * 100.0;
-            Expression::Arithmetic(ArithmeticExpression::Float(float_value))
+            Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(float_value)))
         } else {
             // Generate float arithmetic expression
-            let left = ArithmeticExpression::Float(rng.random::<f32>() * 50.0);
-            let right = ArithmeticExpression::Float(rng.random::<f32>() * 50.0);
+            let left = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
+            let right = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
             let op = Operator::generate_random_operator(rng);
             Expression::Arithmetic(ArithmeticExpression::BinaryOp {
                 left: Box::new(left),
@@ -425,11 +435,13 @@ impl TypedGenerationContext {
         if rng.random_range(0..10) < 7 {
             // Generate double literal (using float for now, but with decimal)
             let double_value = rng.random::<f32>() * 100.0;
-            Expression::Arithmetic(ArithmeticExpression::Float(double_value))
+            Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(
+                double_value,
+            )))
         } else {
             // Generate double arithmetic expression
-            let left = ArithmeticExpression::Float(rng.random::<f32>() * 50.0);
-            let right = ArithmeticExpression::Float(rng.random::<f32>() * 50.0);
+            let left = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
+            let right = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
             let op = Operator::generate_random_operator(rng);
             Expression::Arithmetic(ArithmeticExpression::BinaryOp {
                 left: Box::new(left),

@@ -2,7 +2,7 @@ use super::init::VariableInit;
 use rand::Rng;
 use std::fmt::Display;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum VariableMutability {
     #[default]
     Val,

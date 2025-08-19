@@ -6,7 +6,7 @@ use crate::basic::utils::generate_random_identifier;
 use derive_more::Constructor;
 use rand::{Rng, SeedableRng};
 
-#[derive(Constructor, Clone, Debug)]
+#[derive(Constructor, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable {
     prefix: VariablePrefix,
     name: String,

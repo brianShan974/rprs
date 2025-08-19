@@ -126,10 +126,10 @@ impl SingleStatement {
             }
             1 => {
                 // Generate type-safe assignment
-                let mutable_vars = typed_context.get_mutable_variables(&external_variables);
+                let mutable_vars = typed_context.get_mutable_variables();
                 if !mutable_vars.is_empty() {
-                    let var_name = &mutable_vars[rng.random_range(0..mutable_vars.len())];
-                    match typed_context.generate_type_safe_assignment(var_name, rng) {
+                    let var = &mutable_vars[rng.random_range(0..mutable_vars.len())];
+                    match typed_context.generate_type_safe_assignment(var, rng) {
                         Ok(assignment) => assignment,
                         Err(_) => {
                             // Fallback to variable declaration

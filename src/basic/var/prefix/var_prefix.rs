@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use super::{init::VariableInit, mutability::VariableMutability, scope::VariableScope};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct VariablePrefix {
     scope: VariableScope,
     init: VariableInit,
