@@ -1,18 +1,24 @@
-use derive_more::Display;
 use rand::Rng;
+use std::fmt::Display;
 
-#[derive(Clone, Debug, Default, Display)]
-#[display("{_variant} ")]
+#[derive(Clone, Debug, Default)]
 pub enum VariableInit {
-    #[display("{}", Self::DEFAULT_REPR)]
     #[default]
     Default,
 
-    #[display("{} ", Self::CONST_REPR)]
     Const,
 
-    #[display("{} ", Self::LATEINIT_REPR)]
     LateInit,
+}
+
+impl Display for VariableInit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VariableInit::Default => write!(f, "{}", Self::DEFAULT_REPR),
+            VariableInit::Const => write!(f, "{} ", Self::CONST_REPR),
+            VariableInit::LateInit => write!(f, "{} ", Self::LATEINIT_REPR),
+        }
+    }
 }
 
 impl VariableInit {

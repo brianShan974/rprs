@@ -1,15 +1,22 @@
 use super::init::VariableInit;
-use derive_more::Display;
 use rand::Rng;
+use std::fmt::Display;
 
-#[derive(Clone, Debug, Default, Display)]
+#[derive(Clone, Debug, Default)]
 pub enum VariableMutability {
-    #[display("{} ", Self::VAL_REPR)]
     #[default]
     Val,
 
-    #[display("{} ", Self::VAR_REPR)]
     Var,
+}
+
+impl Display for VariableMutability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VariableMutability::Val => write!(f, "{} ", Self::VAL_REPR),
+            VariableMutability::Var => write!(f, "{} ", Self::VAR_REPR),
+        }
+    }
 }
 
 impl VariableMutability {

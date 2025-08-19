@@ -1,23 +1,30 @@
-use derive_more::Display;
 use rand::Rng;
+use std::fmt::Display;
 
-#[derive(Clone, Debug, Default, Display)]
+#[derive(Clone, Debug, Default)]
 pub enum VariableScope {
-    #[display("{}", Self::STACK_REPR)]
     #[default]
     Stack,
 
-    #[display("{} ", Self::INTERNAL_REPR)]
     Internal,
 
-    #[display("{} ", Self::PUBLIC_REPR)]
     Public,
 
-    #[display("{} ", Self::PRIVATE_REPR)]
     Private,
 
-    #[display("{} ", Self::PROTECTED_REPR)]
     Protected,
+}
+
+impl Display for VariableScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VariableScope::Stack => write!(f, "{}", Self::STACK_REPR),
+            VariableScope::Internal => write!(f, "{} ", Self::INTERNAL_REPR),
+            VariableScope::Public => write!(f, "{} ", Self::PUBLIC_REPR),
+            VariableScope::Private => write!(f, "{} ", Self::PRIVATE_REPR),
+            VariableScope::Protected => write!(f, "{} ", Self::PROTECTED_REPR),
+        }
+    }
 }
 
 impl VariableScope {
