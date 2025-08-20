@@ -136,6 +136,10 @@ impl Block {
         expected_return_type: Option<&Type>,
         rng: &mut T,
     ) -> Option<Self> {
+        if max_depth == 0 {
+            return None;
+        }
+
         let num_new_vars = rng.random_range(0..=Self::MAX_NUM_NEW_VARS);
         let mut new_variables = Vec::with_capacity(num_new_vars);
 
