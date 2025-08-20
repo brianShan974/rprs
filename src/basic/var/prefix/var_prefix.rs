@@ -1,36 +1,59 @@
 use std::fmt::Display;
 
-use super::{init::VariableInit, mutability::VariableMutability, scope::VariableScope};
+use derive_more::Constructor;
+use rand::{Rng, SeedableRng};
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+use super::{init::VariableInit, mutability::VariableMutability, visibility::Visibility};
+
+#[derive(Constructor, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct VariablePrefix {
-    scope: VariableScope,
+    visibility: Visibility,
     init: VariableInit,
     mutability: VariableMutability,
 }
 
-impl Display for VariablePrefix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}{}", self.scope, self.init, self.mutability)
-    }
-}
-
 impl VariablePrefix {
-    pub fn generate_random_prefix(is_stack: bool) -> Self {
-        let scope = VariableScope::generate_random_scope(is_stack);
-        let init = VariableInit::generate_random_variable_init(is_stack);
-        let mutability =
-            VariableMutability::generate_random_variable_mutability(init.is_lateinit(), &init);
+    pub fn generate_random_prefix<T: Rng + SeedableRng>(is_member: bool, rng: &mut T) -> Self {
+        let visibility = Visibility::generate_random_visibility(is_member, rng);
+        let init = VariableInit::generate_random_variable_init(is_member, rng);
+        let mutability = VariableMutability::generate_random_variable_mutability(&init, rng);
 
         Self {
-            scope,
+            visibility,
             init,
             mutability,
         }
     }
 
     pub fn is_mutable(&self) -> bool {
-        use super::mutability::VariableMutability;
         matches!(self.mutability, VariableMutability::Var)
+    }
+
+    pub fn is_stack(&self) -> bool {
+        self.visibility.is_default()
+    }
+
+    pub fn is_val(&self) -> bool {
+        matches!(self.mutability, VariableMutability::Val)
+    }
+
+    pub fn is_var(&self) -> bool {
+        matches!(self.mutability, VariableMutability::Var)
+    }
+}
+
+impl Display for VariablePrefix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.is_stack() {
+            write!(f, "{} ", self.visibility)?;
+        }
+
+        if !self.init.is_default() {
+            write!(f, "{} ", self.init)?;
+        }
+
+        write!(f, "{}", self.mutability)?;
+
+        Ok(())
     }
 }

@@ -8,7 +8,7 @@ use crate::basic::{
     var::{prefix::var_prefix::VariablePrefix, variable::Variable},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Parameter {
     name: String,
     ty: Class,

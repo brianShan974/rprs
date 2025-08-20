@@ -15,27 +15,29 @@ use crate::basic::{
         class::Class,
     },
     utils::generate_random_identifier,
-    var::variable::Variable,
+    var::{prefix::visibility::Visibility, variable::Variable},
 };
 use crate::type_system::{Type, TypedGenerationContext};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Function {
     name: String,
     parameters: Vec<Parameter>,
     return_type: Option<Class>,
     body: Block,
     current_indentation_layer: usize,
+    visibility: Visibility,
 }
 
 impl Function {
     pub const MAX_DEPTH: usize = 5;
 
     pub fn generate_random_function<T: Rng + SeedableRng>(
-        external_variables: Vec<Parameter>,
+        external_variables: Vec<Variable>,
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: Option<usize>,
         max_depth: Option<usize>,
+        is_method: bool,
         rng: &mut T,
     ) -> Option<Self> {
         if matches!(max_depth, Some(0)) {
@@ -47,8 +49,7 @@ impl Function {
         let parameters = Parameter::generate_random_parameters(rng);
         let all_identifiers: Vec<Variable> = external_variables
             .into_iter()
-            .chain(parameters.clone().into_iter())
-            .map(|p| p.into())
+            .chain(parameters.iter().map(|p| p.to_owned().into()))
             .collect();
 
         let function = Self {
@@ -63,11 +64,14 @@ impl Function {
                 max_depth,
                 rng,
             )?,
+            visibility: Visibility::generate_random_visibility(is_method, rng),
             current_indentation_layer,
         };
 
-        // Add the generated function to external_functions
-        external_functions.borrow_mut().push(function.clone());
+        if !is_method {
+            // Add the generated function to external_functions
+            external_functions.borrow_mut().push(function.clone());
+        }
 
         Some(function)
     }
@@ -88,12 +92,17 @@ impl Function {
         self.return_type.as_ref()
     }
 
+    pub fn get_current_indentation_layer(&self) -> usize {
+        self.current_indentation_layer
+    }
+
     /// Generate a type-safe function using typed generation context
     pub fn generate_type_safe_function<T: Rng + SeedableRng>(
         external_variables: Vec<Parameter>,
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: Option<usize>,
         max_depth: Option<usize>,
+        is_method: bool,
         typed_context: &mut TypedGenerationContext,
         rng: &mut T,
     ) -> Option<Self> {
@@ -158,6 +167,7 @@ impl Function {
             return_type: final_return_type,
             body: body_with_returns,
             current_indentation_layer,
+            visibility: Visibility::generate_random_visibility(is_method, rng),
         };
 
         // Add the generated function to external_functions
@@ -549,36 +559,35 @@ impl Function {
             }
         }
     }
+
+    fn is_method(&self) -> bool {
+        !self.visibility.is_default()
+    }
 }
 
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let indentation = SPACE.repeat(self.current_indentation_layer * INDENT_SIZE);
-        match &self.return_type {
-            Some(ty) => writeln!(
-                f,
-                "{indentation}fun {}({}): {} {}",
-                self.name,
-                self.parameters
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                ty,
-                self.body,
-            )?,
-            None => writeln!(
-                f,
-                "{indentation}fun {}({}) {}",
-                self.name,
-                self.parameters
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                self.body,
-            )?,
-        }
+        let visibility = if self.is_method() {
+            format!("{} ", self.visibility)
+        } else {
+            "".to_string()
+        };
+        let return_type: String = match &self.return_type {
+            Some(ty) => format!(": {}", ty),
+            None => "".to_string(),
+        };
+        writeln!(
+            f,
+            "{indentation}{visibility}fun {}({}){return_type} {}",
+            self.name,
+            self.parameters
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.body,
+        )?;
 
         Ok(())
     }

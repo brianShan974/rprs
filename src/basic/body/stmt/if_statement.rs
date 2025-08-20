@@ -12,7 +12,7 @@ use crate::type_system::{Type, TypedGenerationContext};
 
 const MAX_ELSEIF_BLOCKS: usize = 2;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IfStatement {
     current_indentation_layer: usize,
     condition: BooleanExpression,

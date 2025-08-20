@@ -33,6 +33,7 @@ impl File {
                 external_functions.clone(),
                 None,
                 None,
+                false,
                 &mut typed_context,
                 rng,
             ) {
@@ -61,6 +62,7 @@ impl File {
                 external_functions.clone(),
                 None,
                 None,
+                false,
                 &mut typed_context,
                 rng,
             ) {

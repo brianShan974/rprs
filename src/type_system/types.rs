@@ -3,7 +3,10 @@ use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use crate::basic::cls::{basic_types::BasicType, class::Class};
+use crate::basic::cls::{
+    basic_types::{BasicType, FloatingPointType, NumberType},
+    class::Class,
+};
 
 /// Represents a type in the type system
 #[derive(Clone, Debug, PartialEq)]
@@ -125,7 +128,7 @@ impl Type {
     }
 
     /// Get the most specific common type between two types
-    pub fn common_type<T: Rng + SeedableRng>(&self, other: &Type, rng: &mut T) -> Type {
+    pub fn common_type(&self, other: &Type) -> Type {
         if self == other {
             return self.clone();
         }
@@ -141,7 +144,15 @@ impl Type {
             }
 
             // For basic types, return the wider type
-            (Type::Basic(_), Type::Basic(_)) => Type::Basic(Class::generate_random_class(rng)),
+            (Type::Basic(class1), Type::Basic(class2)) => {
+                if class1 == class2 {
+                    Type::Basic(class1.clone())
+                } else {
+                    Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                        FloatingPointType::Double,
+                    ))))
+                }
+            }
 
             _ => Type::Unknown,
         }

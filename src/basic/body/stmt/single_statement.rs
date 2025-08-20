@@ -5,14 +5,16 @@ use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
 use crate::basic::expr::expression::Expression;
+use crate::basic::obj::object_instance::ObjectInstance;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SingleStatement {
     VariableDeclaration(Variable),
     Assignment(String, Expression),
     FunctionCall(String, Vec<Expression>),
+    ObjectCreation(ObjectInstance),
     Return(Option<Expression>),
 }
 
@@ -22,9 +24,9 @@ impl SingleStatement {
         external_functions: Rc<RefCell<Vec<Function>>>,
         rng: &mut T,
     ) -> Self {
-        match rng.random_range(0..4) {
+        match rng.random_range(0..5) {
             0 => {
-                let var = Variable::generate_random_variable(true, true, rng);
+                let var = Variable::generate_random_variable(false, true, rng);
                 // Don't add the new variable to external_variables
                 SingleStatement::VariableDeclaration(var)
             }
@@ -38,7 +40,7 @@ impl SingleStatement {
 
                 if available_vars.is_empty() {
                     // If no mutable variables available, generate a new variable declaration instead
-                    let var = Variable::generate_random_variable(true, true, rng);
+                    let var = Variable::generate_random_variable(false, true, rng);
                     // Don't add the new variable to external_variables
                     SingleStatement::VariableDeclaration(var)
                 } else {
@@ -58,7 +60,7 @@ impl SingleStatement {
                 let functions = external_functions.borrow();
                 if functions.is_empty() {
                     // If no functions available, generate a variable declaration instead
-                    let var = Variable::generate_random_variable(true, true, rng);
+                    let var = Variable::generate_random_variable(false, true, rng);
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Choose a random function
@@ -77,6 +79,19 @@ impl SingleStatement {
                     }
 
                     SingleStatement::FunctionCall(function_name, args)
+                }
+            }
+            3 => {
+                // Generate object creation (20% chance)
+                if rng.random_range(0..10) < 2 {
+                    // For now, generate a simple object creation
+                    // In a full implementation, this would use custom classes from the context
+                    let var = Variable::generate_random_variable(false, true, rng);
+                    SingleStatement::VariableDeclaration(var)
+                } else {
+                    // Fallback to variable declaration
+                    let var = Variable::generate_random_variable(false, true, rng);
+                    SingleStatement::VariableDeclaration(var)
                 }
             }
             _ => {
@@ -133,7 +148,7 @@ impl SingleStatement {
         match rng.random_range(0..4) {
             0 => {
                 // Generate a type-compatible variable
-                let var = typed_context.generate_type_compatible_variable(rng);
+                let var = typed_context.generate_type_compatible_variable(false, rng);
                 // Add the new variable to context
                 let _ = typed_context.add_variable(&var);
                 SingleStatement::VariableDeclaration(var)
@@ -147,14 +162,14 @@ impl SingleStatement {
                         Ok(assignment) => assignment,
                         Err(_) => {
                             // Fallback to variable declaration
-                            let var = typed_context.generate_type_compatible_variable(rng);
+                            let var = typed_context.generate_type_compatible_variable(false, rng);
                             let _ = typed_context.add_variable(&var);
                             SingleStatement::VariableDeclaration(var)
                         }
                     }
                 } else {
                     // No mutable variables, generate new variable
-                    let var = typed_context.generate_type_compatible_variable(rng);
+                    let var = typed_context.generate_type_compatible_variable(false, rng);
                     let _ = typed_context.add_variable(&var);
                     SingleStatement::VariableDeclaration(var)
                 }
@@ -168,14 +183,14 @@ impl SingleStatement {
                         Ok(call) => call,
                         Err(_) => {
                             // Fallback to variable declaration
-                            let var = typed_context.generate_type_compatible_variable(rng);
+                            let var = typed_context.generate_type_compatible_variable(false, rng);
                             let _ = typed_context.add_variable(&var);
                             SingleStatement::VariableDeclaration(var)
                         }
                     }
                 } else {
                     // No functions available, generate variable
-                    let var = typed_context.generate_type_compatible_variable(rng);
+                    let var = typed_context.generate_type_compatible_variable(false, rng);
                     let _ = typed_context.add_variable(&var);
                     SingleStatement::VariableDeclaration(var)
                 }
@@ -216,6 +231,20 @@ impl std::fmt::Display for SingleStatement {
                 } else {
                     write!(f, "return")
                 }
+            }
+            SingleStatement::ObjectCreation(object) => {
+                write!(
+                    f,
+                    "val {} = {}({})",
+                    object.get_variable_name(),
+                    object.get_class_name(),
+                    object
+                        .properties
+                        .iter()
+                        .map(|prop| format!("{} = {}", prop.get_name(), prop.get_value()))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             }
         }
     }

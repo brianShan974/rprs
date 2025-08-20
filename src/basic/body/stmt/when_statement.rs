@@ -9,7 +9,7 @@ use crate::basic::body::fun::function::Function;
 use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WhenStatement {
     current_indentation_layer: usize,
     subject: Variable,
@@ -47,7 +47,7 @@ impl WhenStatement {
         }
 
         // Generate subject variable
-        let subject = Variable::generate_random_variable(true, false, rng);
+        let subject = Variable::generate_random_variable(false, false, rng);
 
         // Generate arms
         let num_arms = rng.random_range(1..=2);

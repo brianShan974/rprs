@@ -12,7 +12,7 @@ use crate::basic::body::stmt::{
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
-#[derive(Clone, Display)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Display)]
 #[display("{}", _0)]
 pub enum Statement {
     Single(SingleStatement),

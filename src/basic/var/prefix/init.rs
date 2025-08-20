@@ -1,34 +1,25 @@
-use rand::Rng;
+use derive_more::Display;
+use rand::{Rng, SeedableRng};
 
-use std::fmt::Display;
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Display)]
 pub enum VariableInit {
     #[default]
+    #[display("")]
     Default,
-
+    #[display("const")]
     Const,
-
+    #[display("lateinit")]
     LateInit,
 }
 
-impl Display for VariableInit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VariableInit::Default => write!(f, "{}", Self::DEFAULT_REPR),
-            VariableInit::Const => write!(f, "{} ", Self::CONST_REPR),
-            VariableInit::LateInit => write!(f, "{} ", Self::LATEINIT_REPR),
-        }
-    }
-}
-
 impl VariableInit {
-    pub const DEFAULT_REPR: &str = "";
-    pub const CONST_REPR: &str = "const";
-    pub const LATEINIT_REPR: &str = "lateinit";
-
-    pub fn generate_random_variable_init(_is_stack: bool) -> Self {
-        let mut rng = rand::rng();
+    pub fn generate_random_variable_init<T: Rng + SeedableRng>(
+        is_member: bool,
+        rng: &mut T,
+    ) -> Self {
+        if is_member {
+            return Self::Default;
+        }
 
         match rng.random_range(0..=1) {
             0 => Self::Default,
@@ -37,7 +28,7 @@ impl VariableInit {
         }
     }
 
-    pub fn is_lateinit(&self) -> bool {
-        matches!(self, Self::LateInit)
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::Default)
     }
 }

@@ -147,15 +147,17 @@ impl TypedGenerationContext {
     ) -> TypeResult<Expression> {
         let functions = &self.external_functions;
         let functions_borrowed = functions.borrow();
-        
-        // Find functions that return the target type
+
+        // Find functions that return the target type, but exclude the current function being generated
         let compatible_functions: Vec<_> = functions_borrowed
             .iter()
             .filter(|func| {
                 if let Some(func_type) = self.function_signatures.get(func.get_name()) {
                     if let Type::Function(_, return_type) = func_type {
                         // Check if return type is compatible with target type
-                        self.type_checker.check_compatibility(return_type, target_type).is_ok()
+                        self.type_checker
+                            .check_compatibility(return_type, target_type)
+                            .is_ok()
                     } else {
                         false
                     }
@@ -173,7 +175,7 @@ impl TypedGenerationContext {
         // Randomly select a compatible function
         let function = &compatible_functions[rng.random_range(0..compatible_functions.len())];
         let func_name = function.get_name();
-        
+
         if let Some(func_type) = self.function_signatures.get(func_name) {
             if let Type::Function(param_types, _) = func_type {
                 let mut args = Vec::new();
@@ -215,9 +217,9 @@ impl TypedGenerationContext {
                 Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
                     Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
                 }
-                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
-                    Ok(ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)))
-                }
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => Ok(
+                    ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)),
+                ),
                 _ => {
                     // Default to int for other types
                     Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
@@ -233,13 +235,15 @@ impl TypedGenerationContext {
                         _ => {
                             // Fallback to literal
                             match target_type {
-                                Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
-                                    Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
-                                }
-                                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
-                                    Ok(ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)))
-                                }
-                                _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                                Type::Basic(Class::Basic(BasicType::Number(
+                                    NumberType::SignedInteger(_),
+                                ))) => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
+                                Type::Basic(Class::Basic(BasicType::Number(
+                                    NumberType::FloatingPoint(_),
+                                ))) => Ok(ArithmeticExpression::Float(OrderedFloat::from(
+                                    rng.random::<f32>() * 100.0,
+                                ))),
+                                _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
                             }
                         }
                     }
@@ -266,13 +270,15 @@ impl TypedGenerationContext {
                 7..=9 => {
                     // Generate literal
                     match target_type {
-                        Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
-                            Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
-                        }
-                        Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
-                            Ok(ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)))
-                        }
-                        _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                        Type::Basic(Class::Basic(BasicType::Number(
+                            NumberType::SignedInteger(_),
+                        ))) => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
+                        Type::Basic(Class::Basic(BasicType::Number(
+                            NumberType::FloatingPoint(_),
+                        ))) => Ok(ArithmeticExpression::Float(OrderedFloat::from(
+                            rng.random::<f32>() * 100.0,
+                        ))),
+                        _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
                     }
                 }
                 _ => unreachable!(),
@@ -281,13 +287,17 @@ impl TypedGenerationContext {
     }
 
     /// Generate a variable with a compatible type for the current context
-    pub fn generate_type_compatible_variable<T: Rng + SeedableRng>(&self, rng: &mut T) -> Variable {
+    pub fn generate_type_compatible_variable<T: Rng + SeedableRng>(
+        &self,
+        is_member: bool,
+        rng: &mut T,
+    ) -> Variable {
         // Generate a variable with a common numeric type for compatibility
         let target_type = Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
             FloatingPointType::Float,
         ))));
 
-        Variable::generate_random_variable_with_type(true, true, target_type, rng)
+        Variable::generate_random_variable_with_type(is_member, true, target_type, rng)
     }
 
     /// Get available mutable variables for assignment
@@ -378,6 +388,7 @@ impl TypedGenerationContext {
                 }
             }
             SingleStatement::Return(_) => Ok(()),
+            SingleStatement::ObjectCreation(_) => Ok(()), // For now, just accept object creation
         }
     }
 
@@ -606,16 +617,18 @@ impl TypedGenerationContext {
             }
             6..=9 => {
                 // Generate type-safe function call that returns float
-                let float_type = Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                    FloatingPointType::Float,
-                ))));
-                
+                let float_type = Type::Basic(Class::Basic(BasicType::Number(
+                    NumberType::FloatingPoint(FloatingPointType::Float),
+                )));
+
                 match self.generate_type_safe_function_call_expression(&float_type, rng) {
                     Ok(expr) => expr,
                     Err(_) => {
                         // Fallback to float literal
                         let float_value = rng.random::<f32>() * 100.0;
-                        Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(float_value)))
+                        Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(
+                            float_value,
+                        )))
                     }
                 }
             }
@@ -667,10 +680,10 @@ impl TypedGenerationContext {
             }
             6..=9 => {
                 // Generate type-safe function call that returns int
-                let int_type = Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(
-                    SignedIntegerType::Int,
-                ))));
-                
+                let int_type = Type::Basic(Class::Basic(BasicType::Number(
+                    NumberType::SignedInteger(SignedIntegerType::Int),
+                )));
+
                 match self.generate_type_safe_function_call_expression(&int_type, rng) {
                     Ok(expr) => expr,
                     Err(_) => {

@@ -18,8 +18,8 @@ pub struct Variable {
 impl Variable {
     pub fn output_declaration(&self) -> String {
         match self.ty {
-            Some(ref ty) => format!("{}{}: {}", self.prefix, self.name, ty),
-            _ => format!("{}{}", self.prefix, self.name),
+            Some(ref ty) => format!("{} {}: {}", self.prefix, self.name, ty.get_name()),
+            _ => format!("{} {}", self.prefix, self.name),
         }
     }
 
@@ -30,9 +30,16 @@ impl Variable {
     }
 
     pub fn output_init(&self) -> Option<String> {
-        self.value
-            .as_ref()
-            .map(|value| format!("{}{} = {}", self.prefix, self.name, value))
+        self.value.as_ref().map(|value| match self.ty {
+            Some(ref ty) => format!(
+                "{} {}: {} = {}",
+                self.prefix,
+                self.name,
+                ty.get_name(),
+                value
+            ),
+            _ => format!("{} {} = {}", self.prefix, self.name, value),
+        })
     }
 
     pub fn get_name(&self) -> &str {
@@ -41,6 +48,10 @@ impl Variable {
 
     pub fn is_mutable(&self) -> bool {
         self.prefix.is_mutable()
+    }
+
+    pub fn get_prefix(&self) -> &VariablePrefix {
+        &self.prefix
     }
 
     pub fn get_type(&self) -> Option<&Class> {
@@ -52,11 +63,11 @@ impl Variable {
     }
 
     pub fn generate_random_variable<T: Rng + SeedableRng>(
-        is_stack: bool,
+        is_member: bool,
         with_initial_value: bool,
         rng: &mut T,
     ) -> Self {
-        let prefix = VariablePrefix::generate_random_prefix(is_stack);
+        let prefix = VariablePrefix::generate_random_prefix(is_member, rng);
         let name = generate_random_identifier(rng);
         let value = if with_initial_value {
             Some(Expression::generate_random_expression(5, None, rng))
@@ -83,12 +94,12 @@ impl Variable {
 
     /// Generate a variable with a specific type
     pub fn generate_random_variable_with_type<T: Rng + SeedableRng>(
-        is_stack: bool,
+        is_member: bool,
         with_initial_value: bool,
         target_type: Option<Class>,
         rng: &mut T,
     ) -> Self {
-        let prefix = VariablePrefix::generate_random_prefix(is_stack);
+        let prefix = VariablePrefix::generate_random_prefix(is_member, rng);
         let name = generate_random_identifier(rng);
 
         let (value, ty) = if with_initial_value {

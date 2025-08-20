@@ -10,7 +10,7 @@ use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WhileStatement {
     current_indentation_layer: usize,
     condition: Expression,

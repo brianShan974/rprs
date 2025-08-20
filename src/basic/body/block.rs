@@ -1,9 +1,3 @@
-use rand::{Rng, SeedableRng};
-
-use std::cell::RefCell;
-use std::fmt::Display;
-use std::rc::Rc;
-
 use crate::basic::{
     body::{
         fun::function::Function,
@@ -12,11 +6,15 @@ use crate::basic::{
     var::variable::Variable,
 };
 use crate::type_system::{Type, TypedGenerationContext};
+use rand::{Rng, SeedableRng};
+use std::cell::RefCell;
+use std::fmt::Display;
+use std::rc::Rc;
 
 pub const SPACE: &str = " ";
 pub const INDENT_SIZE: usize = 4;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Block {
     is_independent: bool,
     statements: Vec<Statement>,
@@ -46,6 +44,10 @@ impl Block {
         max_depth: usize,
         rng: &mut T,
     ) -> Option<Self> {
+        if max_depth == 0 {
+            return None;
+        }
+
         let num_new_vars = rng.random_range(0..=Self::MAX_NUM_NEW_VARS);
         let mut new_variables = Vec::with_capacity(num_new_vars);
 
@@ -64,13 +66,15 @@ impl Block {
 
         // Generate random statements with depth limit
         for _ in 0..num_statements {
-            statements.push(Statement::generate_random_statement(
+            if let Some(statement) = Statement::generate_random_statement(
                 combined_external_variables.clone(),
                 external_functions.clone(),
                 current_indentation_layer + 1,
                 Some(max_depth - 1),
                 rng,
-            )?);
+            ) {
+                statements.push(statement);
+            }
         }
 
         Some(Block {
@@ -134,7 +138,7 @@ impl Block {
 
         // Generate new type-compatible variables
         for _ in 0..num_new_vars {
-            let new_var = typed_context.generate_type_compatible_variable(rng);
+            let new_var = typed_context.generate_type_compatible_variable(false, rng);
             let _ = typed_context.add_variable(&new_var);
             new_variables.push(new_var);
         }

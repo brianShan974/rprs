@@ -13,7 +13,7 @@ use crate::basic::var::prefix::var_prefix::VariablePrefix;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum ForLoopType {
     RangeLoop {
         start: i32,
@@ -22,7 +22,7 @@ enum ForLoopType {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ForStatement {
     current_indentation_layer: usize,
     loop_variable_name: String,
