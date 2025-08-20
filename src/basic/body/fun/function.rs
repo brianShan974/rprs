@@ -35,6 +35,7 @@ impl Function {
     pub fn generate_random_function<T: Rng + SeedableRng>(
         external_variables: Vec<Variable>,
         external_functions: Rc<RefCell<Vec<Function>>>,
+        defined_classes: Option<&[Class]>,
         current_indentation_layer: Option<usize>,
         max_depth: Option<usize>,
         is_method: bool,
@@ -46,7 +47,7 @@ impl Function {
 
         let max_depth = max_depth.unwrap_or(Self::MAX_DEPTH);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
-        let parameters = Parameter::generate_random_parameters(rng);
+        let parameters = Parameter::generate_random_parameters(rng, defined_classes);
         let all_identifiers: Vec<Variable> = external_variables
             .into_iter()
             .chain(parameters.iter().map(|p| p.to_owned().into()))
@@ -100,6 +101,7 @@ impl Function {
     pub fn generate_type_safe_function<T: Rng + SeedableRng>(
         external_variables: Vec<Parameter>,
         external_functions: Rc<RefCell<Vec<Function>>>,
+        defined_classes: Option<&[Class]>,
         current_indentation_layer: Option<usize>,
         max_depth: Option<usize>,
         is_method: bool,
@@ -112,7 +114,7 @@ impl Function {
 
         let max_depth = max_depth.unwrap_or(Self::MAX_DEPTH);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
-        let parameters = Parameter::generate_random_parameters(rng);
+        let parameters = Parameter::generate_random_parameters(rng, defined_classes);
         let all_identifiers: Vec<Variable> = external_variables
             .into_iter()
             .chain(parameters.clone().into_iter())

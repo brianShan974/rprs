@@ -33,6 +33,7 @@ impl File {
                 external_functions.clone(),
                 None,
                 None,
+                None,
                 false,
                 &mut typed_context,
                 rng,
@@ -60,6 +61,7 @@ impl File {
             if let Some(function) = Function::generate_type_safe_function(
                 Vec::new(),
                 external_functions.clone(),
+                None,
                 None,
                 None,
                 false,

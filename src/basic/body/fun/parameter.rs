@@ -1,9 +1,9 @@
-use rand::{Rng, SeedableRng};
+use rand::{Rng, SeedableRng, seq::IndexedRandom};
 
 use std::fmt::Display;
 
 use crate::basic::{
-    cls::class::Class,
+    cls::class::{BASIC_TYPES, Class},
     utils::generate_random_identifier,
     var::{prefix::var_prefix::VariablePrefix, variable::Variable},
 };
@@ -17,22 +17,26 @@ pub struct Parameter {
 impl Parameter {
     pub const MAX_COUNT: usize = 4;
 
-    pub fn generate_random_parameter<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+    pub fn generate_random_parameter<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&[Class]>,
+    ) -> Self {
+        let defined_classes = defined_classes.unwrap_or(BASIC_TYPES);
         Self {
             name: generate_random_identifier(rng),
-            ty: Class::generate_random_class(rng),
+            ty: defined_classes.choose(rng).unwrap().clone(),
         }
     }
 
-    pub fn generate_random_parameters<T: Rng + SeedableRng>(rng: &mut T) -> Vec<Self> {
+    pub fn generate_random_parameters<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&[Class]>,
+    ) -> Vec<Self> {
         let num_params = rng.random_range(0..=3);
         let mut parameters = Vec::with_capacity(num_params);
 
         for _ in 0..num_params {
-            parameters.push(Self {
-                name: generate_random_identifier(rng),
-                ty: Class::generate_random_class(rng),
-            });
+            parameters.push(Self::generate_random_parameter(rng, defined_classes));
         }
 
         parameters

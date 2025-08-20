@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::basic::body::block::{INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
+use crate::basic::cls::class::Class;
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::variable::Variable;
 
@@ -39,9 +40,14 @@ impl CustomClass {
         self.methods.push(method);
     }
 
-    pub fn generate_random_custom_class<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+    pub fn generate_random_custom_class<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&mut Vec<Class>>,
+        current_indentation_layer: Option<usize>,
+    ) -> Self {
         let name = generate_random_identifier(rng);
-        let mut custom_class = Self::new(name, 0); // Start at indentation level 0
+        let current_indentation_layer = current_indentation_layer.unwrap_or(0);
+        let mut custom_class = Self::new(name, current_indentation_layer);
 
         // Generate 1-4 properties
         let num_properties = rng.random_range(1..=Self::MAX_PROPERTIES);
@@ -56,6 +62,7 @@ impl CustomClass {
             if let Some(method) = Function::generate_random_function(
                 custom_class.properties.clone(), // External variables for class methods
                 std::rc::Rc::new(std::cell::RefCell::new(Vec::new())), // Empty external functions
+                defined_classes.as_ref().map(|classes| classes.as_slice()),
                 Some(custom_class.current_indentation_layer + 1), // Indentation level for class methods
                 Some(3),                                          // Max depth for class methods
                 true,
@@ -63,6 +70,10 @@ impl CustomClass {
             ) {
                 custom_class.add_method(method);
             }
+        }
+
+        if let Some(defined_classes) = defined_classes {
+            defined_classes.push(Class::Custom(custom_class.clone()));
         }
 
         custom_class
