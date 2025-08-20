@@ -37,7 +37,7 @@ impl Block {
     }
 
     pub fn generate_random_block<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         is_independent: bool,
@@ -58,8 +58,11 @@ impl Block {
         }
 
         // Create combined external variables for child blocks
-        let mut combined_external_variables = external_variables.clone();
-        combined_external_variables.extend(new_variables.clone());
+        let combined_external_variables: Vec<Variable> = external_variables
+            .iter()
+            .map(|v| v.to_owned())
+            .chain(new_variables.iter().map(|v| v.to_owned()))
+            .collect();
 
         let num_statements = rng.random_range(1..=Self::MAX_NUM_STATEMENTS);
         let mut statements = Vec::with_capacity(num_statements);
@@ -67,7 +70,7 @@ impl Block {
         // Generate random statements with depth limit
         for _ in 0..num_statements {
             if let Some(statement) = Statement::generate_random_statement(
-                combined_external_variables.clone(),
+                &combined_external_variables,
                 external_functions.clone(),
                 current_indentation_layer + 1,
                 Some(max_depth - 1),
@@ -102,7 +105,7 @@ impl Block {
 
     /// Generate a type-safe block using typed generation context
     pub fn generate_type_safe_block<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         is_independent: bool,
@@ -124,7 +127,7 @@ impl Block {
 
     /// Generate a type-safe block with expected return type
     pub fn generate_type_safe_block_with_return_type<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         is_independent: bool,
@@ -144,8 +147,11 @@ impl Block {
         }
 
         // Create combined external variables for child blocks
-        let mut combined_external_variables = external_variables.clone();
-        combined_external_variables.extend(new_variables.clone());
+        let combined_external_variables: Vec<Variable> = external_variables
+            .iter()
+            .map(|v| v.to_owned())
+            .chain(new_variables.iter().map(|v| v.to_owned()))
+            .collect();
 
         let num_statements = rng.random_range(1..=Self::MAX_NUM_STATEMENTS);
         let mut statements = Vec::with_capacity(num_statements + new_variables.len());
@@ -160,7 +166,7 @@ impl Block {
         // Generate type-safe statements with return type awareness
         for _ in 0..num_statements {
             statements.push(Statement::generate_type_safe_statement_with_return_type(
-                combined_external_variables.clone(),
+                &combined_external_variables,
                 external_functions.clone(),
                 current_indentation_layer + 1,
                 Some(max_depth - 1),

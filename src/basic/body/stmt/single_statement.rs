@@ -20,7 +20,7 @@ pub enum SingleStatement {
 
 impl SingleStatement {
     pub fn generate_random_single_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         rng: &mut T,
     ) -> Self {
@@ -110,7 +110,7 @@ impl SingleStatement {
 
     /// Generate a type-safe single statement using typed generation context
     pub fn generate_type_safe_single_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         typed_context: &mut TypedGenerationContext,
         rng: &mut T,
@@ -126,14 +126,14 @@ impl SingleStatement {
 
     /// Generate a type-safe single statement with expected return type
     pub fn generate_type_safe_single_statement_with_return_type<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
         rng: &mut T,
     ) -> Self {
         // Add external variables to typed context
-        for var in &external_variables {
+        for var in external_variables {
             let _ = typed_context.add_variable(var);
         }
 

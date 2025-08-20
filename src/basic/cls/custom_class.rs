@@ -60,7 +60,7 @@ impl CustomClass {
         for _ in 0..num_methods {
             // Generate a method as a Function
             if let Some(method) = Function::generate_random_function(
-                custom_class.properties.clone(), // External variables for class methods
+                &custom_class.properties, // External variables for class methods
                 std::rc::Rc::new(std::cell::RefCell::new(Vec::new())), // Empty external functions
                 defined_classes.as_ref().map(|classes| classes.as_slice()),
                 Some(custom_class.current_indentation_layer + 1), // Indentation level for class methods

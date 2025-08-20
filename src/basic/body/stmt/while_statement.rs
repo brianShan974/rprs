@@ -32,7 +32,7 @@ impl Display for WhileStatement {
 
 impl WhileStatement {
     pub fn generate_random_while_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
@@ -69,7 +69,7 @@ impl WhileStatement {
 
     /// Generate a type-safe while statement with expected return type
     pub fn generate_type_safe_while_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,

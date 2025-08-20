@@ -26,7 +26,7 @@ impl Statement {
     pub const MAX_DEPTH: usize = 5;
 
     pub fn generate_random_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: Option<usize>,
@@ -89,7 +89,7 @@ impl Statement {
 
     /// Generate a type-safe statement using typed generation context
     pub fn generate_type_safe_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: Option<usize>,
@@ -109,7 +109,7 @@ impl Statement {
 
     /// Generate a type-safe statement with expected return type
     pub fn generate_type_safe_statement_with_return_type<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: Option<usize>,

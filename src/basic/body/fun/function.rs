@@ -33,7 +33,7 @@ impl Function {
     pub const MAX_DEPTH: usize = 5;
 
     pub fn generate_random_function<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         defined_classes: Option<&[Class]>,
         current_indentation_layer: Option<usize>,
@@ -49,7 +49,8 @@ impl Function {
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let parameters = Parameter::generate_random_parameters(rng, defined_classes);
         let all_identifiers: Vec<Variable> = external_variables
-            .into_iter()
+            .iter()
+            .map(|v| v.to_owned())
             .chain(parameters.iter().map(|p| p.to_owned().into()))
             .collect();
 
@@ -58,7 +59,7 @@ impl Function {
             parameters,
             return_type: None,
             body: Block::generate_random_block(
-                all_identifiers,
+                &all_identifiers,
                 external_functions.clone(),
                 current_indentation_layer,
                 false,
@@ -129,7 +130,7 @@ impl Function {
 
         // Generate function body with expected return type
         let body = Block::generate_type_safe_block_with_return_type(
-            all_identifiers,
+            &all_identifiers,
             external_functions.clone(),
             current_indentation_layer,
             false,

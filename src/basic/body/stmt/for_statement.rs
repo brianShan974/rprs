@@ -34,7 +34,7 @@ impl ForStatement {
     pub const MAX_DEPTH: usize = 5;
 
     pub fn generate_random_for_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
@@ -56,8 +56,11 @@ impl ForStatement {
                 SignedIntegerType::Int,
             )))),
         );
-        let mut loop_body_variables = external_variables.clone();
-        loop_body_variables.push(loop_variable);
+        let loop_body_variables: Vec<Variable> = external_variables
+            .iter()
+            .map(|v| v.to_owned())
+            .chain(std::iter::once(loop_variable))
+            .collect();
 
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
@@ -72,7 +75,7 @@ impl ForStatement {
 
         // Generate loop body with smaller depth limit
         let loop_block = Block::generate_random_block(
-            loop_body_variables,
+            &loop_body_variables,
             external_functions,
             current_indentation_layer,
             false,
@@ -94,7 +97,7 @@ impl ForStatement {
 
     /// Generate a type-safe for statement with expected return type
     pub fn generate_type_safe_for_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
@@ -121,8 +124,11 @@ impl ForStatement {
         let _ = typed_context.add_variable(&loop_variable);
 
         // Add loop variable to external variables for the loop body
-        let mut loop_body_variables = external_variables.clone();
-        loop_body_variables.push(loop_variable);
+        let loop_body_variables: Vec<Variable> = external_variables
+            .iter()
+            .map(|v| v.to_owned())
+            .chain(std::iter::once(loop_variable))
+            .collect();
 
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
@@ -137,7 +143,7 @@ impl ForStatement {
 
         // Generate loop body with return type awareness
         let loop_block = Block::generate_type_safe_block_with_return_type(
-            loop_body_variables,
+            &loop_body_variables,
             external_functions,
             current_indentation_layer,
             false,

@@ -36,7 +36,7 @@ impl WhenStatement {
     pub const MAX_DEPTH: usize = 5;
 
     pub fn generate_random_when_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
@@ -56,7 +56,7 @@ impl WhenStatement {
         for _ in 0..num_arms {
             let condition = Expression::generate_random_expression(3, None, rng);
             let block = Block::generate_random_block(
-                external_variables.clone(),
+                external_variables,
                 external_functions.clone(),
                 current_indentation_layer,
                 false,

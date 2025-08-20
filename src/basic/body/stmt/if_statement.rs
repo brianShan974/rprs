@@ -25,7 +25,7 @@ impl IfStatement {
     pub const MAX_DEPTH: usize = 5;
 
     pub fn generate_random_if_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
@@ -40,7 +40,7 @@ impl IfStatement {
 
         // Generate if block
         let if_block = Block::generate_random_block(
-            external_variables.clone(),
+            external_variables,
             external_functions.clone(),
             current_indentation_layer,
             false,
@@ -55,7 +55,7 @@ impl IfStatement {
         for _ in 0..num_elseif_blocks {
             let elseif_condition = BooleanExpression::generate_random_boolean_expression(3, rng);
             if let Some(elseif_block) = Block::generate_random_block(
-                external_variables.clone(),
+                external_variables,
                 external_functions.clone(),
                 current_indentation_layer,
                 false,
@@ -107,7 +107,7 @@ impl IfStatement {
 
     /// Generate a type-safe if statement with expected return type
     pub fn generate_type_safe_if_statement<T: Rng + SeedableRng>(
-        external_variables: Vec<Variable>,
+        external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
         current_indentation_layer: usize,
         max_depth: usize,
@@ -124,7 +124,7 @@ impl IfStatement {
 
         // Generate if block with return type awareness
         let if_block = Block::generate_type_safe_block_with_return_type(
-            external_variables.clone(),
+            external_variables,
             external_functions.clone(),
             current_indentation_layer,
             false,
@@ -141,7 +141,7 @@ impl IfStatement {
         for _ in 0..num_elseif_blocks {
             let elseif_condition = BooleanExpression::generate_random_boolean_expression(3, rng);
             if let Some(elseif_block) = Block::generate_type_safe_block_with_return_type(
-                external_variables.clone(),
+                external_variables,
                 external_functions.clone(),
                 current_indentation_layer,
                 false,
