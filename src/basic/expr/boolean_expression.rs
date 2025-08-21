@@ -2,7 +2,7 @@ use rand::{Rng, SeedableRng};
 
 use std::fmt::Display;
 
-use super::arithmetich_expression::ArithmeticExpression;
+use super::arithmetic_expression::ArithmeticExpression;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BooleanExpression {

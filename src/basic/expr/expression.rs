@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-use super::arithmetich_expression::ArithmeticExpression;
+use super::arithmetic_expression::ArithmeticExpression;
 use super::boolean_expression::BooleanExpression;
 use crate::basic::body::fun::function::Function;
 

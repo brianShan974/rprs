@@ -6,8 +6,10 @@ use std::rc::Rc;
 
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
-use crate::basic::cls::basic_types::{BasicType, NumberType, SignedIntegerType};
+use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::class::Class;
+use crate::basic::cls::number_types::number::NumberType;
+use crate::basic::cls::number_types::signed_integer::SignedIntegerType;
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::prefix::var_prefix::VariablePrefix;
 use crate::basic::var::variable::Variable;

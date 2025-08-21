@@ -11,8 +11,12 @@ use crate::basic::{
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
     cls::{
-        basic_types::{BasicType, FloatingPointType, NumberType, SignedIntegerType},
+        basic_type::BasicType,
         class::Class,
+        number_types::{
+            floating_point::FloatingPointType, number::NumberType,
+            signed_integer::SignedIntegerType,
+        },
     },
     utils::generate_random_identifier,
     var::{prefix::visibility::Visibility, variable::Variable},

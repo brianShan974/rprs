@@ -1,4 +1,4 @@
-pub mod arithmetich_expression;
+pub mod arithmetic_expression;
 pub mod boolean_expression;
 pub mod operator;
 

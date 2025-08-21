@@ -1,8 +1,11 @@
 use rand::{Rng, SeedableRng};
 use std::fmt;
 
-use crate::basic::cls::basic_types::{BasicType, FloatingPointType, NumberType, SignedIntegerType};
+use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::custom_class::CustomClass;
+use crate::basic::cls::number_types::floating_point::FloatingPointType;
+use crate::basic::cls::number_types::number::NumberType;
+use crate::basic::cls::number_types::signed_integer::SignedIntegerType;
 
 pub const BASIC_TYPES: &[Class] = &[
     Class::Basic(BasicType::Number(NumberType::SignedInteger(

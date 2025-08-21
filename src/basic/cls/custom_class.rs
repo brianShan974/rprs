@@ -1,10 +1,15 @@
 use rand::{Rng, SeedableRng};
+use std::cell::RefCell;
 use std::fmt;
+use std::rc::Rc;
 
 use crate::basic::body::block::{INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
 use crate::basic::body::fun::parameter::Parameter;
+use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::class::Class;
+use crate::basic::cls::number_types::floating_point::FloatingPointType;
+use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
@@ -65,23 +70,19 @@ impl CustomClass {
                 .properties
                 .iter()
                 .map(|var| {
-                    crate::basic::body::fun::parameter::Parameter::new(
+                    Parameter::new(
                         var.get_name().to_string(),
                         var.get_type().cloned().unwrap_or_else(|| {
-                            crate::basic::cls::class::Class::Basic(
-                                crate::basic::cls::basic_types::BasicType::Number(
-                                    crate::basic::cls::basic_types::NumberType::FloatingPoint(
-                                        crate::basic::cls::basic_types::FloatingPointType::Float,
-                                    ),
-                                ),
-                            )
+                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                                FloatingPointType::Float,
+                            )))
                         }),
                     )
                 })
                 .collect();
 
             // Create a typed context for method generation
-            let external_functions = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+            let external_functions = Rc::new(RefCell::new(Vec::new()));
             let mut typed_context = TypedGenerationContext::new(external_functions);
 
             // Generate a type-safe method
@@ -130,16 +131,12 @@ impl CustomClass {
                 .properties
                 .iter()
                 .map(|var| {
-                    crate::basic::body::fun::parameter::Parameter::new(
+                    Parameter::new(
                         var.get_name().to_string(),
                         var.get_type().cloned().unwrap_or_else(|| {
-                            crate::basic::cls::class::Class::Basic(
-                                crate::basic::cls::basic_types::BasicType::Number(
-                                    crate::basic::cls::basic_types::NumberType::FloatingPoint(
-                                        crate::basic::cls::basic_types::FloatingPointType::Float,
-                                    ),
-                                ),
-                            )
+                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                                FloatingPointType::Float,
+                            )))
                         }),
                     )
                 })
@@ -213,7 +210,9 @@ impl fmt::Display for CustomClass {
             )?;
         }
 
-        writeln!(f)?;
+        if !self.methods.is_empty() {
+            writeln!(f)?;
+        }
 
         for method in &self.methods {
             writeln!(f, "{}", method)?;

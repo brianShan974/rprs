@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use crate::basic::cls::{
-    basic_types::{BasicType, FloatingPointType, NumberType},
+    basic_type::BasicType,
     class::Class,
+    number_types::{floating_point::FloatingPointType, number::NumberType},
 };
 
 /// Represents a type in the type system

@@ -36,7 +36,7 @@ impl File {
                 external_functions.clone(),
                 None,
                 None,
-                Some(3), // Max depth for functions (reduced to avoid complexity)
+                None,
                 false,
                 &mut typed_context,
                 rng,
@@ -79,7 +79,7 @@ impl File {
                 external_functions.clone(),
                 None,
                 None,
-                Some(3), // Max depth for functions (reduced to avoid complexity)
+                None,
                 false,
                 &mut typed_context,
                 rng,

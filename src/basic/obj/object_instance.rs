@@ -2,7 +2,15 @@ use rand::{Rng, SeedableRng};
 use std::fmt;
 
 use crate::basic::{
-    cls::custom_class::CustomClass, expr::expression::Expression, var::variable::Variable,
+    cls::{
+        basic_type::BasicType, class::Class, custom_class::CustomClass,
+        number_types::number::NumberType,
+    },
+    expr::{
+        arithmetic_expression::ArithmeticExpression, boolean_expression::BooleanExpression,
+        expression::Expression,
+    },
+    var::variable::Variable,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -73,60 +81,30 @@ impl ObjectInstance {
         // For now, generate simple expressions based on property type
         // In a full implementation, this would use the typed generation system
         match class_property.get_type() {
-            Some(crate::basic::cls::class::Class::Basic(
-                crate::basic::cls::basic_types::BasicType::Number(number_type),
-            )) => match number_type {
-                crate::basic::cls::basic_types::NumberType::SignedInteger(_) => {
-                    Expression::Arithmetic(
-                        crate::basic::expr::arithmetich_expression::ArithmeticExpression::Int(
-                            rng.random_range(-100..=100),
-                        ),
-                    )
+            Some(Class::Basic(BasicType::Number(number_type))) => match number_type {
+                NumberType::SignedInteger(_) => {
+                    Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(-100..=100)))
                 }
-                crate::basic::cls::basic_types::NumberType::UnsignedInteger(_) => {
-                    Expression::Arithmetic(
-                        crate::basic::expr::arithmetich_expression::ArithmeticExpression::Int(
-                            rng.random_range(0..=100),
-                        ),
-                    )
+                NumberType::UnsignedInteger(_) => {
+                    Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
                 }
-                crate::basic::cls::basic_types::NumberType::FloatingPoint(_) => {
-                    Expression::Arithmetic(
-                        crate::basic::expr::arithmetich_expression::ArithmeticExpression::Float(
-                            ordered_float::OrderedFloat::from(rng.random::<f32>() * 100.0),
-                        ),
-                    )
+                NumberType::FloatingPoint(_) => {
+                    Expression::Arithmetic(ArithmeticExpression::Float(
+                        ordered_float::OrderedFloat::from(rng.random::<f32>() * 100.0),
+                    ))
                 }
             },
-            Some(crate::basic::cls::class::Class::Basic(
-                crate::basic::cls::basic_types::BasicType::Boolean,
-            )) => Expression::Boolean(
-                crate::basic::expr::boolean_expression::BooleanExpression::Literal(
-                    rng.random_range(0..=1) == 0,
-                ),
-            ),
-            Some(crate::basic::cls::class::Class::Basic(
-                crate::basic::cls::basic_types::BasicType::String,
-            )) => {
-                // For now, generate a simple string literal
-                Expression::Arithmetic(
-                    crate::basic::expr::arithmetich_expression::ArithmeticExpression::Int(
-                        rng.random_range(0..=100),
-                    ),
-                )
+            Some(Class::Basic(BasicType::Boolean)) => {
+                Expression::Boolean(BooleanExpression::Literal(rng.random_range(0..=1) == 0))
             }
-            Some(crate::basic::cls::class::Class::Basic(
-                crate::basic::cls::basic_types::BasicType::Char,
-            )) => Expression::Arithmetic(
-                crate::basic::expr::arithmetich_expression::ArithmeticExpression::Int(
-                    rng.random_range(0..=100),
-                ),
-            ),
-            _ => Expression::Arithmetic(
-                crate::basic::expr::arithmetich_expression::ArithmeticExpression::Int(
-                    rng.random_range(0..=100),
-                ),
-            ),
+            Some(Class::Basic(BasicType::String)) => {
+                // For now, generate a simple int literal
+                Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
+            }
+            Some(Class::Basic(BasicType::Char)) => {
+                Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
+            }
+            _ => Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100))),
         }
     }
 

@@ -1,6 +1,7 @@
 use rand::{Rng, SeedableRng};
 
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
@@ -204,7 +205,7 @@ impl SingleStatement {
     }
 }
 
-impl std::fmt::Display for SingleStatement {
+impl Display for SingleStatement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SingleStatement::VariableDeclaration(var) => {

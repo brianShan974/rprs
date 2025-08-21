@@ -2,8 +2,10 @@ use derive_more::Constructor;
 use rand::{Rng, SeedableRng};
 
 use super::prefix::var_prefix::VariablePrefix;
-use crate::basic::cls::basic_types::{BasicType, FloatingPointType, NumberType};
+use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::class::Class;
+use crate::basic::cls::number_types::floating_point::FloatingPointType;
+use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::expr::expression::Expression;
 use crate::basic::utils::generate_random_identifier;
 

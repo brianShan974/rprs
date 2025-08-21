@@ -2,8 +2,12 @@ use std::collections::HashMap;
 
 use crate::{
     basic::cls::{
-        basic_types::{BasicType, FloatingPointType, NumberType, SignedIntegerType},
+        basic_type::BasicType,
         class::Class,
+        number_types::{
+            floating_point::FloatingPointType, number::NumberType,
+            signed_integer::SignedIntegerType,
+        },
     },
     type_system::{Type, TypeContext, TypeError, TypeResult},
 };

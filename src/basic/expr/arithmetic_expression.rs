@@ -4,6 +4,7 @@ use std::fmt::Display;
 
 use super::operator::Operator;
 use crate::basic::body::fun::function::Function;
+use crate::basic::expr::expression::Expression;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -16,7 +17,7 @@ pub enum ArithmeticExpression {
         op: Operator,
         right: Box<ArithmeticExpression>,
     },
-    FunctionCall(String, Vec<super::expression::Expression>),
+    FunctionCall(String, Vec<Expression>),
 }
 
 impl ArithmeticExpression {
@@ -91,7 +92,7 @@ impl ArithmeticExpression {
                         let mut args = Vec::with_capacity(num_args);
                         for _ in 0..num_args {
                             // Allow recursive function calls in arguments
-                            args.push(super::expression::Expression::generate_random_expression(
+                            args.push(Expression::generate_random_expression(
                                 max_depth.saturating_sub(1),
                                 Some(functions.clone()),
                                 rng,
@@ -119,7 +120,7 @@ impl ArithmeticExpression {
                         let mut args = Vec::with_capacity(num_args);
                         for _ in 0..num_args {
                             // Allow recursive function calls in arguments
-                            args.push(super::expression::Expression::generate_random_expression(
+                            args.push(Expression::generate_random_expression(
                                 max_depth.saturating_sub(1),
                                 Some(functions.clone()),
                                 rng,

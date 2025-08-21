@@ -11,13 +11,15 @@ use crate::basic::{
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
     cls::{
-        basic_types::{
-            BasicType, FloatingPointType, NumberType, SignedIntegerType, UnsignedIntegerType,
-        },
+        basic_type::BasicType,
         class::Class,
+        number_types::{
+            floating_point::FloatingPointType, number::NumberType,
+            signed_integer::SignedIntegerType, unsigned_integer::UnsignedIntegerType,
+        },
     },
     expr::{
-        arithmetich_expression::ArithmeticExpression, boolean_expression::BooleanExpression,
+        arithmetic_expression::ArithmeticExpression, boolean_expression::BooleanExpression,
         expression::Expression, operator::Operator,
     },
     var::variable::Variable,
