@@ -484,6 +484,40 @@ impl TypedGenerationContext {
             }
             SingleStatement::Return(_) => Ok(()),
             SingleStatement::ObjectCreation(_) => Ok(()), // For now, just accept object creation
+            SingleStatement::CompoundAssignment(var_name, _, expr) => {
+                // Find the variable in our context by name
+                let var = self
+                    .variable_types
+                    .keys()
+                    .find(|v| v.get_name() == var_name);
+                if let Some(var) = var {
+                    let var_type = self.variable_types.get(var).unwrap();
+                    let expr_type = self.infer_expression_type(expr)?;
+                    // For compound assignment, both the variable and expression should be numeric
+                    if matches!(var_type, Type::Basic(Class::Basic(BasicType::Number(_)))) {
+                        self.type_checker.check_compatibility(&expr_type, var_type)
+                    } else {
+                        Err(TypeError {
+                            message: format!(
+                                "Compound assignment can only be used with numeric variables, but '{}' is not numeric",
+                                var_name
+                            ),
+                            location: "compound assignment validation".to_string(),
+                            expected: Some(Type::Basic(Class::Basic(BasicType::Number(
+                                NumberType::SignedInteger(SignedIntegerType::Int),
+                            )))),
+                            found: Some(var_type.clone()),
+                        })
+                    }
+                } else {
+                    Err(TypeError {
+                        message: format!("Variable '{}' not found", var_name),
+                        location: "compound assignment validation".to_string(),
+                        expected: None,
+                        found: None,
+                    })
+                }
+            }
         }
     }
 

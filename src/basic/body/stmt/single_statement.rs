@@ -5,15 +5,47 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
+use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
 use crate::basic::expr::expression::Expression;
 use crate::basic::obj::object_instance::ObjectInstance;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum CompoundAssignmentOperator {
+    AddAssign,      // +=
+    SubtractAssign, // -=
+    MultiplyAssign, // *=
+    DivideAssign,   // /=
+}
+
+impl CompoundAssignmentOperator {
+    pub fn generate_random_compound_assignment_operator<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        match rng.random_range(0..4) {
+            0 => CompoundAssignmentOperator::AddAssign,
+            1 => CompoundAssignmentOperator::SubtractAssign,
+            2 => CompoundAssignmentOperator::MultiplyAssign,
+            _ => CompoundAssignmentOperator::DivideAssign,
+        }
+    }
+}
+
+impl Display for CompoundAssignmentOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompoundAssignmentOperator::AddAssign => write!(f, "+="),
+            CompoundAssignmentOperator::SubtractAssign => write!(f, "-="),
+            CompoundAssignmentOperator::MultiplyAssign => write!(f, "*="),
+            CompoundAssignmentOperator::DivideAssign => write!(f, "/="),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SingleStatement {
     VariableDeclaration(Variable),
     Assignment(String, Expression),
+    CompoundAssignment(String, CompoundAssignmentOperator, Expression),
     FunctionCall(String, Vec<Expression>),
     ObjectCreation(ObjectInstance),
     Return(Option<Expression>),
@@ -25,7 +57,7 @@ impl SingleStatement {
         external_functions: Rc<RefCell<Vec<Function>>>,
         rng: &mut T,
     ) -> Self {
-        match rng.random_range(0..6) {
+        match rng.random_range(0..10) as u32 {
             0 => {
                 let var = Variable::generate_random_variable_with_const_control(
                     false,
@@ -37,7 +69,7 @@ impl SingleStatement {
                 // Don't add the new variable to external_variables
                 SingleStatement::VariableDeclaration(var)
             }
-            1..=2 => {
+            1 => {
                 // Get available mutable variables
                 let available_vars = external_variables
                     .iter()
@@ -69,7 +101,7 @@ impl SingleStatement {
                     SingleStatement::Assignment(var_name, expr)
                 }
             }
-            3 => {
+            2 => {
                 // Generate function call
                 let functions = external_functions.borrow();
                 if functions.is_empty() {
@@ -112,7 +144,54 @@ impl SingleStatement {
                     SingleStatement::FunctionCall(function_name, args)
                 }
             }
-            4 => {
+            3..=7 => {
+                // Generate compound assignment (+=, -=, *=, /=)
+                // Get available mutable variables (simplified for testing)
+                let available_vars = external_variables
+                    .iter()
+                    .filter(|v| v.is_mutable()) // Only check if mutable
+                    .map(|v| v.get_name().to_string())
+                    .collect::<Vec<_>>();
+
+                if available_vars.is_empty() {
+                    // If no mutable numeric variables available, generate a new variable declaration instead
+                    let var = Variable::generate_random_variable_with_const_control(
+                        false,
+                        true,
+                        Some(external_variables),
+                        false,
+                        rng,
+                    );
+                    SingleStatement::VariableDeclaration(var)
+                } else {
+                    // Choose a random mutable variable
+                    let var_name =
+                        available_vars[rng.random_range(0..available_vars.len())].clone();
+                    let op =
+                        CompoundAssignmentOperator::generate_random_compound_assignment_operator(
+                            rng,
+                        );
+
+                    // Generate numeric expression for the right side
+                    let expr = if !external_variables.is_empty() && rng.random_range(0..2) == 0 {
+                        // 50% chance to generate variable reference
+                        let variable =
+                            &external_variables[rng.random_range(0..external_variables.len())];
+                        Expression::VariableReference(variable.get_name().to_string())
+                    } else {
+                        // Otherwise generate random numeric expression
+                        Expression::generate_random_expression(
+                            3,
+                            Some(external_functions.clone()),
+                            Some(external_variables),
+                            rng,
+                        )
+                    };
+
+                    SingleStatement::CompoundAssignment(var_name, op, expr)
+                }
+            }
+            8 => {
                 // Generate object creation (20% chance)
                 if rng.random_range(0..10) < 2 {
                     // For now, generate a simple object creation
@@ -137,7 +216,7 @@ impl SingleStatement {
                     SingleStatement::VariableDeclaration(var)
                 }
             }
-            _ => {
+            9 => {
                 if rng.random() {
                     SingleStatement::Return(Some(Expression::generate_random_expression(
                         3,
@@ -148,6 +227,17 @@ impl SingleStatement {
                 } else {
                     SingleStatement::Return(None)
                 }
+            }
+            _ => {
+                // Fallback to variable declaration for any unexpected values
+                let var = Variable::generate_random_variable_with_const_control(
+                    false,
+                    true,
+                    Some(external_variables),
+                    false,
+                    rng,
+                );
+                SingleStatement::VariableDeclaration(var)
             }
         }
     }
@@ -189,7 +279,7 @@ impl SingleStatement {
             }
         }
 
-        match rng.random_range(0..4) {
+        match rng.random_range(0..5) {
             0 => {
                 // Generate a type-compatible variable
                 let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
@@ -241,6 +331,91 @@ impl SingleStatement {
                     SingleStatement::VariableDeclaration(var)
                 }
             }
+            3 => {
+                // Generate type-safe compound assignment
+                // Only select numeric mutable variables for compound assignment
+                let all_mutable_vars = typed_context.get_mutable_variables();
+                let numeric_mutable_vars: Vec<&Variable> = all_mutable_vars
+                    .iter()
+                    .filter(|var| {
+                        if let Some(var_type) = var.get_type() {
+                            matches!(
+                                var_type,
+                                crate::basic::cls::class::Class::Basic(
+                                    crate::basic::cls::basic_type::BasicType::Number(_)
+                                )
+                            )
+                        } else {
+                            false
+                        }
+                    })
+                    .collect();
+
+                if !numeric_mutable_vars.is_empty() {
+                    let var = numeric_mutable_vars[rng.random_range(0..numeric_mutable_vars.len())];
+                    let op =
+                        CompoundAssignmentOperator::generate_random_compound_assignment_operator(
+                            rng,
+                        );
+
+                    // Generate numeric expression for the right side - can be variable, function call, or literal
+                    let expr = match rng.random_range(0..3) {
+                        0 => {
+                            // 33% chance: Generate numeric variable reference if available
+                            let numeric_vars: Vec<&Variable> = all_mutable_vars
+                                .iter()
+                                .filter(|var| {
+                                    if let Some(var_type) = var.get_type() {
+                                        matches!(
+                                            var_type,
+                                            crate::basic::cls::class::Class::Basic(
+                                                crate::basic::cls::basic_type::BasicType::Number(_)
+                                            )
+                                        )
+                                    } else {
+                                        false
+                                    }
+                                })
+                                .collect();
+
+                            if !numeric_vars.is_empty() {
+                                let ref_var = numeric_vars[rng.random_range(0..numeric_vars.len())];
+                                Expression::VariableReference(ref_var.get_name().to_string())
+                            } else {
+                                Expression::Arithmetic(ArithmeticExpression::Int(
+                                    rng.random_range(1..=10),
+                                ))
+                            }
+                        }
+                        1 => {
+                            // 33% chance: Generate numeric function call if available
+                            let available_funcs = typed_context.get_available_functions();
+                            if !available_funcs.is_empty() {
+                                let func_name =
+                                    &available_funcs[rng.random_range(0..available_funcs.len())];
+                                Expression::FunctionCall(func_name.clone(), vec![])
+                            } else {
+                                Expression::Arithmetic(ArithmeticExpression::Int(
+                                    rng.random_range(1..=10),
+                                ))
+                            }
+                        }
+                        _ => {
+                            // 33% chance: Generate numeric literal
+                            Expression::Arithmetic(ArithmeticExpression::Int(
+                                rng.random_range(1..=10),
+                            ))
+                        }
+                    };
+
+                    SingleStatement::CompoundAssignment(var.get_name().to_string(), op, expr)
+                } else {
+                    // No mutable variables, generate new variable
+                    let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
+                    let _ = typed_context.add_variable(&var);
+                    SingleStatement::VariableDeclaration(var)
+                }
+            }
             _ => {
                 // Generate type-aware return statement with expected return type
                 typed_context
@@ -262,6 +437,9 @@ impl Display for SingleStatement {
             }
             SingleStatement::Assignment(var_name, expr) => {
                 write!(f, "{} = {}", var_name, expr)
+            }
+            SingleStatement::CompoundAssignment(var_name, op, expr) => {
+                write!(f, "{} {} {}", var_name, op, expr)
             }
             SingleStatement::FunctionCall(function_name, args) => {
                 let args_str = args
