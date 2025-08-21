@@ -84,13 +84,33 @@ impl TypedGenerationContext {
         rng: &mut T,
     ) -> TypeResult<SingleStatement> {
         if let Some(var_type) = self.variable_types.get(var) {
-            // Check if variable is mutable by looking it up in external variables
-            // For now, generate a compatible expression
+            // Generate an expression that strictly matches the variable's type
             let expr = self.generate_expression_for_type(
                 var_type,
                 Some(self.external_functions.clone()),
                 rng,
             )?;
+
+            // Validate that the generated expression type matches the variable type
+            let expr_type = self.infer_expression_type(&expr)?;
+            if !self
+                .type_checker
+                .check_compatibility(&expr_type, var_type)
+                .is_ok()
+            {
+                return Err(TypeError {
+                    message: format!(
+                        "Type mismatch in assignment to '{}': expected {:?}, found {:?}",
+                        var.get_name(),
+                        var_type,
+                        expr_type
+                    ),
+                    location: "typed assignment generation".to_string(),
+                    expected: Some(var_type.clone()),
+                    found: Some(expr_type),
+                });
+            }
+
             Ok(SingleStatement::Assignment(
                 var.get_name().to_string(),
                 expr,
@@ -212,10 +232,31 @@ impl TypedGenerationContext {
                     args.push(arg);
                 }
 
-                Ok(Expression::Arithmetic(ArithmeticExpression::FunctionCall(
-                    func_name.to_string(),
-                    args,
-                )))
+                // Return the appropriate expression type based on target type
+                match target_type {
+                    Type::Basic(Class::Basic(BasicType::Number(_))) => {
+                        // For numeric types, return ArithmeticExpression
+                        Ok(Expression::Arithmetic(ArithmeticExpression::FunctionCall(
+                            func_name.to_string(),
+                            args,
+                        )))
+                    }
+                    Type::Basic(BOOLEAN) => {
+                        // For boolean type, return BooleanExpression with function call
+                        Ok(Expression::Boolean(BooleanExpression::FunctionCall(
+                            func_name.to_string(),
+                            args,
+                        )))
+                    }
+                    Type::Basic(STRING) => {
+                        // For string type, return Expression::FunctionCall
+                        Ok(Expression::FunctionCall(func_name.to_string(), args))
+                    }
+                    _ => {
+                        // For other types, return Expression::FunctionCall
+                        Ok(Expression::FunctionCall(func_name.to_string(), args))
+                    }
+                }
             } else {
                 // Fallback
                 self.generate_expression_for_type_with_depth(
@@ -504,9 +545,130 @@ impl TypedGenerationContext {
     }
 
     /// Infer the type of an expression
-    fn infer_expression_type(&self, _expr: &Expression) -> TypeResult<Type> {
-        // For now, assume all expressions are Float (arithmetic expressions)
-        Ok(Type::Basic(FLOAT))
+    fn infer_expression_type(&self, expr: &Expression) -> TypeResult<Type> {
+        match expr {
+            Expression::Arithmetic(arith) => {
+                match arith {
+                    ArithmeticExpression::Int(_) => Ok(Type::Basic(INT)),
+                    ArithmeticExpression::Float(_) => Ok(Type::Basic(FLOAT)),
+                    ArithmeticExpression::BinaryOp { left, right, .. } => {
+                        // For binary operations, if both operands are int, result is int
+                        // Otherwise, result is float
+                        let left_type = self.infer_arithmetic_expression_type(left)?;
+                        let right_type = self.infer_arithmetic_expression_type(right)?;
+                        if matches!(
+                            left_type,
+                            Type::Basic(Class::Basic(BasicType::Number(
+                                NumberType::SignedInteger(_)
+                            )))
+                        ) && matches!(
+                            right_type,
+                            Type::Basic(Class::Basic(BasicType::Number(
+                                NumberType::SignedInteger(_)
+                            )))
+                        ) {
+                            Ok(Type::Basic(INT))
+                        } else {
+                            Ok(Type::Basic(FLOAT))
+                        }
+                    }
+                    ArithmeticExpression::FunctionCall(func_name, _) => {
+                        // Look up function return type
+                        if let Some(func_type) = self.function_signatures.get(func_name) {
+                            if let Type::Function(_, return_type) = func_type {
+                                Ok(*return_type.clone())
+                            } else {
+                                Ok(Type::Basic(FLOAT)) // Fallback
+                            }
+                        } else {
+                            Ok(Type::Basic(FLOAT)) // Fallback
+                        }
+                    }
+                    ArithmeticExpression::VariableReference(var_name) => {
+                        // Look up variable type
+                        for (var, var_type) in &self.variable_types {
+                            if var.get_name() == var_name {
+                                return Ok(var_type.clone());
+                            }
+                        }
+                        Ok(Type::Basic(FLOAT)) // Fallback
+                    }
+                }
+            }
+            Expression::Boolean(_) => Ok(Type::Basic(BOOLEAN)),
+            Expression::StringLiteral(_) => Ok(Type::Basic(STRING)),
+            Expression::FunctionCall(func_name, _) => {
+                // Look up function return type
+                if let Some(func_type) = self.function_signatures.get(func_name) {
+                    if let Type::Function(_, return_type) = func_type {
+                        Ok(*return_type.clone())
+                    } else {
+                        Ok(Type::Unknown) // Fallback
+                    }
+                } else {
+                    Ok(Type::Unknown) // Fallback
+                }
+            }
+            Expression::VariableReference(var_name) => {
+                // Look up variable type
+                for (var, var_type) in &self.variable_types {
+                    if var.get_name() == var_name {
+                        return Ok(var_type.clone());
+                    }
+                }
+                Ok(Type::Unknown) // Fallback
+            }
+        }
+    }
+
+    /// Infer the type of an arithmetic expression
+    fn infer_arithmetic_expression_type(&self, arith: &ArithmeticExpression) -> TypeResult<Type> {
+        match arith {
+            ArithmeticExpression::Int(_) => Ok(Type::Basic(INT)),
+            ArithmeticExpression::Float(_) => Ok(Type::Basic(FLOAT)),
+            ArithmeticExpression::BinaryOp { left, right, .. } => {
+                // For binary operations, if both operands are int, result is int
+                // Otherwise, result is float
+                let left_type = self.infer_arithmetic_expression_type(left)?;
+                let right_type = self.infer_arithmetic_expression_type(right)?;
+                if matches!(
+                    left_type,
+                    Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(
+                        _
+                    ))))
+                ) && matches!(
+                    right_type,
+                    Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(
+                        _
+                    ))))
+                ) {
+                    Ok(Type::Basic(INT))
+                } else {
+                    Ok(Type::Basic(FLOAT))
+                }
+            }
+            ArithmeticExpression::FunctionCall(func_name, _) => {
+                // Look up function return type
+                if let Some(func_type) = self.function_signatures.get(func_name) {
+                    if let Type::Function(_, return_type) = func_type {
+                        Ok(*return_type.clone())
+                    } else {
+                        Ok(Type::Basic(FLOAT)) // Fallback
+                    }
+                } else {
+                    Ok(Type::Basic(FLOAT)) // Fallback
+                }
+            }
+            ArithmeticExpression::VariableReference(var_name) => {
+                // Look up variable type
+                for (var, var_type) in &self.variable_types {
+                    if var.get_name() == var_name {
+                        return Ok(var_type.clone());
+                    }
+                }
+                Ok(Type::Basic(FLOAT)) // Fallback
+            }
+        }
     }
 
     /// Generate a type-safe return statement (empty return only)
@@ -527,7 +689,7 @@ impl TypedGenerationContext {
                 // If we have an expected return type, generate appropriate return
                 match return_type {
                     Type::Basic(Class::Basic(BasicType::Number(_))) => {
-                        // Numeric return type - generate return with expression
+                        // Numeric return type - generate return with expression that strictly matches the type
                         let expr = self
                             .generate_expression_for_type(
                                 return_type,
@@ -535,12 +697,22 @@ impl TypedGenerationContext {
                                 rng,
                             )
                             .unwrap_or_else(|_| {
-                                Expression::generate_random_expression(
-                                    2,
-                                    Some(self.external_functions.clone()),
-                                    None, // No external variables available in this context
-                                    rng,
-                                )
+                                // Fallback: generate type-specific literal
+                                match return_type {
+                                    Type::Basic(Class::Basic(BasicType::Number(
+                                        NumberType::FloatingPoint(_),
+                                    ))) => Expression::Arithmetic(ArithmeticExpression::Float(
+                                        OrderedFloat::from(rng.random::<f32>() * 100.0),
+                                    )),
+                                    Type::Basic(Class::Basic(BasicType::Number(
+                                        NumberType::SignedInteger(_),
+                                    ))) => Expression::Arithmetic(ArithmeticExpression::Int(
+                                        rng.random_range(-100..=100),
+                                    )),
+                                    _ => Expression::Arithmetic(ArithmeticExpression::Int(
+                                        rng.random_range(-100..=100),
+                                    )),
+                                }
                             });
                         SingleStatement::Return(Some(expr))
                     }
@@ -555,9 +727,27 @@ impl TypedGenerationContext {
                             .unwrap_or_else(|_| self.generate_boolean_expression(rng));
                         SingleStatement::Return(Some(expr))
                     }
+                    Type::Basic(STRING) => {
+                        // String return type - generate string expression
+                        let expr = self
+                            .generate_expression_for_type(
+                                return_type,
+                                Some(self.external_functions.clone()),
+                                rng,
+                            )
+                            .unwrap_or_else(|_| Expression::generate_random_string_literal(rng));
+                        SingleStatement::Return(Some(expr))
+                    }
                     _ => {
-                        // Other types - default to return without value for safety
-                        SingleStatement::Return(None)
+                        // Other types - try to generate appropriate expression or fallback to empty return
+                        match self.generate_expression_for_type(
+                            return_type,
+                            Some(self.external_functions.clone()),
+                            rng,
+                        ) {
+                            Ok(expr) => SingleStatement::Return(Some(expr)),
+                            Err(_) => SingleStatement::Return(None), // Fallback to empty return
+                        }
                     }
                 }
             }

@@ -424,10 +424,10 @@ impl Function {
                                 let return_type = if expr.is_boolean() {
                                     // Boolean expression
                                     BOOLEAN
-                                } else if expr.is_int(None) {
+                                } else if expr.is_int(None, Some(external_functions)) {
                                     // Integer expression
                                     INT
-                                } else if expr.is_float(None) {
+                                } else if expr.is_float(None, Some(external_functions)) {
                                     // Float expression
                                     FLOAT
                                 } else if let Expression::FunctionCall(func_name, _) = expr {
@@ -618,7 +618,7 @@ impl Display for Function {
             Some(ty) => format!(": {}", ty),
             None => "".to_string(),
         };
-        writeln!(
+        write!(
             f,
             "{indentation}{visibility}fun {}({}){return_type} {}",
             self.name,

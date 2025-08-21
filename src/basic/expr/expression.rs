@@ -184,17 +184,26 @@ impl Expression {
     pub fn is_int(
         &self,
         external_variables: Option<&[crate::basic::var::variable::Variable]>,
+        external_functions: Option<&Rc<RefCell<Vec<Function>>>>,
     ) -> bool {
         match self {
             Self::Arithmetic(arith) => arith.is_int(external_variables),
             Self::Boolean(_) => false,
             Self::StringLiteral(_) => false,
             Self::FunctionCall(func_name, _) => {
-                // For function calls, we need to check the function's return type
-                // Since we don't have access to external_functions here, we'll use a heuristic
-                // Functions that return Int typically have names that suggest numeric operations
-                // This is a temporary solution - ideally we'd look up the actual function return type
-                func_name.contains("Int") || func_name.contains("int") || func_name.contains("num")
+                // For function calls, look up the actual function return type
+                if let Some(functions) = external_functions {
+                    if let Some(func) = functions
+                        .borrow()
+                        .iter()
+                        .find(|f| f.get_name() == func_name)
+                    {
+                        if let Some(return_type) = func.get_return_type() {
+                            return return_type.is_integer_type();
+                        }
+                    }
+                }
+                false // Default to false if function not found or has no return type
             }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
@@ -214,19 +223,34 @@ impl Expression {
     pub fn is_float(
         &self,
         external_variables: Option<&[crate::basic::var::variable::Variable]>,
+        external_functions: Option<&Rc<RefCell<Vec<Function>>>>,
     ) -> bool {
         match self {
             Self::Arithmetic(arith) => arith.is_float(external_variables),
             Self::Boolean(_) => false,
             Self::StringLiteral(_) => false,
             Self::FunctionCall(func_name, _) => {
-                // For function calls, we need to check the function's return type
-                // Since we don't have access to external_functions here, we'll use a heuristic
-                // Functions that return Float typically have names that suggest floating point operations
-                // This is a temporary solution - ideally we'd look up the actual function return type
-                func_name.contains("Float")
-                    || func_name.contains("float")
-                    || func_name.contains("double")
+                // For function calls, look up the actual function return type
+                if let Some(functions) = external_functions {
+                    if let Some(func) = functions
+                        .borrow()
+                        .iter()
+                        .find(|f| f.get_name() == func_name)
+                    {
+                        if let Some(return_type) = func.get_return_type() {
+                            // Float type if it's a floating point number type
+                            return matches!(
+                                return_type,
+                                crate::basic::cls::class::Class::Basic(
+                                    crate::basic::cls::basic_type::BasicType::Number(
+                                        crate::basic::cls::number_types::number::NumberType::FloatingPoint(_)
+                                    )
+                                )
+                            );
+                        }
+                    }
+                }
+                false // Default to false if function not found or has no return type
             }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables

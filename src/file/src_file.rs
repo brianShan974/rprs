@@ -155,31 +155,30 @@ impl File {
 impl Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Write top-level constants first
-        for (i, constant) in self.top_level_constants.iter().enumerate() {
-            if i > 0 {
-                writeln!(f)?;
-            }
+        let mut constants = self.top_level_constants.iter();
+        if let Some(constant) = constants.next() {
             if let Some(init) = constant.output_init() {
-                write!(f, "{}", init)?;
+                writeln!(f, "{}", init)?;
             } else {
-                write!(f, "{}", constant.output_declaration())?;
+                writeln!(f, "{}", constant.output_declaration())?;
+            }
+        }
+        for constant in constants {
+            if let Some(init) = constant.output_init() {
+                write!(f, "\n{}", init)?;
+            } else {
+                write!(f, "\n{}", constant.output_declaration())?;
             }
         }
 
         // Write classes
-        for (i, class) in self.classes.iter().enumerate() {
-            if !self.top_level_constants.is_empty() || i > 0 {
-                writeln!(f)?;
-            }
-            write!(f, "{}", class)?;
+        for class in self.classes.iter() {
+            write!(f, "\n\n{}", class)?;
         }
 
         // Write functions
-        for (i, function) in self.functions.iter().enumerate() {
-            if !self.top_level_constants.is_empty() || !self.classes.is_empty() || i > 0 {
-                writeln!(f)?;
-            }
-            write!(f, "{}", function)?;
+        for function in self.functions.iter() {
+            write!(f, "\n\n{}", function)?;
         }
 
         Ok(())

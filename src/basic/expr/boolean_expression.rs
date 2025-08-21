@@ -17,6 +17,7 @@ pub enum BooleanExpression {
         op: LogicalOperator,
         right: Box<BooleanExpression>,
     },
+    FunctionCall(String, Vec<crate::basic::expr::expression::Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -102,6 +103,14 @@ impl Display for BooleanExpression {
             }
             BooleanExpression::LogicalOp { left, op, right } => {
                 write!(f, "{} {} {}", left, op, right)
+            }
+            BooleanExpression::FunctionCall(name, args) => {
+                let args_str = args
+                    .iter()
+                    .map(|arg| format!("{}", arg))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{}({})", name, args_str)
             }
         }
     }

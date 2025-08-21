@@ -367,45 +367,69 @@ impl ArithmeticExpression {
             },
             5..=6 => {
                 // Generate function call if external_functions is provided and not empty
+                // Only use functions that return numeric types
                 if let Some(functions) = external_functions {
                     let functions_borrowed = functions.borrow();
                     if !functions_borrowed.is_empty() {
-                        let function =
-                            &functions_borrowed[rng.random_range(0..functions_borrowed.len())];
-                        let function_name = function.get_name().to_string();
-
-                        // Generate random arguments (0-2 expressions)
-                        let num_args = rng.random_range(0..=2);
-                        let mut args = Vec::with_capacity(num_args);
-                        for _ in 0..num_args {
-                            // Generate argument with higher probability for variable references
-                            let arg = if let Some(variables) = external_variables {
-                                if !variables.is_empty() && rng.random_range(0..2) == 0 {
-                                    // 50% chance to generate variable reference
-                                    let variable = &variables[rng.random_range(0..variables.len())];
-                                    Expression::VariableReference(variable.get_name().to_string())
+                        // Filter functions that return numeric types
+                        let numeric_functions: Vec<_> = functions_borrowed
+                            .iter()
+                            .filter(|func| {
+                                if let Some(return_type) = func.get_return_type() {
+                                    // Only allow functions that return numeric types (Int, Float, etc.)
+                                    matches!(
+                                        return_type,
+                                        crate::basic::cls::class::Class::Basic(
+                                            crate::basic::cls::basic_type::BasicType::Number(_)
+                                        )
+                                    )
                                 } else {
-                                    // Otherwise generate random expression
+                                    false // Functions without return type (Unit) are not allowed
+                                }
+                            })
+                            .collect();
+
+                        if !numeric_functions.is_empty() {
+                            let function =
+                                &numeric_functions[rng.random_range(0..numeric_functions.len())];
+                            let function_name = function.get_name().to_string();
+
+                            // Generate random arguments (0-2 expressions)
+                            let num_args = rng.random_range(0..=2);
+                            let mut args = Vec::with_capacity(num_args);
+                            for _ in 0..num_args {
+                                // Generate argument with higher probability for variable references
+                                let arg = if let Some(variables) = external_variables {
+                                    if !variables.is_empty() && rng.random_range(0..2) == 0 {
+                                        // 50% chance to generate variable reference
+                                        let variable =
+                                            &variables[rng.random_range(0..variables.len())];
+                                        Expression::VariableReference(
+                                            variable.get_name().to_string(),
+                                        )
+                                    } else {
+                                        // Otherwise generate random expression
+                                        Expression::generate_random_expression(
+                                            max_depth.saturating_sub(1),
+                                            Some(functions.clone()),
+                                            external_variables,
+                                            rng,
+                                        )
+                                    }
+                                } else {
+                                    // No variables available, generate random expression
                                     Expression::generate_random_expression(
                                         max_depth.saturating_sub(1),
                                         Some(functions.clone()),
                                         external_variables,
                                         rng,
                                     )
-                                }
-                            } else {
-                                // No variables available, generate random expression
-                                Expression::generate_random_expression(
-                                    max_depth.saturating_sub(1),
-                                    Some(functions.clone()),
-                                    external_variables,
-                                    rng,
-                                )
-                            };
-                            args.push(arg);
-                        }
+                                };
+                                args.push(arg);
+                            }
 
-                        return ArithmeticExpression::FunctionCall(function_name, args);
+                            return ArithmeticExpression::FunctionCall(function_name, args);
+                        }
                     }
                 }
 
@@ -414,69 +438,97 @@ impl ArithmeticExpression {
             }
             7 => {
                 // Generate binary operation with function call as one operand
+                // Only use functions that return numeric types
                 if let Some(functions) = external_functions {
                     let functions_borrowed = functions.borrow();
                     if !functions_borrowed.is_empty() {
-                        let function =
-                            &functions_borrowed[rng.random_range(0..functions_borrowed.len())];
-                        let function_name = function.get_name().to_string();
-
-                        // Generate random arguments (0-2 expressions)
-                        let num_args = rng.random_range(0..=2);
-                        let mut args = Vec::with_capacity(num_args);
-                        for _ in 0..num_args {
-                            // Generate argument with higher probability for variable references
-                            let arg = if let Some(variables) = external_variables {
-                                if !variables.is_empty() && rng.random_range(0..2) == 0 {
-                                    // 50% chance to generate variable reference
-                                    let variable = &variables[rng.random_range(0..variables.len())];
-                                    Expression::VariableReference(variable.get_name().to_string())
+                        // Filter functions that return numeric types
+                        let numeric_functions: Vec<_> = functions_borrowed
+                            .iter()
+                            .filter(|func| {
+                                if let Some(return_type) = func.get_return_type() {
+                                    // Only allow functions that return numeric types (Int, Float, etc.)
+                                    matches!(
+                                        return_type,
+                                        crate::basic::cls::class::Class::Basic(
+                                            crate::basic::cls::basic_type::BasicType::Number(_)
+                                        )
+                                    )
                                 } else {
-                                    // Otherwise generate random expression
+                                    false // Functions without return type (Unit) are not allowed
+                                }
+                            })
+                            .collect();
+
+                        if !numeric_functions.is_empty() {
+                            let function =
+                                &numeric_functions[rng.random_range(0..numeric_functions.len())];
+                            let function_name = function.get_name().to_string();
+
+                            // Generate random arguments (0-2 expressions)
+                            let num_args = rng.random_range(0..=2);
+                            let mut args = Vec::with_capacity(num_args);
+                            for _ in 0..num_args {
+                                // Generate argument with higher probability for variable references
+                                let arg = if let Some(variables) = external_variables {
+                                    if !variables.is_empty() && rng.random_range(0..2) == 0 {
+                                        // 50% chance to generate variable reference
+                                        let variable =
+                                            &variables[rng.random_range(0..variables.len())];
+                                        Expression::VariableReference(
+                                            variable.get_name().to_string(),
+                                        )
+                                    } else {
+                                        // Otherwise generate random expression
+                                        Expression::generate_random_expression(
+                                            max_depth.saturating_sub(1),
+                                            Some(functions.clone()),
+                                            external_variables,
+                                            rng,
+                                        )
+                                    }
+                                } else {
+                                    // No variables available, generate random expression
                                     Expression::generate_random_expression(
                                         max_depth.saturating_sub(1),
                                         Some(functions.clone()),
                                         external_variables,
                                         rng,
                                     )
+                                };
+                                args.push(arg);
+                            }
+
+                            let function_call =
+                                ArithmeticExpression::FunctionCall(function_name, args);
+
+                            // Decide whether function call should be left or right operand
+                            if rng.random_range(0..=1) == 0 {
+                                ArithmeticExpression::BinaryOp {
+                                    left: Box::new(function_call),
+                                    op: Operator::generate_random_operator(rng),
+                                    right: Box::new(Self::generate_random_expression(
+                                        max_depth - 1,
+                                        Some(functions.clone()),
+                                        external_variables,
+                                        rng,
+                                    )),
                                 }
                             } else {
-                                // No variables available, generate random expression
-                                Expression::generate_random_expression(
-                                    max_depth.saturating_sub(1),
-                                    Some(functions.clone()),
-                                    external_variables,
-                                    rng,
-                                )
-                            };
-                            args.push(arg);
-                        }
-
-                        let function_call = ArithmeticExpression::FunctionCall(function_name, args);
-
-                        // Decide whether function call should be left or right operand
-                        if rng.random_range(0..=1) == 0 {
-                            ArithmeticExpression::BinaryOp {
-                                left: Box::new(function_call),
-                                op: Operator::generate_random_operator(rng),
-                                right: Box::new(Self::generate_random_expression(
-                                    max_depth - 1,
-                                    Some(functions.clone()),
-                                    external_variables,
-                                    rng,
-                                )),
+                                ArithmeticExpression::BinaryOp {
+                                    left: Box::new(Self::generate_random_expression(
+                                        max_depth - 1,
+                                        Some(functions.clone()),
+                                        external_variables,
+                                        rng,
+                                    )),
+                                    op: Operator::generate_random_operator(rng),
+                                    right: Box::new(function_call),
+                                }
                             }
                         } else {
-                            ArithmeticExpression::BinaryOp {
-                                left: Box::new(Self::generate_random_expression(
-                                    max_depth - 1,
-                                    Some(functions.clone()),
-                                    external_variables,
-                                    rng,
-                                )),
-                                op: Operator::generate_random_operator(rng),
-                                right: Box::new(function_call),
-                            }
+                            // No numeric functions available, fallback to simple arithmetic expression
+                            ArithmeticExpression::Int(rng.random_range(-100..=100))
                         }
                     } else {
                         // Fallback to simple arithmetic expression

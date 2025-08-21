@@ -211,7 +211,7 @@ impl fmt::Display for CustomClass {
             writeln!(f, "{}", method)?;
         }
 
-        writeln!(f, "{}}}", outer_indentation)?;
+        write!(f, "{}}}", outer_indentation)?;
 
         Ok(())
     }
