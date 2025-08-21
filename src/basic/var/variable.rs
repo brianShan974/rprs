@@ -3,10 +3,13 @@ use rand::{Rng, SeedableRng};
 
 use super::prefix::var_prefix::VariablePrefix;
 use crate::basic::cls::basic_type::BasicType;
-use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE, FLOAT, STRING};
+use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE, FLOAT, INT, STRING};
 use crate::basic::cls::number_types::number::NumberType;
+use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
+use crate::basic::expr::boolean_expression::BooleanExpression;
 use crate::basic::expr::expression::Expression;
 use crate::basic::utils::generate_random_identifier;
+use ordered_float::OrderedFloat;
 
 #[derive(Constructor, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable {
@@ -75,10 +78,20 @@ impl Variable {
         } else {
             None
         };
-        let ty = if let Some(value) = &value
-            && value.is_arithmetic()
-        {
-            Some(FLOAT)
+        let ty = if let Some(value) = &value {
+            // Infer type from expression
+            match value {
+                Expression::Arithmetic(arith_expr) => {
+                    // Check if it's an integer or float expression
+                    if arith_expr.is_int() {
+                        Some(INT) // Use INT for integer expressions
+                    } else {
+                        Some(FLOAT) // Use FLOAT for float expressions
+                    }
+                }
+                Expression::Boolean(_) => Some(BOOLEAN),
+                Expression::FunctionCall(_, _) => Some(FLOAT), // Function calls default to float for now
+            }
         } else {
             None
         };
@@ -105,28 +118,36 @@ impl Variable {
             match &target_type {
                 Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
                     // Generate integer expression
-                    let expr = Expression::generate_random_expression(3, None, rng);
+                    let expr = Expression::Arithmetic(ArithmeticExpression::Int(
+                        rng.random_range(-100..100),
+                    ));
                     (Some(expr), target_type.clone())
                 }
                 Some(FLOAT) | Some(DOUBLE) => {
                     // Generate float expression
-                    let expr = Expression::generate_random_expression(3, None, rng);
+                    let expr = Expression::Arithmetic(ArithmeticExpression::Float(
+                        OrderedFloat::from(rng.random::<f32>() * 100.0),
+                    ));
                     (Some(expr), target_type.clone())
                 }
                 Some(BOOLEAN) => {
-                    // Generate boolean expression (comparison or literal)
-                    let expr = Expression::generate_random_expression(2, None, rng);
+                    // Generate boolean expression
+                    let expr = Expression::Boolean(BooleanExpression::Literal(rng.random()));
                     (Some(expr), target_type.clone())
                 }
                 Some(STRING) => {
                     // For now, generate arithmetic expression (string literals not implemented)
-                    let expr = Expression::generate_random_expression(2, None, rng);
-                    (Some(expr), Some(FLOAT))
+                    let expr = Expression::Arithmetic(ArithmeticExpression::Int(
+                        rng.random_range(-100..100),
+                    ));
+                    (Some(expr), Some(INT))
                 }
                 _ => {
                     // Default to arithmetic expression
-                    let expr = Expression::generate_random_expression(3, None, rng);
-                    let inferred_type = Some(FLOAT);
+                    let expr = Expression::Arithmetic(ArithmeticExpression::Int(
+                        rng.random_range(-100..100),
+                    ));
+                    let inferred_type = Some(INT);
                     (Some(expr), inferred_type)
                 }
             }
