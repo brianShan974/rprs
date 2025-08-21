@@ -420,10 +420,10 @@ impl Function {
                                 let return_type = if expr.is_boolean() {
                                     // Boolean expression
                                     BOOLEAN
-                                } else if expr.is_int() {
+                                } else if expr.is_int(None) {
                                     // Integer expression
                                     INT
-                                } else if expr.is_float() {
+                                } else if expr.is_float(None) {
                                     // Float expression
                                     FLOAT
                                 } else {

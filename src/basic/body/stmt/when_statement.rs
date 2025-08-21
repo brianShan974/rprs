@@ -47,14 +47,15 @@ impl WhenStatement {
         }
 
         // Generate subject variable
-        let subject = Variable::generate_random_variable(false, false, rng);
+        let subject = Variable::generate_random_variable(false, false, Some(external_variables), rng);
 
         // Generate arms
         let num_arms = rng.random_range(1..=2);
         let mut arms = Vec::with_capacity(num_arms);
 
         for _ in 0..num_arms {
-            let condition = Expression::generate_random_expression(3, None, rng);
+            let condition =
+                Expression::generate_random_expression(3, None, Some(external_variables), rng);
             let block = Block::generate_random_block(
                 external_variables,
                 external_functions.clone(),

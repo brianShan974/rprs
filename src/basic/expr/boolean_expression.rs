@@ -52,8 +52,8 @@ impl BooleanExpression {
             }
             1 => {
                 // Generate comparison expression
-                let left = ArithmeticExpression::generate_random_expression(1, None, rng);
-                let right = ArithmeticExpression::generate_random_expression(1, None, rng);
+                let left = ArithmeticExpression::generate_random_expression(1, None, None, rng);
+                let right = ArithmeticExpression::generate_random_expression(1, None, None, rng);
                 let op = ComparisonOperator::generate_random_comparison_operator(rng);
                 BooleanExpression::Comparison { left, op, right }
             }

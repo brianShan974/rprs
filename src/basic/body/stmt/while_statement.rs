@@ -42,7 +42,8 @@ impl WhileStatement {
             return None;
         }
 
-        let condition = Expression::generate_random_expression(3, None, rng);
+        let condition =
+            Expression::generate_random_expression(3, None, Some(external_variables), rng);
         let block = Block::generate_random_block(
             external_variables,
             external_functions,
@@ -82,7 +83,8 @@ impl WhileStatement {
         }
 
         // Generate condition
-        let condition = Expression::generate_random_expression(3, None, rng);
+        let condition =
+            Expression::generate_random_expression(3, None, Some(external_variables), rng);
 
         // Generate block with return type awareness
         let block = Block::generate_type_safe_block_with_return_type(

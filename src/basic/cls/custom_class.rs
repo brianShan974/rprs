@@ -56,7 +56,7 @@ impl CustomClass {
         // Generate 1-4 properties
         let num_properties = rng.random_range(1..=Self::MAX_PROPERTIES);
         for _ in 0..num_properties {
-            custom_class.add_property(Variable::generate_random_variable(true, true, rng));
+            custom_class.add_property(Variable::generate_random_variable(true, true, None, rng));
         }
 
         // Generate 1-3 methods using type-safe function generation
@@ -113,7 +113,7 @@ impl CustomClass {
         // Generate 1-4 properties
         let num_properties = rng.random_range(1..=Self::MAX_PROPERTIES);
         for _ in 0..num_properties {
-            custom_class.add_property(Variable::generate_random_variable(true, true, rng));
+            custom_class.add_property(Variable::generate_random_variable(true, true, None, rng));
         }
 
         // Generate 1-3 methods using type-safe function generation

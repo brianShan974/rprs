@@ -31,4 +31,8 @@ impl VariableInit {
     pub fn is_default(&self) -> bool {
         matches!(self, Self::Default)
     }
+
+    pub fn is_const(&self) -> bool {
+        matches!(self, Self::Const)
+    }
 }

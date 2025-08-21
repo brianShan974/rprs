@@ -33,6 +33,10 @@ impl VariablePrefix {
         self.visibility.is_default()
     }
 
+    pub fn get_init(&self) -> &VariableInit {
+        &self.init
+    }
+
     pub fn is_val(&self) -> bool {
         matches!(self.mutability, VariableMutability::Val)
     }

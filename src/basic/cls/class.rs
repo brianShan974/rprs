@@ -69,4 +69,12 @@ impl Class {
             Class::Custom(custom_class) => custom_class.get_name(),
         }
     }
+
+    pub fn is_integer_type(&self) -> bool {
+        match self {
+            Class::Basic(BasicType::Number(NumberType::SignedInteger(_))) => true,
+            Class::Basic(BasicType::Number(NumberType::UnsignedInteger(_))) => true,
+            _ => false,
+        }
+    }
 }

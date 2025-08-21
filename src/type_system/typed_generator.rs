@@ -327,7 +327,14 @@ impl TypedGenerationContext {
         // Generate a variable with a common numeric type for compatibility
         let target_type = Some(FLOAT);
 
-        Variable::generate_random_variable_with_type(is_member, true, target_type, rng)
+        let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
+        Variable::generate_random_variable_with_type(
+            is_member,
+            true,
+            target_type,
+            Some(&variables),
+            rng,
+        )
     }
 
     /// Get available mutable variables for assignment
@@ -514,6 +521,7 @@ impl TypedGenerationContext {
                                 Expression::generate_random_expression(
                                     2,
                                     Some(self.external_functions.clone()),
+                                    None, // No external variables available in this context
                                     rng,
                                 )
                             });
@@ -636,6 +644,7 @@ impl TypedGenerationContext {
                 Ok(Expression::generate_random_expression(
                     1,
                     external_functions,
+                    None, // No external variables available in this context
                     rng,
                 ))
             }
@@ -644,6 +653,7 @@ impl TypedGenerationContext {
                 Ok(Expression::generate_random_expression(
                     2,
                     external_functions,
+                    None, // No external variables available in this context
                     rng,
                 ))
             }

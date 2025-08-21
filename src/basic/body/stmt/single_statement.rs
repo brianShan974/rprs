@@ -25,13 +25,13 @@ impl SingleStatement {
         external_functions: Rc<RefCell<Vec<Function>>>,
         rng: &mut T,
     ) -> Self {
-        match rng.random_range(0..5) {
+        match rng.random_range(0..6) {
             0 => {
-                let var = Variable::generate_random_variable(false, true, rng);
+                let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
                 // Don't add the new variable to external_variables
                 SingleStatement::VariableDeclaration(var)
             }
-            1 => {
+            1..=2 => {
                 // Get available mutable variables
                 let available_vars = external_variables
                     .iter()
@@ -41,7 +41,7 @@ impl SingleStatement {
 
                 if available_vars.is_empty() {
                     // If no mutable variables available, generate a new variable declaration instead
-                    let var = Variable::generate_random_variable(false, true, rng);
+                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
                     // Don't add the new variable to external_variables
                     SingleStatement::VariableDeclaration(var)
                 } else {
@@ -51,17 +51,18 @@ impl SingleStatement {
                     let expr = Expression::generate_random_expression(
                         3,
                         Some(external_functions.clone()),
+                        Some(external_variables),
                         rng,
                     );
                     SingleStatement::Assignment(var_name, expr)
                 }
             }
-            2 => {
+            3 => {
                 // Generate function call
                 let functions = external_functions.borrow();
                 if functions.is_empty() {
                     // If no functions available, generate a variable declaration instead
-                    let var = Variable::generate_random_variable(false, true, rng);
+                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Choose a random function
@@ -75,6 +76,7 @@ impl SingleStatement {
                         args.push(Expression::generate_random_expression(
                             2,
                             Some(external_functions.clone()),
+                            Some(external_variables),
                             rng,
                         ));
                     }
@@ -82,16 +84,16 @@ impl SingleStatement {
                     SingleStatement::FunctionCall(function_name, args)
                 }
             }
-            3 => {
+            4 => {
                 // Generate object creation (20% chance)
                 if rng.random_range(0..10) < 2 {
                     // For now, generate a simple object creation
                     // In a full implementation, this would use custom classes from the context
-                    let var = Variable::generate_random_variable(false, true, rng);
+                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Fallback to variable declaration
-                    let var = Variable::generate_random_variable(false, true, rng);
+                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
                     SingleStatement::VariableDeclaration(var)
                 }
             }
@@ -100,6 +102,7 @@ impl SingleStatement {
                     SingleStatement::Return(Some(Expression::generate_random_expression(
                         3,
                         Some(external_functions.clone()),
+                        Some(external_variables),
                         rng,
                     )))
                 } else {

@@ -9,7 +9,6 @@ use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
 use crate::basic::expr::boolean_expression::BooleanExpression;
 use crate::basic::expr::expression::Expression;
 use crate::basic::utils::generate_random_identifier;
-use ordered_float::OrderedFloat;
 
 #[derive(Constructor, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable {
@@ -69,12 +68,46 @@ impl Variable {
     pub fn generate_random_variable<T: Rng + SeedableRng>(
         is_member: bool,
         with_initial_value: bool,
+        external_variables: Option<&[Variable]>,
         rng: &mut T,
     ) -> Self {
         let prefix = VariablePrefix::generate_random_prefix(is_member, rng);
         let name = generate_random_identifier(rng);
         let value = if with_initial_value {
-            Some(Expression::generate_random_expression(5, None, rng))
+            // Generate expression based on random type choice
+            match rng.random_range(0..3) {
+                0 => {
+                    // Generate integer arithmetic expression
+                    Some(Expression::Arithmetic(
+                        ArithmeticExpression::generate_typed_expression(
+                            2,    // Allow some complexity
+                            true, // target_is_int = true
+                            None, // No external functions for variable initialization
+                            external_variables,
+                            rng,
+                        ),
+                    ))
+                }
+                1 => {
+                    // Generate float arithmetic expression
+                    Some(Expression::Arithmetic(
+                        ArithmeticExpression::generate_typed_expression(
+                            2,     // Allow some complexity
+                            false, // target_is_int = false
+                            None,  // No external functions for variable initialization
+                            external_variables,
+                            rng,
+                        ),
+                    ))
+                }
+                2 => {
+                    // Generate boolean expression
+                    Some(Expression::Boolean(BooleanExpression::Literal(
+                        rng.random(),
+                    )))
+                }
+                _ => unreachable!(),
+            }
         } else {
             None
         };
@@ -83,7 +116,7 @@ impl Variable {
             match value {
                 Expression::Arithmetic(arith_expr) => {
                     // Check if it's an integer or float expression
-                    if arith_expr.is_int() {
+                    if arith_expr.is_int(external_variables) {
                         Some(INT) // Use INT for integer expressions
                     } else {
                         Some(FLOAT) // Use FLOAT for float expressions
@@ -91,6 +124,19 @@ impl Variable {
                 }
                 Expression::Boolean(_) => Some(BOOLEAN),
                 Expression::FunctionCall(_, _) => Some(FLOAT), // Function calls default to float for now
+                Expression::VariableReference(var_name) => {
+                    // Look up the variable type from external_variables
+                    if let Some(variables) = external_variables {
+                        if let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
+                        {
+                            variable.get_type().cloned()
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
             }
         } else {
             None
@@ -109,6 +155,7 @@ impl Variable {
         is_member: bool,
         with_initial_value: bool,
         target_type: Option<Class>,
+        external_variables: Option<&[Variable]>,
         rng: &mut T,
     ) -> Self {
         let prefix = VariablePrefix::generate_random_prefix(is_member, rng);
@@ -117,36 +164,82 @@ impl Variable {
         let (value, ty) = if with_initial_value {
             match &target_type {
                 Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
-                    // Generate integer expression
-                    let expr = Expression::Arithmetic(ArithmeticExpression::Int(
-                        rng.random_range(-100..100),
-                    ));
+                    // Generate integer arithmetic expression that can include variable references
+                    let expr = if prefix.get_init().is_const() {
+                        // For const val, only generate compile-time constants
+                        Expression::Arithmetic(ArithmeticExpression::generate_compile_time_constant_expression(
+                            2,    // Allow some complexity
+                            true, // target_is_int = true
+                            external_variables,
+                            rng,
+                        ))
+                    } else {
+                        // For var/val, can generate any expression
+                        Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                            2,    // Allow some complexity
+                            true, // target_is_int = true
+                            None, // No external functions for variable initialization
+                            external_variables,
+                            rng,
+                        ))
+                    };
                     (Some(expr), target_type.clone())
                 }
                 Some(FLOAT) | Some(DOUBLE) => {
-                    // Generate float expression
-                    let expr = Expression::Arithmetic(ArithmeticExpression::Float(
-                        OrderedFloat::from(rng.random::<f32>() * 100.0),
-                    ));
+                    // Generate float arithmetic expression that can include variable references
+                    let expr = if prefix.get_init().is_const() {
+                        // For const val, only generate compile-time constants
+                        Expression::Arithmetic(ArithmeticExpression::generate_compile_time_constant_expression(
+                            2,     // Allow some complexity
+                            false, // target_is_int = false
+                            external_variables,
+                            rng,
+                        ))
+                    } else {
+                        // For var/val, can generate any expression
+                        Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                            2,     // Allow some complexity
+                            false, // target_is_int = false
+                            None,  // No external functions for variable initialization
+                            external_variables,
+                            rng,
+                        ))
+                    };
                     (Some(expr), target_type.clone())
                 }
                 Some(BOOLEAN) => {
                     // Generate boolean expression
-                    let expr = Expression::Boolean(BooleanExpression::Literal(rng.random()));
+                    let expr = if prefix.get_init().is_const() {
+                        // For const val, only generate boolean literals (compile-time constants)
+                        Expression::Boolean(BooleanExpression::Literal(rng.random()))
+                    } else {
+                        // For var/val, can generate any boolean expression
+                        Expression::Boolean(BooleanExpression::Literal(rng.random()))
+                    };
                     (Some(expr), target_type.clone())
                 }
                 Some(STRING) => {
-                    // For now, generate arithmetic expression (string literals not implemented)
-                    let expr = Expression::Arithmetic(ArithmeticExpression::Int(
-                        rng.random_range(-100..100),
-                    ));
+                    // For now, generate integer arithmetic expression (string literals not implemented)
+                    let expr =
+                        Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                            2,    // Allow some complexity
+                            true, // target_is_int = true (fallback to INT)
+                            None, // No external functions for variable initialization
+                            external_variables,
+                            rng,
+                        ));
                     (Some(expr), Some(INT))
                 }
                 _ => {
-                    // Default to arithmetic expression
-                    let expr = Expression::Arithmetic(ArithmeticExpression::Int(
-                        rng.random_range(-100..100),
-                    ));
+                    // Default to integer arithmetic expression with possible variable references
+                    let expr =
+                        Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                            2,    // Allow some complexity
+                            true, // target_is_int = true (default to INT)
+                            None, // No external functions for variable initialization
+                            external_variables,
+                            rng,
+                        ));
                     let inferred_type = Some(INT);
                     (Some(expr), inferred_type)
                 }
