@@ -71,6 +71,10 @@ impl TypedGenerationContext {
         Ok(())
     }
 
+    pub fn get_external_functions(&self) -> Rc<RefCell<Vec<Function>>> {
+        self.external_functions.clone()
+    }
+
     /// Generate a type-safe variable assignment
     pub fn generate_type_safe_assignment<T: Rng + SeedableRng>(
         &self,
@@ -145,6 +149,16 @@ impl TypedGenerationContext {
         target_type: &Type,
         rng: &mut T,
     ) -> TypeResult<Expression> {
+        self.generate_type_safe_function_call_expression_with_depth(target_type, 0, rng)
+    }
+
+    /// Generate a type-safe function call expression with depth limit
+    fn generate_type_safe_function_call_expression_with_depth<T: Rng + SeedableRng>(
+        &self,
+        target_type: &Type,
+        depth: usize,
+        rng: &mut T,
+    ) -> TypeResult<Expression> {
         let functions = &self.external_functions;
         let functions_borrowed = functions.borrow();
 
@@ -169,7 +183,12 @@ impl TypedGenerationContext {
 
         if compatible_functions.is_empty() {
             // Fallback to generating a simple expression of the target type
-            return self.generate_expression_for_type(target_type, Some(functions.clone()), rng);
+            return self.generate_expression_for_type_with_depth(
+                target_type,
+                Some(functions.clone()),
+                depth + 1,
+                rng,
+            );
         }
 
         // Randomly select a compatible function
@@ -182,9 +201,10 @@ impl TypedGenerationContext {
 
                 // Generate arguments that match the parameter types
                 for param_type in param_types {
-                    let arg = self.generate_expression_for_type(
+                    let arg = self.generate_expression_for_type_with_depth(
                         param_type,
                         Some(functions.clone()),
+                        depth + 1,
                         rng,
                     )?;
                     args.push(arg);
@@ -196,11 +216,21 @@ impl TypedGenerationContext {
                 )))
             } else {
                 // Fallback
-                self.generate_expression_for_type(target_type, Some(functions.clone()), rng)
+                self.generate_expression_for_type_with_depth(
+                    target_type,
+                    Some(functions.clone()),
+                    depth + 1,
+                    rng,
+                )
             }
         } else {
             // Fallback
-            self.generate_expression_for_type(target_type, Some(functions.clone()), rng)
+            self.generate_expression_for_type_with_depth(
+                target_type,
+                Some(functions.clone()),
+                depth + 1,
+                rng,
+            )
         }
     }
 
@@ -525,44 +555,75 @@ impl TypedGenerationContext {
         external_functions: Option<Rc<RefCell<Vec<Function>>>>,
         rng: &mut T,
     ) -> TypeResult<Expression> {
+        self.generate_expression_for_type_with_depth(target_type, external_functions, 0, rng)
+    }
+
+    /// Generate an expression compatible with the given type with depth limit
+    fn generate_expression_for_type_with_depth<T: Rng + SeedableRng>(
+        &self,
+        target_type: &Type,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
+        depth: usize,
+        rng: &mut T,
+    ) -> TypeResult<Expression> {
+        if depth > 5 {
+            // Prevent infinite recursion by generating simple literals
+            return match target_type {
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => Ok(
+                    Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(-100..100))),
+                ),
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
+                    Ok(Expression::Arithmetic(ArithmeticExpression::Float(
+                        OrderedFloat::from(rng.random::<f32>() * 100.0),
+                    )))
+                }
+                Type::Basic(Class::Basic(BasicType::Boolean)) => Ok(Expression::Boolean(
+                    BooleanExpression::Literal(rng.random()),
+                )),
+                _ => Ok(Expression::Arithmetic(ArithmeticExpression::Int(
+                    rng.random_range(-100..100),
+                ))),
+            };
+        }
+
         match target_type {
             Type::Basic(Class::Basic(BasicType::Number(number_type))) => {
                 match number_type {
                     NumberType::SignedInteger(SignedIntegerType::Byte) => {
                         // Generate small integer expression for Byte (-128 to 127)
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::SignedInteger(SignedIntegerType::Short) => {
                         // Generate medium integer expression for Short
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::SignedInteger(SignedIntegerType::Int) => {
                         // Generate integer expression for Int
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::SignedInteger(SignedIntegerType::Long) => {
                         // Generate large integer expression for Long
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::UnsignedInteger(UnsignedIntegerType::UByte) => {
                         // Generate small positive integer expression for UByte
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::UnsignedInteger(UnsignedIntegerType::UShort) => {
                         // Generate medium positive integer expression for UShort
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::UnsignedInteger(UnsignedIntegerType::UInt) => {
                         // Generate positive integer expression for UInt
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::UnsignedInteger(UnsignedIntegerType::ULong) => {
                         // Generate large positive integer expression for ULong
-                        Ok(self.generate_int_expression(rng))
+                        Ok(self.generate_int_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::FloatingPoint(FloatingPointType::Float) => {
                         // Generate float expression specifically
-                        Ok(self.generate_float_expression(rng))
+                        Ok(self.generate_float_expression_with_depth(depth + 1, rng))
                     }
                     NumberType::FloatingPoint(FloatingPointType::Double) => {
                         // Generate double expression specifically
@@ -593,8 +654,12 @@ impl TypedGenerationContext {
         }
     }
 
-    /// Generate a float expression specifically
-    fn generate_float_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
+    /// Generate a float expression specifically with depth limit
+    fn generate_float_expression_with_depth<T: Rng + SeedableRng>(
+        &self,
+        depth: usize,
+        rng: &mut T,
+    ) -> Expression {
         // 40% chance to generate float literal, 25% chance to generate float arithmetic, 35% chance to generate function call
         match rng.random_range(0..10) {
             0..=3 => {
@@ -621,7 +686,11 @@ impl TypedGenerationContext {
                     NumberType::FloatingPoint(FloatingPointType::Float),
                 )));
 
-                match self.generate_type_safe_function_call_expression(&float_type, rng) {
+                match self.generate_type_safe_function_call_expression_with_depth(
+                    &float_type,
+                    depth + 1,
+                    rng,
+                ) {
                     Ok(expr) => expr,
                     Err(_) => {
                         // Fallback to float literal
@@ -658,8 +727,12 @@ impl TypedGenerationContext {
         }
     }
 
-    /// Generate an integer expression specifically
-    fn generate_int_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
+    /// Generate an integer expression specifically with depth limit
+    fn generate_int_expression_with_depth<T: Rng + SeedableRng>(
+        &self,
+        depth: usize,
+        rng: &mut T,
+    ) -> Expression {
         // 40% chance to generate integer literal, 20% chance to generate integer arithmetic, 40% chance to generate function call
         match rng.random_range(0..10) {
             0..=3 => {
@@ -684,7 +757,11 @@ impl TypedGenerationContext {
                     NumberType::SignedInteger(SignedIntegerType::Int),
                 )));
 
-                match self.generate_type_safe_function_call_expression(&int_type, rng) {
+                match self.generate_type_safe_function_call_expression_with_depth(
+                    &int_type,
+                    depth + 1,
+                    rng,
+                ) {
                     Ok(expr) => expr,
                     Err(_) => {
                         // Fallback to integer literal

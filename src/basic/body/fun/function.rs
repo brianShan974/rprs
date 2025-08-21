@@ -100,7 +100,7 @@ impl Function {
 
     /// Generate a type-safe function using typed generation context
     pub fn generate_type_safe_function<T: Rng + SeedableRng>(
-        external_variables: Vec<Parameter>,
+        external_variables: &[Parameter],
         external_functions: Rc<RefCell<Vec<Function>>>,
         defined_classes: Option<&[Class]>,
         current_indentation_layer: Option<usize>,
@@ -117,13 +117,17 @@ impl Function {
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let parameters = Parameter::generate_random_parameters(rng, defined_classes);
         let all_identifiers: Vec<Variable> = external_variables
-            .into_iter()
-            .chain(parameters.clone().into_iter())
-            .map(|p| p.into())
+            .iter()
+            .chain(parameters.iter())
+            .map(|p| p.to_owned().into())
             .collect();
 
         // Decide on return type first (before generating body)
-        let return_type = Self::decide_return_type(rng);
+        let return_type = if is_method {
+            Self::decide_method_return_type(rng)
+        } else {
+            Self::decide_return_type(rng)
+        };
 
         // Convert return type to Type system type for context
         let return_type_system = return_type.as_ref().map(|ty| Type::Basic(ty.clone()));
@@ -181,6 +185,20 @@ impl Function {
 
     /// Decide on a return type for the function
     fn decide_return_type<T: Rng + SeedableRng>(rng: &mut T) -> Option<Class> {
+        match rng.random_range(0..4) {
+            0 => None, // No return type (Unit)
+            1 => Some(Class::Basic(BasicType::Boolean)),
+            2 => Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                FloatingPointType::Float,
+            )))),
+            _ => Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
+                SignedIntegerType::Int,
+            )))),
+        }
+    }
+
+    /// Decide on a return type for a method (can have Unit return type)
+    fn decide_method_return_type<T: Rng + SeedableRng>(rng: &mut T) -> Option<Class> {
         match rng.random_range(0..4) {
             0 => None, // No return type (Unit)
             1 => Some(Class::Basic(BasicType::Boolean)),

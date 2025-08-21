@@ -17,6 +17,10 @@ pub struct Parameter {
 impl Parameter {
     pub const MAX_COUNT: usize = 4;
 
+    pub fn new(name: String, ty: Class) -> Self {
+        Self { name, ty }
+    }
+
     pub fn generate_random_parameter<T: Rng + SeedableRng>(
         rng: &mut T,
         defined_classes: Option<&[Class]>,
