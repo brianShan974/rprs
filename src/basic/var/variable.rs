@@ -71,7 +71,24 @@ impl Variable {
         external_variables: Option<&[Variable]>,
         rng: &mut T,
     ) -> Self {
-        let prefix = VariablePrefix::generate_random_prefix(is_member, rng);
+        Self::generate_random_variable_with_const_control(
+            is_member,
+            with_initial_value,
+            external_variables,
+            true,
+            rng,
+        )
+    }
+
+    pub fn generate_random_variable_with_const_control<T: Rng + SeedableRng>(
+        is_member: bool,
+        with_initial_value: bool,
+        external_variables: Option<&[Variable]>,
+        allow_const: bool,
+        rng: &mut T,
+    ) -> Self {
+        let prefix =
+            VariablePrefix::generate_random_prefix_with_const_control(is_member, allow_const, rng);
         let name = generate_random_identifier(rng);
         let value = if with_initial_value {
             // Generate expression based on random type choice
@@ -167,12 +184,14 @@ impl Variable {
                     // Generate integer arithmetic expression that can include variable references
                     let expr = if prefix.get_init().is_const() {
                         // For const val, only generate compile-time constants
-                        Expression::Arithmetic(ArithmeticExpression::generate_compile_time_constant_expression(
-                            2,    // Allow some complexity
-                            true, // target_is_int = true
-                            external_variables,
-                            rng,
-                        ))
+                        Expression::Arithmetic(
+                            ArithmeticExpression::generate_compile_time_constant_expression(
+                                2,    // Allow some complexity
+                                true, // target_is_int = true
+                                external_variables,
+                                rng,
+                            ),
+                        )
                     } else {
                         // For var/val, can generate any expression
                         Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
@@ -189,12 +208,14 @@ impl Variable {
                     // Generate float arithmetic expression that can include variable references
                     let expr = if prefix.get_init().is_const() {
                         // For const val, only generate compile-time constants
-                        Expression::Arithmetic(ArithmeticExpression::generate_compile_time_constant_expression(
-                            2,     // Allow some complexity
-                            false, // target_is_int = false
-                            external_variables,
-                            rng,
-                        ))
+                        Expression::Arithmetic(
+                            ArithmeticExpression::generate_compile_time_constant_expression(
+                                2,     // Allow some complexity
+                                false, // target_is_int = false
+                                external_variables,
+                                rng,
+                            ),
+                        )
                     } else {
                         // For var/val, can generate any expression
                         Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(

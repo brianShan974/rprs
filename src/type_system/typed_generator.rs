@@ -337,6 +337,23 @@ impl TypedGenerationContext {
         )
     }
 
+    /// Generate a variable with a compatible type for the current context (no const)
+    pub fn generate_type_compatible_variable_no_const<T: Rng + SeedableRng>(
+        &self,
+        is_member: bool,
+        rng: &mut T,
+    ) -> Variable {
+        // Generate a variable with a common numeric type for compatibility
+        let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
+        Variable::generate_random_variable_with_const_control(
+            is_member,
+            true,
+            Some(&variables),
+            false, // Don't allow const
+            rng,
+        )
+    }
+
     /// Get available mutable variables for assignment
     pub fn get_mutable_variables(&self) -> Vec<Variable> {
         self.variable_types

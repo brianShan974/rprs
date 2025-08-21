@@ -7,10 +7,12 @@ use std::rc::Rc;
 use crate::basic::body::fun::function::Function;
 use crate::basic::cls::custom_class::CustomClass;
 use crate::basic::utils::generate_random_identifier;
+use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
 
 pub struct File {
     name: String,
+    top_level_constants: Vec<Variable>,
     functions: Vec<Function>,
     classes: Vec<CustomClass>,
 }
@@ -22,6 +24,19 @@ impl File {
     pub fn generate_random_file<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         // Generate random file name
         let name = Self::generate_random_filename(rng);
+
+        // Generate top-level constants
+        let num_constants = rng.random_range(0..=5);
+        let mut top_level_constants = Vec::with_capacity(num_constants);
+        for _ in 0..num_constants {
+            let constant = Variable::generate_random_variable(
+                false, // not a member variable
+                true,  // with initial value
+                None,  // no external variables for top-level constants
+                rng,
+            );
+            top_level_constants.push(constant);
+        }
 
         // Generate type-safe functions (using the same method as type-safe file)
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
@@ -56,6 +71,7 @@ impl File {
 
         Self {
             name,
+            top_level_constants,
             functions,
             classes,
         }
@@ -65,6 +81,19 @@ impl File {
     pub fn generate_type_safe_file<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         // Generate random file name
         let name = Self::generate_random_filename(rng);
+
+        // Generate top-level constants
+        let num_constants = rng.random_range(0..=5);
+        let mut top_level_constants = Vec::with_capacity(num_constants);
+        for _ in 0..num_constants {
+            let constant = Variable::generate_random_variable(
+                false, // not a member variable
+                true,  // with initial value
+                None,  // no external variables for top-level constants
+                rng,
+            );
+            top_level_constants.push(constant);
+        }
 
         // Generate type-safe functions
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
@@ -100,6 +129,7 @@ impl File {
 
         Self {
             name,
+            top_level_constants,
             functions,
             classes,
         }
@@ -124,9 +154,21 @@ impl File {
 
 impl Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Write classes first
-        for (i, class) in self.classes.iter().enumerate() {
+        // Write top-level constants first
+        for (i, constant) in self.top_level_constants.iter().enumerate() {
             if i > 0 {
+                writeln!(f)?;
+            }
+            if let Some(init) = constant.output_init() {
+                write!(f, "{}", init)?;
+            } else {
+                write!(f, "{}", constant.output_declaration())?;
+            }
+        }
+
+        // Write classes
+        for (i, class) in self.classes.iter().enumerate() {
+            if !self.top_level_constants.is_empty() || i > 0 {
                 writeln!(f)?;
             }
             write!(f, "{}", class)?;
@@ -134,9 +176,7 @@ impl Display for File {
 
         // Write functions
         for (i, function) in self.functions.iter().enumerate() {
-            if self.classes.is_empty() && i == 0 {
-                // No extra newline if no classes
-            } else {
+            if !self.top_level_constants.is_empty() || !self.classes.is_empty() || i > 0 {
                 writeln!(f)?;
             }
             write!(f, "{}", function)?;

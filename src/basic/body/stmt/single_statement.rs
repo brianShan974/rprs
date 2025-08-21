@@ -27,8 +27,13 @@ impl SingleStatement {
     ) -> Self {
         match rng.random_range(0..6) {
             0 => {
-                let var =
-                    Variable::generate_random_variable(false, true, Some(external_variables), rng);
+                let var = Variable::generate_random_variable_with_const_control(
+                    false,
+                    true,
+                    Some(external_variables),
+                    false,
+                    rng,
+                );
                 // Don't add the new variable to external_variables
                 SingleStatement::VariableDeclaration(var)
             }
@@ -42,10 +47,11 @@ impl SingleStatement {
 
                 if available_vars.is_empty() {
                     // If no mutable variables available, generate a new variable declaration instead
-                    let var = Variable::generate_random_variable(
+                    let var = Variable::generate_random_variable_with_const_control(
                         false,
                         true,
                         Some(external_variables),
+                        false,
                         rng,
                     );
                     // Don't add the new variable to external_variables
@@ -68,10 +74,11 @@ impl SingleStatement {
                 let functions = external_functions.borrow();
                 if functions.is_empty() {
                     // If no functions available, generate a variable declaration instead
-                    let var = Variable::generate_random_variable(
+                    let var = Variable::generate_random_variable_with_const_control(
                         false,
                         true,
                         Some(external_variables),
+                        false,
                         rng,
                     );
                     SingleStatement::VariableDeclaration(var)
@@ -110,19 +117,21 @@ impl SingleStatement {
                 if rng.random_range(0..10) < 2 {
                     // For now, generate a simple object creation
                     // In a full implementation, this would use custom classes from the context
-                    let var = Variable::generate_random_variable(
+                    let var = Variable::generate_random_variable_with_const_control(
                         false,
                         true,
                         Some(external_variables),
+                        false,
                         rng,
                     );
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Fallback to variable declaration
-                    let var = Variable::generate_random_variable(
+                    let var = Variable::generate_random_variable_with_const_control(
                         false,
                         true,
                         Some(external_variables),
+                        false,
                         rng,
                     );
                     SingleStatement::VariableDeclaration(var)
@@ -183,7 +192,7 @@ impl SingleStatement {
         match rng.random_range(0..4) {
             0 => {
                 // Generate a type-compatible variable
-                let var = typed_context.generate_type_compatible_variable(false, rng);
+                let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
                 // Add the new variable to context
                 let _ = typed_context.add_variable(&var);
                 SingleStatement::VariableDeclaration(var)
@@ -197,14 +206,15 @@ impl SingleStatement {
                         Ok(assignment) => assignment,
                         Err(_) => {
                             // Fallback to variable declaration
-                            let var = typed_context.generate_type_compatible_variable(false, rng);
+                            let var = typed_context
+                                .generate_type_compatible_variable_no_const(false, rng);
                             let _ = typed_context.add_variable(&var);
                             SingleStatement::VariableDeclaration(var)
                         }
                     }
                 } else {
                     // No mutable variables, generate new variable
-                    let var = typed_context.generate_type_compatible_variable(false, rng);
+                    let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
                     let _ = typed_context.add_variable(&var);
                     SingleStatement::VariableDeclaration(var)
                 }
@@ -218,7 +228,8 @@ impl SingleStatement {
                         Ok(call) => call,
                         Err(_) => {
                             // Fallback to variable declaration
-                            let var = typed_context.generate_type_compatible_variable(false, rng);
+                            let var = typed_context
+                                .generate_type_compatible_variable_no_const(false, rng);
                             let _ = typed_context.add_variable(&var);
                             SingleStatement::VariableDeclaration(var)
                         }

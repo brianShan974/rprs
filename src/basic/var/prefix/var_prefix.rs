@@ -14,8 +14,21 @@ pub struct VariablePrefix {
 
 impl VariablePrefix {
     pub fn generate_random_prefix<T: Rng + SeedableRng>(is_member: bool, rng: &mut T) -> Self {
+        Self::generate_random_prefix_with_const_control(is_member, true, rng)
+    }
+
+    pub fn generate_random_prefix_with_const_control<T: Rng + SeedableRng>(
+        is_member: bool,
+        allow_const: bool,
+        rng: &mut T,
+    ) -> Self {
         let visibility = Visibility::generate_random_visibility(is_member, rng);
-        let init = VariableInit::generate_random_variable_init(is_member, rng);
+        let init = if allow_const {
+            VariableInit::generate_random_variable_init(is_member, rng)
+        } else {
+            // Only generate Default, not Const or LateInit
+            VariableInit::Default
+        };
         let mutability = VariableMutability::generate_random_variable_mutability(&init, rng);
 
         Self {
