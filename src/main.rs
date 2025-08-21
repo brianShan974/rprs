@@ -13,10 +13,4 @@ fn main() {
     let type_safe_file = File::generate_type_safe_file(&mut rng);
     println!("Generated Type-Safe File: {}", type_safe_file.get_name());
     println!("{}", type_safe_file);
-
-    // Generate a regular file for comparison
-    println!("Generating regular file...");
-    let regular_file = File::generate_random_file(&mut rng);
-    println!("\nGenerated Regular File: {}", regular_file.get_name());
-    println!("{}", regular_file);
 }
