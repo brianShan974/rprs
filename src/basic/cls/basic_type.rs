@@ -16,12 +16,11 @@ pub enum BasicType {
 
 impl BasicType {
     pub fn generate_random_basic_type<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        // match rng.random_range(0..4) {
-        //     0..=1 => BasicType::Number(NumberType::generate_random_number_type()),
-        //     2 => BasicType::Boolean,
-        //     3 => BasicType::Char,
-        //     _ => BasicType::String,
-        // }
-        BasicType::Number(NumberType::generate_random_number_type(rng))
+        match rng.random_range(0..5) {
+            0..=2 => BasicType::Number(NumberType::generate_random_number_type(rng)),
+            3 => BasicType::Boolean,
+            4 => BasicType::String,
+            _ => BasicType::Char,
+        }
     }
 }

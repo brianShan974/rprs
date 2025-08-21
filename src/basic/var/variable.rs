@@ -92,7 +92,7 @@ impl Variable {
         let name = generate_random_identifier(rng);
         let value = if with_initial_value {
             // Generate expression based on random type choice
-            match rng.random_range(0..3) {
+            match rng.random_range(0..4) {
                 0 => {
                     // Generate integer arithmetic expression
                     Some(Expression::Arithmetic(
@@ -123,6 +123,10 @@ impl Variable {
                         rng.random(),
                     )))
                 }
+                3 => {
+                    // Generate string expression
+                    Some(Expression::generate_random_string_literal(rng))
+                }
                 _ => unreachable!(),
             }
         } else {
@@ -140,6 +144,7 @@ impl Variable {
                     }
                 }
                 Expression::Boolean(_) => Some(BOOLEAN),
+                Expression::StringLiteral(_) => Some(STRING),
                 Expression::FunctionCall(_, _) => Some(FLOAT), // Function calls default to float for now
                 Expression::VariableReference(var_name) => {
                     // Look up the variable type from external_variables

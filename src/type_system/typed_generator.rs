@@ -657,15 +657,20 @@ impl TypedGenerationContext {
                 Ok(self.generate_boolean_expression(rng))
             }
             Type::Basic(STRING) => {
-                // For string, generate a simple expression (string literals not implemented yet)
-                // Convert variable_types keys to Vec<Variable> for external_variables
+                // Generate string expression with higher probability for string literals
                 let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
-                Ok(Expression::generate_random_expression(
-                    1,
-                    external_functions,
-                    Some(&variables), // Pass available variables
-                    rng,
-                ))
+
+                // 70% chance for string literal, 30% chance for variable reference or function call
+                if rng.random_range(0..10) < 7 {
+                    Ok(Expression::generate_random_string_literal(rng))
+                } else {
+                    Ok(Expression::generate_random_expression(
+                        1,
+                        external_functions,
+                        Some(&variables), // Pass available variables
+                        rng,
+                    ))
+                }
             }
             _ => {
                 // Default to simple arithmetic expression

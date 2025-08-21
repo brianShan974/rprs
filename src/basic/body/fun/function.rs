@@ -15,6 +15,7 @@ use crate::basic::{
         class::{BOOLEAN, Class, FLOAT, INT},
         number_types::number::NumberType,
     },
+    expr::expression::Expression,
     utils::generate_random_identifier,
     var::{prefix::visibility::Visibility, variable::Variable},
 };
@@ -164,7 +165,7 @@ impl Function {
             && Self::all_paths_have_return(&body_with_returns)
         {
             // If function has no return type but body has return statement AND all paths have return, infer return type
-            Self::infer_return_type_from_body(&body_with_returns)
+            Self::infer_return_type_from_body(&body_with_returns, &external_functions)
         } else {
             return_type
         };
@@ -404,7 +405,10 @@ impl Function {
     }
 
     /// Infer return type from function body by analyzing return statements (recursively)
-    fn infer_return_type_from_body(body: &Block) -> Option<Class> {
+    fn infer_return_type_from_body(
+        body: &Block,
+        external_functions: &Rc<RefCell<Vec<Function>>>,
+    ) -> Option<Class> {
         let statements = body.get_statements();
         let mut return_types = Vec::new();
         let mut has_empty_return = false;
@@ -426,6 +430,25 @@ impl Function {
                                 } else if expr.is_float(None) {
                                     // Float expression
                                     FLOAT
+                                } else if let Expression::FunctionCall(func_name, _) = expr {
+                                    // For function calls, look up the actual function return type
+                                    if let Some(func) = external_functions
+                                        .borrow()
+                                        .iter()
+                                        .find(|f| f.get_name() == func_name)
+                                    {
+                                        if let Some(func_return_type) = func.get_return_type() {
+                                            func_return_type.clone()
+                                        } else {
+                                            // Function has no return type (Unit), so this return statement should be empty
+                                            // This indicates a type mismatch - function call returns Unit but we're trying to return it
+                                            // We should avoid this case by better generation logic
+                                            FLOAT // Default fallback
+                                        }
+                                    } else {
+                                        // Function not found, default to Float
+                                        FLOAT
+                                    }
                                 } else {
                                     // Default to Float for unknown expressions
                                     FLOAT
@@ -445,7 +468,10 @@ impl Function {
                     if Self::has_empty_return_in_body(if_stmt.get_if_block()) {
                         has_empty_return = true;
                     }
-                    if let Some(ty) = Self::infer_return_type_from_body(if_stmt.get_if_block()) {
+                    if let Some(ty) = Self::infer_return_type_from_body(
+                        if_stmt.get_if_block(),
+                        external_functions,
+                    ) {
                         return_types.push(ty);
                     }
                     // Check else if blocks
@@ -453,7 +479,9 @@ impl Function {
                         if Self::has_empty_return_in_body(elseif_block) {
                             has_empty_return = true;
                         }
-                        if let Some(ty) = Self::infer_return_type_from_body(elseif_block) {
+                        if let Some(ty) =
+                            Self::infer_return_type_from_body(elseif_block, external_functions)
+                        {
                             return_types.push(ty);
                         }
                     }
@@ -462,7 +490,9 @@ impl Function {
                         if Self::has_empty_return_in_body(else_block) {
                             has_empty_return = true;
                         }
-                        if let Some(ty) = Self::infer_return_type_from_body(else_block) {
+                        if let Some(ty) =
+                            Self::infer_return_type_from_body(else_block, external_functions)
+                        {
                             return_types.push(ty);
                         }
                     }
@@ -472,7 +502,10 @@ impl Function {
                     if Self::has_empty_return_in_body(for_stmt.get_loop_block()) {
                         has_empty_return = true;
                     }
-                    if let Some(ty) = Self::infer_return_type_from_body(for_stmt.get_loop_block()) {
+                    if let Some(ty) = Self::infer_return_type_from_body(
+                        for_stmt.get_loop_block(),
+                        external_functions,
+                    ) {
                         return_types.push(ty);
                     }
                 }
@@ -481,7 +514,10 @@ impl Function {
                     if Self::has_empty_return_in_body(while_stmt.get_block()) {
                         has_empty_return = true;
                     }
-                    if let Some(ty) = Self::infer_return_type_from_body(while_stmt.get_block()) {
+                    if let Some(ty) = Self::infer_return_type_from_body(
+                        while_stmt.get_block(),
+                        external_functions,
+                    ) {
                         return_types.push(ty);
                     }
                 }
@@ -491,7 +527,9 @@ impl Function {
                         if Self::has_empty_return_in_body(arm_block) {
                             has_empty_return = true;
                         }
-                        if let Some(ty) = Self::infer_return_type_from_body(arm_block) {
+                        if let Some(ty) =
+                            Self::infer_return_type_from_body(arm_block, external_functions)
+                        {
                             return_types.push(ty);
                         }
                     }
@@ -499,7 +537,10 @@ impl Function {
                     if Self::has_empty_return_in_body(when_stmt.get_else_arm()) {
                         has_empty_return = true;
                     }
-                    if let Some(ty) = Self::infer_return_type_from_body(when_stmt.get_else_arm()) {
+                    if let Some(ty) = Self::infer_return_type_from_body(
+                        when_stmt.get_else_arm(),
+                        external_functions,
+                    ) {
                         return_types.push(ty);
                     }
                 }

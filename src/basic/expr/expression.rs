@@ -13,6 +13,7 @@ use crate::basic::var::variable::Variable;
 pub enum Expression {
     Arithmetic(ArithmeticExpression),
     Boolean(BooleanExpression),
+    StringLiteral(String),
     FunctionCall(String, Vec<Expression>),
     VariableReference(String),
 }
@@ -22,6 +23,7 @@ impl fmt::Display for Expression {
         match self {
             Expression::Arithmetic(arith) => write!(f, "{}", arith),
             Expression::Boolean(boolean) => write!(f, "{}", boolean),
+            Expression::StringLiteral(s) => write!(f, "\"{}\"", s),
             Expression::FunctionCall(name, args) => {
                 if args.is_empty() {
                     write!(f, "{}()", name)
@@ -46,7 +48,7 @@ impl Expression {
         external_variables: Option<&[Variable]>,
         rng: &mut T,
     ) -> Self {
-        // 10% arithmetic, 10% boolean, 25% function call, 45% variable reference, 10% fallback
+        // 8% arithmetic, 8% boolean, 4% string literal, 25% function call, 45% variable reference, 10% fallback
         match rng.random_range(0..20) {
             0..=1 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
                 max_depth,
@@ -54,6 +56,7 @@ impl Expression {
                 external_variables,
                 rng,
             )),
+            2 => Self::generate_random_string_literal(rng),
             3..=4 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
                 max_depth, rng,
             )),
@@ -148,6 +151,35 @@ impl Expression {
         matches!(self, Self::FunctionCall(_, _))
     }
 
+    /// Generate a random string literal
+    pub fn generate_random_string_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        // Generate a random string with 3-10 characters
+        let length = rng.random_range(3..=10);
+        let mut chars = Vec::with_capacity(length);
+
+        // Define safe characters to use (excluding problematic ones)
+        // Exclude: " (34), $ (36), \ (92), ` (96), { (123), } (125), and some other problematic chars
+        let safe_chars = [
+            // Letters (a-z, A-Z)
+            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
+            'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+            'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y',
+            'Z', // Numbers (0-9)
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', // Safe symbols
+            ' ', '!', '#', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<',
+            '=', '>', '?', '@', '[', ']', '^', '_', '|', '~',
+        ];
+
+        // Generate random characters from the safe set
+        for _ in 0..length {
+            let char_index = rng.random_range(0..safe_chars.len());
+            chars.push(safe_chars[char_index]);
+        }
+
+        let string = chars.into_iter().collect::<String>();
+        Self::StringLiteral(string)
+    }
+
     /// Check if this expression is primarily an integer type
     pub fn is_int(
         &self,
@@ -156,7 +188,14 @@ impl Expression {
         match self {
             Self::Arithmetic(arith) => arith.is_int(external_variables),
             Self::Boolean(_) => false,
-            Self::FunctionCall(_, _) => false, // Function calls are not considered int by default
+            Self::StringLiteral(_) => false,
+            Self::FunctionCall(func_name, _) => {
+                // For function calls, we need to check the function's return type
+                // Since we don't have access to external_functions here, we'll use a heuristic
+                // Functions that return Int typically have names that suggest numeric operations
+                // This is a temporary solution - ideally we'd look up the actual function return type
+                func_name.contains("Int") || func_name.contains("int") || func_name.contains("num")
+            }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
                 if let Some(variables) = external_variables {
@@ -179,7 +218,16 @@ impl Expression {
         match self {
             Self::Arithmetic(arith) => arith.is_float(external_variables),
             Self::Boolean(_) => false,
-            Self::FunctionCall(_, _) => false, // Function calls are not considered float by default
+            Self::StringLiteral(_) => false,
+            Self::FunctionCall(func_name, _) => {
+                // For function calls, we need to check the function's return type
+                // Since we don't have access to external_functions here, we'll use a heuristic
+                // Functions that return Float typically have names that suggest floating point operations
+                // This is a temporary solution - ideally we'd look up the actual function return type
+                func_name.contains("Float")
+                    || func_name.contains("float")
+                    || func_name.contains("double")
+            }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
                 if let Some(variables) = external_variables {
@@ -202,6 +250,7 @@ impl Expression {
         match self {
             Self::Arithmetic(arith) => arith.is_compile_time_constant(external_variables),
             Self::Boolean(_) => true, // Boolean literals are compile-time constants
+            Self::StringLiteral(_) => true, // String literals are compile-time constants
             Self::FunctionCall(_, _) => false, // Function calls are not compile-time constants
             Self::VariableReference(var_name) => {
                 // Only const val variables are compile-time constants
