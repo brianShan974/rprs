@@ -27,7 +27,8 @@ impl SingleStatement {
     ) -> Self {
         match rng.random_range(0..6) {
             0 => {
-                let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
+                let var =
+                    Variable::generate_random_variable(false, true, Some(external_variables), rng);
                 // Don't add the new variable to external_variables
                 SingleStatement::VariableDeclaration(var)
             }
@@ -41,7 +42,12 @@ impl SingleStatement {
 
                 if available_vars.is_empty() {
                     // If no mutable variables available, generate a new variable declaration instead
-                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
+                    let var = Variable::generate_random_variable(
+                        false,
+                        true,
+                        Some(external_variables),
+                        rng,
+                    );
                     // Don't add the new variable to external_variables
                     SingleStatement::VariableDeclaration(var)
                 } else {
@@ -62,7 +68,12 @@ impl SingleStatement {
                 let functions = external_functions.borrow();
                 if functions.is_empty() {
                     // If no functions available, generate a variable declaration instead
-                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
+                    let var = Variable::generate_random_variable(
+                        false,
+                        true,
+                        Some(external_variables),
+                        rng,
+                    );
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Choose a random function
@@ -73,12 +84,22 @@ impl SingleStatement {
                     let num_args = rng.random_range(0..=3);
                     let mut args = Vec::with_capacity(num_args);
                     for _ in 0..num_args {
-                        args.push(Expression::generate_random_expression(
-                            2,
-                            Some(external_functions.clone()),
-                            Some(external_variables),
-                            rng,
-                        ));
+                        // Higher probability for variable references in function arguments
+                        let arg = if !external_variables.is_empty() && rng.random_range(0..2) == 0 {
+                            // 50% chance to generate variable reference
+                            let variable =
+                                &external_variables[rng.random_range(0..external_variables.len())];
+                            Expression::VariableReference(variable.get_name().to_string())
+                        } else {
+                            // Otherwise generate random expression
+                            Expression::generate_random_expression(
+                                2,
+                                Some(external_functions.clone()),
+                                Some(external_variables),
+                                rng,
+                            )
+                        };
+                        args.push(arg);
                     }
 
                     SingleStatement::FunctionCall(function_name, args)
@@ -89,11 +110,21 @@ impl SingleStatement {
                 if rng.random_range(0..10) < 2 {
                     // For now, generate a simple object creation
                     // In a full implementation, this would use custom classes from the context
-                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
+                    let var = Variable::generate_random_variable(
+                        false,
+                        true,
+                        Some(external_variables),
+                        rng,
+                    );
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Fallback to variable declaration
-                    let var = Variable::generate_random_variable(false, true, Some(external_variables), rng);
+                    let var = Variable::generate_random_variable(
+                        false,
+                        true,
+                        Some(external_variables),
+                        rng,
+                    );
                     SingleStatement::VariableDeclaration(var)
                 }
             }

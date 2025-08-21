@@ -378,13 +378,31 @@ impl ArithmeticExpression {
                         let num_args = rng.random_range(0..=2);
                         let mut args = Vec::with_capacity(num_args);
                         for _ in 0..num_args {
-                            // Allow recursive function calls in arguments
-                            args.push(Expression::generate_random_expression(
-                                max_depth.saturating_sub(1),
-                                Some(functions.clone()),
-                                external_variables, // Pass external variables
-                                rng,
-                            ));
+                            // Generate argument with higher probability for variable references
+                            let arg = if let Some(variables) = external_variables {
+                                if !variables.is_empty() && rng.random_range(0..2) == 0 {
+                                    // 50% chance to generate variable reference
+                                    let variable = &variables[rng.random_range(0..variables.len())];
+                                    Expression::VariableReference(variable.get_name().to_string())
+                                } else {
+                                    // Otherwise generate random expression
+                                    Expression::generate_random_expression(
+                                        max_depth.saturating_sub(1),
+                                        Some(functions.clone()),
+                                        external_variables,
+                                        rng,
+                                    )
+                                }
+                            } else {
+                                // No variables available, generate random expression
+                                Expression::generate_random_expression(
+                                    max_depth.saturating_sub(1),
+                                    Some(functions.clone()),
+                                    external_variables,
+                                    rng,
+                                )
+                            };
+                            args.push(arg);
                         }
 
                         return ArithmeticExpression::FunctionCall(function_name, args);
@@ -407,13 +425,31 @@ impl ArithmeticExpression {
                         let num_args = rng.random_range(0..=2);
                         let mut args = Vec::with_capacity(num_args);
                         for _ in 0..num_args {
-                            // Allow recursive function calls in arguments
-                            args.push(Expression::generate_random_expression(
-                                max_depth.saturating_sub(1),
-                                Some(functions.clone()),
-                                external_variables, // Pass external variables
-                                rng,
-                            ));
+                            // Generate argument with higher probability for variable references
+                            let arg = if let Some(variables) = external_variables {
+                                if !variables.is_empty() && rng.random_range(0..2) == 0 {
+                                    // 50% chance to generate variable reference
+                                    let variable = &variables[rng.random_range(0..variables.len())];
+                                    Expression::VariableReference(variable.get_name().to_string())
+                                } else {
+                                    // Otherwise generate random expression
+                                    Expression::generate_random_expression(
+                                        max_depth.saturating_sub(1),
+                                        Some(functions.clone()),
+                                        external_variables,
+                                        rng,
+                                    )
+                                }
+                            } else {
+                                // No variables available, generate random expression
+                                Expression::generate_random_expression(
+                                    max_depth.saturating_sub(1),
+                                    Some(functions.clone()),
+                                    external_variables,
+                                    rng,
+                                )
+                            };
+                            args.push(arg);
                         }
 
                         let function_call = ArithmeticExpression::FunctionCall(function_name, args);

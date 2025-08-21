@@ -47,7 +47,8 @@ impl WhenStatement {
         }
 
         // Generate subject variable
-        let subject = Variable::generate_random_variable(false, false, Some(external_variables), rng);
+        let subject =
+            Variable::generate_random_variable(false, false, Some(external_variables), rng);
 
         // Generate arms
         let num_arms = rng.random_range(1..=2);

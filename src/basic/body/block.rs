@@ -53,7 +53,8 @@ impl Block {
 
         // Generate new variables (but don't add them to external_variables)
         for _ in 0..num_new_vars {
-            let new_var = Variable::generate_random_variable(true, true, Some(external_variables), rng);
+            let new_var =
+                Variable::generate_random_variable(true, true, Some(external_variables), rng);
             new_variables.push(new_var);
         }
 

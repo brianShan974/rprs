@@ -641,19 +641,23 @@ impl TypedGenerationContext {
             }
             Type::Basic(STRING) => {
                 // For string, generate a simple expression (string literals not implemented yet)
+                // Convert variable_types keys to Vec<Variable> for external_variables
+                let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
                 Ok(Expression::generate_random_expression(
                     1,
                     external_functions,
-                    None, // No external variables available in this context
+                    Some(&variables), // Pass available variables
                     rng,
                 ))
             }
             _ => {
                 // Default to simple arithmetic expression
+                // Convert variable_types keys to Vec<Variable> for external_variables
+                let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
                 Ok(Expression::generate_random_expression(
                     2,
                     external_functions,
-                    None, // No external variables available in this context
+                    Some(&variables), // Pass available variables
                     rng,
                 ))
             }
@@ -666,14 +670,14 @@ impl TypedGenerationContext {
         depth: usize,
         rng: &mut T,
     ) -> Expression {
-        // 40% chance to generate float literal, 25% chance to generate float arithmetic, 35% chance to generate function call
+        // 25% chance for float literal, 15% for float arithmetic, 30% for function call, 30% for variable reference
         match rng.random_range(0..10) {
-            0..=3 => {
+            0..=2 => {
                 // Generate float literal
                 let float_value = rng.random::<f32>() * 100.0;
                 Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(float_value)))
             }
-            4..=5 => {
+            3 => {
                 // Generate float arithmetic expression
                 let left =
                     ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
@@ -686,7 +690,36 @@ impl TypedGenerationContext {
                     right: Box::new(right),
                 })
             }
-            6..=9 => {
+            4..=6 => {
+                // Generate variable reference for float type
+                let float_vars: Vec<&Variable> = self
+                    .variable_types
+                    .keys()
+                    .filter(|var| {
+                        if let Some(var_type) = var.get_type() {
+                            !var_type.is_integer_type()
+                                && matches!(
+                                    var_type,
+                                    Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))
+                                )
+                        } else {
+                            false
+                        }
+                    })
+                    .collect();
+
+                if !float_vars.is_empty() {
+                    let var = float_vars[rng.random_range(0..float_vars.len())];
+                    Expression::VariableReference(var.get_name().to_string())
+                } else {
+                    // Fallback to float literal if no float variables available
+                    let float_value = rng.random::<f32>() * 100.0;
+                    Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(
+                        float_value,
+                    )))
+                }
+            }
+            7..=9 => {
                 // Generate type-safe function call that returns float
                 let float_type = Type::Basic(FLOAT);
 
@@ -737,14 +770,14 @@ impl TypedGenerationContext {
         depth: usize,
         rng: &mut T,
     ) -> Expression {
-        // 40% chance to generate integer literal, 20% chance to generate integer arithmetic, 40% chance to generate function call
+        // 25% chance for integer literal, 15% for integer arithmetic, 30% for function call, 30% for variable reference
         match rng.random_range(0..10) {
-            0..=3 => {
+            0..=2 => {
                 // Generate integer literal
                 let int_value = rng.random_range(-100..100);
                 Expression::Arithmetic(ArithmeticExpression::Int(int_value))
             }
-            4..=5 => {
+            3 => {
                 // Generate integer arithmetic expression
                 let left = ArithmeticExpression::Int(rng.random_range(-50..50));
                 let right = ArithmeticExpression::Int(rng.random_range(-50..50));
@@ -755,7 +788,30 @@ impl TypedGenerationContext {
                     right: Box::new(right),
                 })
             }
-            6..=9 => {
+            4..=6 => {
+                // Generate variable reference for integer type
+                let int_vars: Vec<&Variable> = self
+                    .variable_types
+                    .keys()
+                    .filter(|var| {
+                        if let Some(var_type) = var.get_type() {
+                            var_type.is_integer_type()
+                        } else {
+                            false
+                        }
+                    })
+                    .collect();
+
+                if !int_vars.is_empty() {
+                    let var = int_vars[rng.random_range(0..int_vars.len())];
+                    Expression::VariableReference(var.get_name().to_string())
+                } else {
+                    // Fallback to integer literal if no integer variables available
+                    let int_value = rng.random_range(-100..100);
+                    Expression::Arithmetic(ArithmeticExpression::Int(int_value))
+                }
+            }
+            7..=9 => {
                 // Generate type-safe function call that returns int
                 let int_type = Type::Basic(INT);
 
