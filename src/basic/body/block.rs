@@ -146,13 +146,17 @@ impl Block {
             return None;
         }
 
+        // Create a child context for this block to ensure proper variable scoping
+        // Variables declared in this block won't affect the parent context
+        let mut block_context = typed_context.create_child_context();
+
         let num_new_vars = rng.random_range(0..=Self::MAX_NUM_NEW_VARS);
         let mut new_variables = Vec::with_capacity(num_new_vars);
 
-        // Generate new type-compatible variables
+        // Generate new type-compatible variables in the block context
         for _ in 0..num_new_vars {
-            let new_var = typed_context.generate_type_compatible_variable_no_const(false, rng);
-            let _ = typed_context.add_variable(&new_var);
+            let new_var = block_context.generate_type_compatible_variable_no_const(false, rng);
+            let _ = block_context.add_variable(&new_var);
             new_variables.push(new_var);
         }
 
@@ -173,14 +177,14 @@ impl Block {
             )));
         }
 
-        // Generate type-safe statements with return type awareness
+        // Generate type-safe statements with return type awareness using the block context
         for _ in 0..num_statements {
             statements.push(Statement::generate_type_safe_statement_with_return_type(
                 &combined_external_variables,
                 external_functions.clone(),
                 current_indentation_layer + 1,
                 Some(max_depth - 1),
-                typed_context,
+                &mut block_context, // Use the block-specific context
                 expected_return_type,
                 rng,
             )?);

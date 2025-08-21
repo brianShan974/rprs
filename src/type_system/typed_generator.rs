@@ -48,6 +48,17 @@ impl TypedGenerationContext {
         }
     }
 
+    /// Create a new child context that inherits the parent's variables and functions
+    /// This is used for block scoping - variables added to the child won't affect the parent
+    pub fn create_child_context(&self) -> Self {
+        Self {
+            type_checker: TypeChecker::new(),
+            variable_types: self.variable_types.clone(),
+            function_signatures: self.function_signatures.clone(),
+            external_functions: self.external_functions.clone(),
+        }
+    }
+
     /// Add a variable to the context with type tracking
     pub fn add_variable(&mut self, var: &Variable) -> TypeResult<()> {
         let var_type = self.infer_variable_type(var)?;
