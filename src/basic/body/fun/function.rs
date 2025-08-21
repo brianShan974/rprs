@@ -12,11 +12,8 @@ use crate::basic::{
     },
     cls::{
         basic_type::BasicType,
-        class::Class,
-        number_types::{
-            floating_point::FloatingPointType, number::NumberType,
-            signed_integer::SignedIntegerType,
-        },
+        class::{BOOLEAN, Class, FLOAT, INT},
+        number_types::number::NumberType,
     },
     utils::generate_random_identifier,
     var::{prefix::visibility::Visibility, variable::Variable},
@@ -191,13 +188,9 @@ impl Function {
     fn decide_return_type<T: Rng + SeedableRng>(rng: &mut T) -> Option<Class> {
         match rng.random_range(0..4) {
             0 => None, // No return type (Unit)
-            1 => Some(Class::Basic(BasicType::Boolean)),
-            2 => Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                FloatingPointType::Float,
-            )))),
-            _ => Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
-                SignedIntegerType::Int,
-            )))),
+            1 => Some(BOOLEAN),
+            2 => Some(FLOAT),
+            _ => Some(INT),
         }
     }
 
@@ -205,13 +198,9 @@ impl Function {
     fn decide_method_return_type<T: Rng + SeedableRng>(rng: &mut T) -> Option<Class> {
         match rng.random_range(0..4) {
             0 => None, // No return type (Unit)
-            1 => Some(Class::Basic(BasicType::Boolean)),
-            2 => Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                FloatingPointType::Float,
-            )))),
-            _ => Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
-                SignedIntegerType::Int,
-            )))),
+            1 => Some(BOOLEAN),
+            2 => Some(FLOAT),
+            _ => Some(INT),
         }
     }
 
@@ -430,22 +419,16 @@ impl Function {
                                 // If there's a return expression, infer its type based on the expression
                                 let return_type = if expr.is_boolean() {
                                     // Boolean expression
-                                    Class::Basic(BasicType::Boolean)
+                                    BOOLEAN
                                 } else if expr.is_int() {
                                     // Integer expression
-                                    Class::Basic(BasicType::Number(NumberType::SignedInteger(
-                                        SignedIntegerType::Int,
-                                    )))
+                                    INT
                                 } else if expr.is_float() {
                                     // Float expression
-                                    Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                                        FloatingPointType::Float,
-                                    )))
+                                    FLOAT
                                 } else {
                                     // Default to Float for unknown expressions
-                                    Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                                        FloatingPointType::Float,
-                                    )))
+                                    FLOAT
                                 };
                                 return_types.push(return_type);
                             }
@@ -542,9 +525,7 @@ impl Function {
             Some(first_type.clone())
         } else {
             // Mixed types - we need to find a common type or choose the most appropriate one
-            let has_boolean = return_types
-                .iter()
-                .any(|ty| matches!(ty, Class::Basic(BasicType::Boolean)));
+            let has_boolean = return_types.iter().any(|ty| *ty == BOOLEAN);
             let has_int = return_types.iter().any(|ty| {
                 matches!(
                     ty,
@@ -565,22 +546,16 @@ impl Function {
                 Some(first_type.clone())
             } else if has_int && has_float {
                 // Mixed Int and Float - promote to Float (common type promotion)
-                Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                    FloatingPointType::Float,
-                ))))
+                Some(FLOAT)
             } else if has_int {
                 // Only Int types
-                Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
-                    SignedIntegerType::Int,
-                ))))
+                Some(INT)
             } else if has_float {
                 // Only Float types
-                Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                    FloatingPointType::Float,
-                ))))
+                Some(FLOAT)
             } else {
                 // Only Boolean types
-                Some(Class::Basic(BasicType::Boolean))
+                Some(BOOLEAN)
             }
         }
     }

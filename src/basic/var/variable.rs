@@ -3,8 +3,7 @@ use rand::{Rng, SeedableRng};
 
 use super::prefix::var_prefix::VariablePrefix;
 use crate::basic::cls::basic_type::BasicType;
-use crate::basic::cls::class::Class;
-use crate::basic::cls::number_types::floating_point::FloatingPointType;
+use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE, FLOAT, STRING};
 use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::expr::expression::Expression;
 use crate::basic::utils::generate_random_identifier;
@@ -79,9 +78,7 @@ impl Variable {
         let ty = if let Some(value) = &value
             && value.is_arithmetic()
         {
-            Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                FloatingPointType::Float,
-            ))))
+            Some(FLOAT)
         } else {
             None
         };
@@ -111,32 +108,25 @@ impl Variable {
                     let expr = Expression::generate_random_expression(3, None, rng);
                     (Some(expr), target_type.clone())
                 }
-                Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
+                Some(FLOAT) | Some(DOUBLE) => {
                     // Generate float expression
                     let expr = Expression::generate_random_expression(3, None, rng);
                     (Some(expr), target_type.clone())
                 }
-                Some(Class::Basic(BasicType::Boolean)) => {
+                Some(BOOLEAN) => {
                     // Generate boolean expression (comparison or literal)
                     let expr = Expression::generate_random_expression(2, None, rng);
                     (Some(expr), target_type.clone())
                 }
-                Some(Class::Basic(BasicType::String)) => {
+                Some(STRING) => {
                     // For now, generate arithmetic expression (string literals not implemented)
                     let expr = Expression::generate_random_expression(2, None, rng);
-                    (
-                        Some(expr),
-                        Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                            FloatingPointType::Float,
-                        )))),
-                    )
+                    (Some(expr), Some(FLOAT))
                 }
                 _ => {
                     // Default to arithmetic expression
                     let expr = Expression::generate_random_expression(3, None, rng);
-                    let inferred_type = Some(Class::Basic(BasicType::Number(
-                        NumberType::FloatingPoint(FloatingPointType::Float),
-                    )));
+                    let inferred_type = Some(FLOAT);
                     (Some(expr), inferred_type)
                 }
             }

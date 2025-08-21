@@ -6,10 +6,7 @@ use std::rc::Rc;
 use crate::basic::body::block::{INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
 use crate::basic::body::fun::parameter::Parameter;
-use crate::basic::cls::basic_type::BasicType;
-use crate::basic::cls::class::Class;
-use crate::basic::cls::number_types::floating_point::FloatingPointType;
-use crate::basic::cls::number_types::number::NumberType;
+use crate::basic::cls::class::{Class, FLOAT};
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
@@ -72,11 +69,7 @@ impl CustomClass {
                 .map(|var| {
                     Parameter::new(
                         var.get_name().to_string(),
-                        var.get_type().cloned().unwrap_or_else(|| {
-                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                                FloatingPointType::Float,
-                            )))
-                        }),
+                        var.get_type().cloned().unwrap_or(FLOAT),
                     )
                 })
                 .collect();
@@ -133,11 +126,7 @@ impl CustomClass {
                 .map(|var| {
                     Parameter::new(
                         var.get_name().to_string(),
-                        var.get_type().cloned().unwrap_or_else(|| {
-                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                                FloatingPointType::Float,
-                            )))
-                        }),
+                        var.get_type().cloned().unwrap_or(FLOAT),
                     )
                 })
                 .collect();

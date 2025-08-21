@@ -6,10 +6,7 @@ use std::rc::Rc;
 
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
-use crate::basic::cls::basic_type::BasicType;
-use crate::basic::cls::class::Class;
-use crate::basic::cls::number_types::number::NumberType;
-use crate::basic::cls::number_types::signed_integer::SignedIntegerType;
+use crate::basic::cls::class::INT;
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::prefix::var_prefix::VariablePrefix;
 use crate::basic::var::variable::Variable;
@@ -54,9 +51,7 @@ impl ForStatement {
             VariablePrefix::default(),
             loop_variable_name.clone(),
             None,
-            Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
-                SignedIntegerType::Int,
-            )))),
+            Some(INT),
         );
         let loop_body_variables: Vec<Variable> = external_variables
             .iter()
@@ -119,9 +114,7 @@ impl ForStatement {
             VariablePrefix::default(),
             loop_variable_name.clone(),
             None,
-            Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(
-                SignedIntegerType::Int,
-            )))),
+            Some(INT),
         );
         let _ = typed_context.add_variable(&loop_variable);
 

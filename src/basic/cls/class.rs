@@ -7,27 +7,29 @@ use crate::basic::cls::number_types::floating_point::FloatingPointType;
 use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::cls::number_types::signed_integer::SignedIntegerType;
 
-pub const BASIC_TYPES: &[Class] = &[
-    Class::Basic(BasicType::Number(NumberType::SignedInteger(
-        SignedIntegerType::Byte,
-    ))),
-    Class::Basic(BasicType::Number(NumberType::SignedInteger(
-        SignedIntegerType::Short,
-    ))),
-    Class::Basic(BasicType::Number(NumberType::SignedInteger(
-        SignedIntegerType::Int,
-    ))),
-    Class::Basic(BasicType::Number(NumberType::SignedInteger(
-        SignedIntegerType::Long,
-    ))),
-    Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-        FloatingPointType::Float,
-    ))),
-    Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-        FloatingPointType::Double,
-    ))),
-    Class::Basic(BasicType::Boolean),
-];
+pub const BYTE: Class = Class::Basic(BasicType::Number(NumberType::SignedInteger(
+    SignedIntegerType::Byte,
+)));
+pub const SHORT: Class = Class::Basic(BasicType::Number(NumberType::SignedInteger(
+    SignedIntegerType::Short,
+)));
+pub const INT: Class = Class::Basic(BasicType::Number(NumberType::SignedInteger(
+    SignedIntegerType::Int,
+)));
+pub const LONG: Class = Class::Basic(BasicType::Number(NumberType::SignedInteger(
+    SignedIntegerType::Long,
+)));
+pub const FLOAT: Class = Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+    FloatingPointType::Float,
+)));
+pub const DOUBLE: Class = Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+    FloatingPointType::Double,
+)));
+pub const BOOLEAN: Class = Class::Basic(BasicType::Boolean);
+pub const CHAR: Class = Class::Basic(BasicType::Char);
+pub const STRING: Class = Class::Basic(BasicType::String);
+
+pub const BASIC_TYPES: &[Class] = &[BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, STRING];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Class {

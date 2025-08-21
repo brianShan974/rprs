@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use crate::basic::cls::{
-    basic_type::BasicType,
-    class::Class,
-    number_types::{floating_point::FloatingPointType, number::NumberType},
-};
+use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE};
 
 /// Represents a type in the type system
 #[derive(Clone, Debug, PartialEq)]
@@ -76,7 +72,7 @@ impl Type {
 
     /// Check if this type is a boolean type
     pub fn is_boolean(&self) -> bool {
-        matches!(self, Type::Basic(Class::Basic(BasicType::Boolean)))
+        matches!(self, Type::Basic(BOOLEAN))
     }
 
     /// Check if this type is a function type
@@ -147,9 +143,7 @@ impl Type {
                 if class1 == class2 {
                     Type::Basic(class1.clone())
                 } else {
-                    Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-                        FloatingPointType::Double,
-                    ))))
+                    Type::Basic(DOUBLE)
                 }
             }
 

@@ -3,7 +3,9 @@ use std::fmt;
 
 use crate::basic::{
     cls::{
-        basic_type::BasicType, class::Class, custom_class::CustomClass,
+        basic_type::BasicType,
+        class::{BOOLEAN, CHAR, Class, STRING},
+        custom_class::CustomClass,
         number_types::number::NumberType,
     },
     expr::{
@@ -94,14 +96,14 @@ impl ObjectInstance {
                     ))
                 }
             },
-            Some(Class::Basic(BasicType::Boolean)) => {
+            Some(&BOOLEAN) => {
                 Expression::Boolean(BooleanExpression::Literal(rng.random_range(0..=1) == 0))
             }
-            Some(Class::Basic(BasicType::String)) => {
+            Some(&STRING) => {
                 // For now, generate a simple int literal
                 Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
             }
-            Some(Class::Basic(BasicType::Char)) => {
+            Some(&CHAR) => {
                 Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
             }
             _ => Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100))),

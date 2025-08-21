@@ -1,14 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    basic::cls::{
-        basic_type::BasicType,
-        class::Class,
-        number_types::{
-            floating_point::FloatingPointType, number::NumberType,
-            signed_integer::SignedIntegerType,
-        },
-    },
+    basic::cls::class::{BOOLEAN, FLOAT, INT, STRING},
     type_system::{Type, TypeContext, TypeError, TypeResult},
 };
 
@@ -49,17 +42,13 @@ impl TypeInference {
     pub fn infer_literal_type(&self, value: &str) -> TypeResult<Type> {
         // Simple type inference based on string representation
         if value.parse::<i32>().is_ok() {
-            Ok(Type::Basic(Class::Basic(BasicType::Number(
-                NumberType::SignedInteger(SignedIntegerType::Int),
-            ))))
+            Ok(Type::Basic(INT))
         } else if value.parse::<f32>().is_ok() {
-            Ok(Type::Basic(Class::Basic(BasicType::Number(
-                NumberType::FloatingPoint(FloatingPointType::Float),
-            ))))
+            Ok(Type::Basic(FLOAT))
         } else if value == "true" || value == "false" {
-            Ok(Type::Basic(Class::Basic(BasicType::Boolean)))
+            Ok(Type::Basic(BOOLEAN))
         } else if value.starts_with('"') && value.ends_with('"') {
-            Ok(Type::Basic(Class::Basic(BasicType::String)))
+            Ok(Type::Basic(STRING))
         } else {
             Err(TypeError {
                 message: format!("Cannot infer type for literal: {}", value),

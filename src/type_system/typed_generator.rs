@@ -12,7 +12,7 @@ use crate::basic::{
     },
     cls::{
         basic_type::BasicType,
-        class::Class,
+        class::{BOOLEAN, Class, FLOAT, INT, STRING},
         number_types::{
             floating_point::FloatingPointType, number::NumberType,
             signed_integer::SignedIntegerType, unsigned_integer::UnsignedIntegerType,
@@ -325,9 +325,7 @@ impl TypedGenerationContext {
         rng: &mut T,
     ) -> Variable {
         // Generate a variable with a common numeric type for compatibility
-        let target_type = Some(Class::Basic(BasicType::Number(NumberType::FloatingPoint(
-            FloatingPointType::Float,
-        ))));
+        let target_type = Some(FLOAT);
 
         Variable::generate_random_variable_with_type(is_member, true, target_type, rng)
     }
@@ -465,14 +463,12 @@ impl TypedGenerationContext {
                             // If there's a return expression, infer its type
                             match self.infer_expression_type(expr) {
                                 Ok(ty) => ty,
-                                Err(_) => Type::Basic(Class::Basic(BasicType::Number(
-                                    NumberType::FloatingPoint(FloatingPointType::Float),
-                                ))),
+                                Err(_) => Type::Basic(FLOAT),
                             }
                         }
                         None => {
                             // Return without value - Unit type
-                            Type::Basic(Class::Basic(BasicType::Boolean))
+                            Type::Basic(BOOLEAN)
                         }
                     };
                 }
@@ -480,15 +476,13 @@ impl TypedGenerationContext {
         }
 
         // If no return statement found, assume Unit type
-        Type::Basic(Class::Basic(BasicType::Boolean))
+        Type::Basic(BOOLEAN)
     }
 
     /// Infer the type of an expression
     fn infer_expression_type(&self, _expr: &Expression) -> TypeResult<Type> {
         // For now, assume all expressions are Float (arithmetic expressions)
-        Ok(Type::Basic(Class::Basic(BasicType::Number(
-            NumberType::FloatingPoint(FloatingPointType::Float),
-        ))))
+        Ok(Type::Basic(FLOAT))
     }
 
     /// Generate a type-safe return statement (empty return only)
@@ -525,7 +519,7 @@ impl TypedGenerationContext {
                             });
                         SingleStatement::Return(Some(expr))
                     }
-                    Type::Basic(Class::Basic(BasicType::Boolean)) => {
+                    Type::Basic(BOOLEAN) => {
                         // Boolean return type - generate boolean expression
                         let expr = self
                             .generate_expression_for_type(
@@ -579,9 +573,9 @@ impl TypedGenerationContext {
                         OrderedFloat::from(rng.random::<f32>() * 100.0),
                     )))
                 }
-                Type::Basic(Class::Basic(BasicType::Boolean)) => Ok(Expression::Boolean(
-                    BooleanExpression::Literal(rng.random()),
-                )),
+                Type::Basic(BOOLEAN) => Ok(Expression::Boolean(BooleanExpression::Literal(
+                    rng.random(),
+                ))),
                 _ => Ok(Expression::Arithmetic(ArithmeticExpression::Int(
                     rng.random_range(-100..100),
                 ))),
@@ -633,11 +627,11 @@ impl TypedGenerationContext {
                     }
                 }
             }
-            Type::Basic(Class::Basic(BasicType::Boolean)) => {
+            Type::Basic(BOOLEAN) => {
                 // Generate boolean expression specifically
                 Ok(self.generate_boolean_expression(rng))
             }
-            Type::Basic(Class::Basic(BasicType::String)) => {
+            Type::Basic(STRING) => {
                 // For string, generate a simple expression (string literals not implemented yet)
                 Ok(Expression::generate_random_expression(
                     1,
@@ -684,9 +678,7 @@ impl TypedGenerationContext {
             }
             6..=9 => {
                 // Generate type-safe function call that returns float
-                let float_type = Type::Basic(Class::Basic(BasicType::Number(
-                    NumberType::FloatingPoint(FloatingPointType::Float),
-                )));
+                let float_type = Type::Basic(FLOAT);
 
                 match self.generate_type_safe_function_call_expression_with_depth(
                     &float_type,
@@ -755,9 +747,7 @@ impl TypedGenerationContext {
             }
             6..=9 => {
                 // Generate type-safe function call that returns int
-                let int_type = Type::Basic(Class::Basic(BasicType::Number(
-                    NumberType::SignedInteger(SignedIntegerType::Int),
-                )));
+                let int_type = Type::Basic(INT);
 
                 match self.generate_type_safe_function_call_expression_with_depth(
                     &int_type,
