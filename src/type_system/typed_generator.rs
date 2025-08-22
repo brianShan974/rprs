@@ -1093,7 +1093,7 @@ impl TypedGenerationContext {
     fn generate_boolean_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
         // Generate boolean expression with depth 2
         Expression::Boolean(BooleanExpression::generate_random_boolean_expression(
-            2, rng,
+            2, None, rng,
         ))
     }
 }

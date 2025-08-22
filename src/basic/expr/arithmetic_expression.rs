@@ -243,7 +243,7 @@ impl ArithmeticExpression {
             };
         }
 
-        match rng.random_range(0..=5) {
+        match rng.random_range(0..=7) {
             0 => {
                 // Generate literal of target type
                 if target_is_int {
@@ -252,8 +252,8 @@ impl ArithmeticExpression {
                     ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
                 }
             }
-            1..=2 => {
-                // Generate variable reference of matching type if available
+            1..=4 => {
+                // Generate variable reference of matching type if available (significantly increased probability)
                 if let Some(variables) = external_variables {
                     let matching_vars: Vec<_> = variables
                         .iter()
@@ -280,27 +280,111 @@ impl ArithmeticExpression {
                     ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
                 }
             }
-            3..=4 => {
-                // Generate binary operation of target type
+            5..=6 => {
+                // Generate binary operation of target type with controlled operand types
+                // Ensure a good mix of variable + literal combinations
+                let left_is_variable = rng.random_range(0..3) < 2; // 67% chance for variable
+                let right_is_variable = rng.random_range(0..3) < 1; // 33% chance for variable
+
+                let left = if left_is_variable {
+                    // Try to generate variable reference of matching type
+                    if let Some(variables) = external_variables {
+                        let matching_vars: Vec<_> = variables
+                            .iter()
+                            .filter(|v| {
+                                if let Some(var_type) = v.get_type() {
+                                    var_type.is_integer_type() == target_is_int
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if !matching_vars.is_empty() {
+                            let variable = matching_vars[rng.random_range(0..matching_vars.len())];
+                            ArithmeticExpression::VariableReference(variable.get_name().to_string())
+                        } else {
+                            // Fallback to literal of target type
+                            if target_is_int {
+                                ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            } else {
+                                ArithmeticExpression::Float(OrderedFloat::from(
+                                    rng.random::<f32>() * 100.0,
+                                ))
+                            }
+                        }
+                    } else {
+                        // Fallback to literal of target type
+                        if target_is_int {
+                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                        } else {
+                            ArithmeticExpression::Float(OrderedFloat::from(
+                                rng.random::<f32>() * 100.0,
+                            ))
+                        }
+                    }
+                } else {
+                    // Generate literal of target type
+                    if target_is_int {
+                        ArithmeticExpression::Int(rng.random_range(-100..=100))
+                    } else {
+                        ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
+                    }
+                };
+
+                let right = if right_is_variable {
+                    // Try to generate variable reference of matching type
+                    if let Some(variables) = external_variables {
+                        let matching_vars: Vec<_> = variables
+                            .iter()
+                            .filter(|v| {
+                                if let Some(var_type) = v.get_type() {
+                                    var_type.is_integer_type() == target_is_int
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if !matching_vars.is_empty() {
+                            let variable = matching_vars[rng.random_range(0..matching_vars.len())];
+                            ArithmeticExpression::VariableReference(variable.get_name().to_string())
+                        } else {
+                            // Fallback to literal of target type
+                            if target_is_int {
+                                ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            } else {
+                                ArithmeticExpression::Float(OrderedFloat::from(
+                                    rng.random::<f32>() * 100.0,
+                                ))
+                            }
+                        }
+                    } else {
+                        // Fallback to literal of target type
+                        if target_is_int {
+                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                        } else {
+                            ArithmeticExpression::Float(OrderedFloat::from(
+                                rng.random::<f32>() * 100.0,
+                            ))
+                        }
+                    }
+                } else {
+                    // Generate literal of target type
+                    if target_is_int {
+                        ArithmeticExpression::Int(rng.random_range(-100..=100))
+                    } else {
+                        ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
+                    }
+                };
+
                 ArithmeticExpression::BinaryOp {
-                    left: Box::new(Self::generate_typed_expression(
-                        max_depth - 1,
-                        target_is_int,
-                        external_functions.clone(),
-                        external_variables,
-                        rng,
-                    )),
+                    left: Box::new(left),
                     op: Operator::generate_random_operator(rng),
-                    right: Box::new(Self::generate_typed_expression(
-                        max_depth - 1,
-                        target_is_int,
-                        external_functions,
-                        external_variables,
-                        rng,
-                    )),
+                    right: Box::new(right),
                 }
             }
-            _ => {
+            7 => {
                 // Fallback to literal
                 if target_is_int {
                     ArithmeticExpression::Int(rng.random_range(-100..=100))
@@ -308,6 +392,7 @@ impl ArithmeticExpression {
                     ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
                 }
             }
+            _ => unreachable!(),
         }
     }
 
@@ -318,10 +403,27 @@ impl ArithmeticExpression {
         rng: &mut T,
     ) -> Self {
         if max_depth == 0 {
-            // At max depth, try to generate variable reference first if available
+            // At max depth, try to generate variable reference first if available (high probability)
+            // Only use numeric variables for arithmetic expressions
             if let Some(variables) = external_variables {
-                if !variables.is_empty() && rng.random_range(0..3) == 0 {
-                    let variable = &variables[rng.random_range(0..variables.len())];
+                let numeric_variables: Vec<_> = variables
+                    .iter()
+                    .filter(|var| {
+                        if let Some(var_type) = var.get_type() {
+                            matches!(
+                                var_type,
+                                crate::basic::cls::class::Class::Basic(
+                                    crate::basic::cls::basic_type::BasicType::Number(_)
+                                )
+                            )
+                        } else {
+                            false
+                        }
+                    })
+                    .collect();
+
+                if !numeric_variables.is_empty() && rng.random_range(0..4) < 3 {
+                    let variable = &numeric_variables[rng.random_range(0..numeric_variables.len())];
                     return ArithmeticExpression::VariableReference(
                         variable.get_name().to_string(),
                     );
@@ -334,38 +436,157 @@ impl ArithmeticExpression {
             };
         }
 
-        match rng.random_range(0..=7) {
+        match rng.random_range(0..=9) {
             0 => ArithmeticExpression::Int(rng.random_range(-100..=100)),
             1 => ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)),
-            2..=3 => {
-                // Generate variable reference if available (increased probability)
+            2..=5 => {
+                // Generate variable reference if available (significantly increased probability)
+                // Only use numeric variables for arithmetic expressions
                 if let Some(variables) = external_variables {
-                    if !variables.is_empty() {
-                        let variable = &variables[rng.random_range(0..variables.len())];
+                    let numeric_variables: Vec<_> = variables
+                        .iter()
+                        .filter(|var| {
+                            if let Some(var_type) = var.get_type() {
+                                matches!(
+                                    var_type,
+                                    crate::basic::cls::class::Class::Basic(
+                                        crate::basic::cls::basic_type::BasicType::Number(_)
+                                    )
+                                )
+                            } else {
+                                false
+                            }
+                        })
+                        .collect();
+
+                    if !numeric_variables.is_empty() {
+                        let variable =
+                            &numeric_variables[rng.random_range(0..numeric_variables.len())];
                         return ArithmeticExpression::VariableReference(
                             variable.get_name().to_string(),
                         );
                     }
                 }
-                // Fallback to integer if no variables available
+                // Fallback to integer if no numeric variables available
                 ArithmeticExpression::Int(rng.random_range(-100..=100))
             }
-            4 => ArithmeticExpression::BinaryOp {
-                left: Box::new(Self::generate_random_expression(
-                    max_depth - 1,
-                    external_functions.clone(),
-                    external_variables,
-                    rng,
-                )),
-                op: Operator::generate_random_operator(rng),
-                right: Box::new(Self::generate_random_expression(
-                    max_depth - 1,
-                    external_functions,
-                    external_variables,
-                    rng,
-                )),
-            },
-            5..=6 => {
+            6..=7 => {
+                // Generate binary operation with controlled operand types
+                // Ensure a good mix of variable + literal combinations
+                let left_is_variable = rng.random_range(0..3) < 2; // 67% chance for variable
+                let right_is_variable = rng.random_range(0..3) < 1; // 33% chance for variable
+
+                let left = if left_is_variable {
+                    // Try to generate variable reference
+                    if let Some(variables) = external_variables {
+                        let numeric_variables: Vec<_> = variables
+                            .iter()
+                            .filter(|var| {
+                                if let Some(var_type) = var.get_type() {
+                                    matches!(
+                                        var_type,
+                                        crate::basic::cls::class::Class::Basic(
+                                            crate::basic::cls::basic_type::BasicType::Number(_)
+                                        )
+                                    )
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if !numeric_variables.is_empty() {
+                            let variable =
+                                &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                            ArithmeticExpression::VariableReference(variable.get_name().to_string())
+                        } else {
+                            // Fallback to literal if no variables available
+                            if rng.random() {
+                                ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            } else {
+                                ArithmeticExpression::Float(OrderedFloat::from(
+                                    rng.random::<f32>() * 100.0,
+                                ))
+                            }
+                        }
+                    } else {
+                        // Fallback to literal if no variables available
+                        if rng.random() {
+                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                        } else {
+                            ArithmeticExpression::Float(OrderedFloat::from(
+                                rng.random::<f32>() * 100.0,
+                            ))
+                        }
+                    }
+                } else {
+                    // Generate literal
+                    if rng.random() {
+                        ArithmeticExpression::Int(rng.random_range(-100..=100))
+                    } else {
+                        ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
+                    }
+                };
+
+                let right = if right_is_variable {
+                    // Try to generate variable reference
+                    if let Some(variables) = external_variables {
+                        let numeric_variables: Vec<_> = variables
+                            .iter()
+                            .filter(|var| {
+                                if let Some(var_type) = var.get_type() {
+                                    matches!(
+                                        var_type,
+                                        crate::basic::cls::class::Class::Basic(
+                                            crate::basic::cls::basic_type::BasicType::Number(_)
+                                        )
+                                    )
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if !numeric_variables.is_empty() {
+                            let variable =
+                                &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                            ArithmeticExpression::VariableReference(variable.get_name().to_string())
+                        } else {
+                            // Fallback to literal if no variables available
+                            if rng.random() {
+                                ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            } else {
+                                ArithmeticExpression::Float(OrderedFloat::from(
+                                    rng.random::<f32>() * 100.0,
+                                ))
+                            }
+                        }
+                    } else {
+                        // Fallback to literal if no variables available
+                        if rng.random() {
+                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                        } else {
+                            ArithmeticExpression::Float(OrderedFloat::from(
+                                rng.random::<f32>() * 100.0,
+                            ))
+                        }
+                    }
+                } else {
+                    // Generate literal
+                    if rng.random() {
+                        ArithmeticExpression::Int(rng.random_range(-100..=100))
+                    } else {
+                        ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
+                    }
+                };
+
+                ArithmeticExpression::BinaryOp {
+                    left: Box::new(left),
+                    op: Operator::generate_random_operator(rng),
+                    right: Box::new(right),
+                }
+            }
+            8 => {
                 // Generate function call if external_functions is provided and not empty
                 // Only use functions that return numeric types
                 if let Some(functions) = external_functions {
@@ -400,8 +621,8 @@ impl ArithmeticExpression {
                             for _ in 0..num_args {
                                 // Generate argument with higher probability for variable references
                                 let arg = if let Some(variables) = external_variables {
-                                    if !variables.is_empty() && rng.random_range(0..2) == 0 {
-                                        // 50% chance to generate variable reference
+                                    if !variables.is_empty() && rng.random_range(0..4) < 3 {
+                                        // 75% chance to generate variable reference
                                         let variable =
                                             &variables[rng.random_range(0..variables.len())];
                                         Expression::VariableReference(
@@ -436,7 +657,7 @@ impl ArithmeticExpression {
                 // Fallback to simple arithmetic expression
                 ArithmeticExpression::Int(rng.random_range(-100..=100))
             }
-            7 => {
+            9 => {
                 // Generate binary operation with function call as one operand
                 // Only use functions that return numeric types
                 if let Some(functions) = external_functions {
@@ -471,8 +692,8 @@ impl ArithmeticExpression {
                             for _ in 0..num_args {
                                 // Generate argument with higher probability for variable references
                                 let arg = if let Some(variables) = external_variables {
-                                    if !variables.is_empty() && rng.random_range(0..2) == 0 {
-                                        // 50% chance to generate variable reference
+                                    if !variables.is_empty() && rng.random_range(0..4) < 3 {
+                                        // 75% chance to generate variable reference
                                         let variable =
                                             &variables[rng.random_range(0..variables.len())];
                                         Expression::VariableReference(

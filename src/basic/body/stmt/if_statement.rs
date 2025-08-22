@@ -36,7 +36,8 @@ impl IfStatement {
         }
 
         // Generate condition
-        let condition = BooleanExpression::generate_random_boolean_expression(3, rng);
+        let condition =
+            BooleanExpression::generate_random_boolean_expression(3, Some(external_variables), rng);
 
         // Generate if block
         let if_block = Block::generate_random_block(
@@ -53,7 +54,11 @@ impl IfStatement {
         let mut elseif_blocks = Vec::with_capacity(num_elseif_blocks);
 
         for _ in 0..num_elseif_blocks {
-            let elseif_condition = BooleanExpression::generate_random_boolean_expression(3, rng);
+            let elseif_condition = BooleanExpression::generate_random_boolean_expression(
+                3,
+                Some(external_variables),
+                rng,
+            );
             if let Some(elseif_block) = Block::generate_random_block(
                 external_variables,
                 external_functions.clone(),
@@ -120,7 +125,8 @@ impl IfStatement {
         }
 
         // Generate condition
-        let condition = BooleanExpression::generate_random_boolean_expression(3, rng);
+        let condition =
+            BooleanExpression::generate_random_boolean_expression(3, Some(external_variables), rng);
 
         // Generate if block with return type awareness
         let if_block = Block::generate_type_safe_block_with_return_type(
@@ -139,7 +145,11 @@ impl IfStatement {
         let mut elseif_blocks = Vec::with_capacity(num_elseif_blocks);
 
         for _ in 0..num_elseif_blocks {
-            let elseif_condition = BooleanExpression::generate_random_boolean_expression(3, rng);
+            let elseif_condition = BooleanExpression::generate_random_boolean_expression(
+                3,
+                Some(external_variables),
+                rng,
+            );
             if let Some(elseif_block) = Block::generate_type_safe_block_with_return_type(
                 external_variables,
                 external_functions.clone(),
@@ -193,9 +203,7 @@ impl Display for IfStatement {
 
         // Write else block
         if let Some(else_block) = &self.else_block {
-            writeln!(f, " else {else_block}")?;
-        } else {
-            writeln!(f)?;
+            write!(f, " else {else_block}")?;
         }
 
         Ok(())

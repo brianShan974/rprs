@@ -203,12 +203,8 @@ impl fmt::Display for CustomClass {
             )?;
         }
 
-        if !self.methods.is_empty() {
-            writeln!(f)?;
-        }
-
         for method in &self.methods {
-            writeln!(f, "{}", method)?;
+            writeln!(f, "\n{}", method)?;
         }
 
         write!(f, "{}}}", outer_indentation)?;

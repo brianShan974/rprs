@@ -58,7 +58,9 @@ impl Expression {
             )),
             2 => Self::generate_random_string_literal(rng),
             3..=4 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
-                max_depth, rng,
+                max_depth,
+                external_variables,
+                rng,
             )),
             5..=9 => {
                 // Generate function call if external_functions is provided and not empty
@@ -75,8 +77,8 @@ impl Expression {
                         for _ in 0..num_args {
                             // Higher probability for variable references in function arguments
                             let arg = if let Some(variables) = external_variables {
-                                if !variables.is_empty() && rng.random_range(0..2) == 0 {
-                                    // 50% chance to generate variable reference
+                                if !variables.is_empty() && rng.random_range(0..4) < 3 {
+                                    // 75% chance to generate variable reference
                                     let variable = &variables[rng.random_range(0..variables.len())];
                                     Self::VariableReference(variable.get_name().to_string())
                                 } else {
