@@ -476,17 +476,13 @@ impl SingleStatement {
                             }
                         }
                         1 => {
-                            // 33% chance: Generate numeric function call if available
-                            let available_funcs = typed_context.get_available_functions();
-                            if !available_funcs.is_empty() {
-                                let func_name =
-                                    &available_funcs[rng.random_range(0..available_funcs.len())];
-                                Expression::FunctionCall(func_name.clone(), vec![])
-                            } else {
-                                Expression::Arithmetic(ArithmeticExpression::Int(
-                                    rng.random_range(1..=10),
-                                ))
-                            }
+                            // 33% chance: Generate function call with proper parameters by delegating to Expression
+                            Expression::generate_random_expression(
+                                2,
+                                Some(typed_context.get_external_functions()),
+                                Some(&typed_context.get_mutable_variables()),
+                                rng,
+                            )
                         }
                         _ => {
                             // 33% chance: Generate numeric literal
