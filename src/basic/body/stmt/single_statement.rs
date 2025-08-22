@@ -92,12 +92,31 @@ impl SingleStatement {
                     // Choose a random mutable variable
                     let var_name =
                         available_vars[rng.random_range(0..available_vars.len())].clone();
-                    let expr = Expression::generate_random_expression(
-                        3,
-                        Some(external_functions.clone()),
-                        Some(external_variables),
-                        rng,
-                    );
+
+                    // Find the variable to get its type
+                    let var_type = external_variables
+                        .iter()
+                        .find(|v| v.get_name() == var_name)
+                        .and_then(|v| v.get_type());
+
+                    let expr = if let Some(target_type) = var_type {
+                        // Generate expression of matching type
+                        Expression::generate_expression_for_type(
+                            target_type,
+                            3,
+                            Some(external_functions.clone()),
+                            Some(external_variables),
+                            rng,
+                        )
+                    } else {
+                        // Fallback to random expression if type not found
+                        Expression::generate_random_expression(
+                            3,
+                            Some(external_functions.clone()),
+                            Some(external_variables),
+                            rng,
+                        )
+                    };
                     SingleStatement::Assignment(var_name, expr)
                 }
             }
@@ -115,23 +134,65 @@ impl SingleStatement {
                     );
                     SingleStatement::VariableDeclaration(var)
                 } else {
+                    // Only allow top-level functions to avoid cross-class method calls
+                    let available_functions: Vec<_> = functions
+                        .iter()
+                        .filter(|func| !func.is_class_method())
+                        .collect();
+
+                    if available_functions.is_empty() {
+                        // If no functions available, generate a variable declaration instead
+                        let var = Variable::generate_random_variable_with_const_control(
+                            false,
+                            true,
+                            Some(external_variables),
+                            false,
+                            rng,
+                        );
+                        return SingleStatement::VariableDeclaration(var);
+                    }
+
                     // Choose a random function
-                    let function = &functions[rng.random_range(0..functions.len())];
+                    let function =
+                        &available_functions[rng.random_range(0..available_functions.len())];
                     let function_name = function.get_name().to_string();
 
-                    // Generate random arguments (0-3 expressions)
-                    let num_args = rng.random_range(0..=3);
-                    let mut args = Vec::with_capacity(num_args);
-                    for _ in 0..num_args {
-                        // Higher probability for variable references in function arguments
-                        let arg = if !external_variables.is_empty() && rng.random_range(0..2) == 0 {
-                            // 50% chance to generate variable reference
-                            let variable =
-                                &external_variables[rng.random_range(0..external_variables.len())];
-                            Expression::VariableReference(variable.get_name().to_string())
+                    // Generate arguments that match function parameter types
+                    let mut args = Vec::with_capacity(function.get_parameters().len());
+                    for param in function.get_parameters() {
+                        let param_type = param.get_type();
+                        let arg = if !external_variables.is_empty() {
+                            // Try to find a variable of matching type first
+                            let matching_vars: Vec<_> = external_variables
+                                .iter()
+                                .filter(|var| {
+                                    if let Some(var_type) = var.get_type() {
+                                        var_type == param_type
+                                    } else {
+                                        false
+                                    }
+                                })
+                                .collect();
+
+                            if !matching_vars.is_empty() && rng.random_range(0..3) < 2 {
+                                // 67% chance to use matching variable
+                                let variable =
+                                    &matching_vars[rng.random_range(0..matching_vars.len())];
+                                Expression::VariableReference(variable.get_name().to_string())
+                            } else {
+                                // Generate expression of matching type
+                                Expression::generate_expression_for_type(
+                                    param_type,
+                                    2,
+                                    Some(external_functions.clone()),
+                                    Some(external_variables),
+                                    rng,
+                                )
+                            }
                         } else {
-                            // Otherwise generate random expression
-                            Expression::generate_random_expression(
+                            // Generate expression of matching type
+                            Expression::generate_expression_for_type(
+                                param_type,
                                 2,
                                 Some(external_functions.clone()),
                                 Some(external_variables),
@@ -175,9 +236,36 @@ impl SingleStatement {
                     // Generate numeric expression for the right side
                     let expr = if !external_variables.is_empty() && rng.random_range(0..2) == 0 {
                         // 50% chance to generate variable reference
-                        let variable =
-                            &external_variables[rng.random_range(0..external_variables.len())];
-                        Expression::VariableReference(variable.get_name().to_string())
+                        // Only use numeric variables for compound assignment
+                        let numeric_variables: Vec<_> = external_variables
+                            .iter()
+                            .filter(|var| {
+                                if let Some(var_type) = var.get_type() {
+                                    matches!(
+                                        var_type,
+                                        crate::basic::cls::class::Class::Basic(
+                                            crate::basic::cls::basic_type::BasicType::Number(_)
+                                        )
+                                    )
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if !numeric_variables.is_empty() {
+                            let variable =
+                                &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                            Expression::VariableReference(variable.get_name().to_string())
+                        } else {
+                            // Fallback to random numeric expression if no numeric variables available
+                            Expression::generate_random_expression(
+                                3,
+                                Some(external_functions.clone()),
+                                Some(external_variables),
+                                rng,
+                            )
+                        }
                     } else {
                         // Otherwise generate random numeric expression
                         Expression::generate_random_expression(

@@ -29,6 +29,7 @@ pub struct Function {
     body: Block,
     current_indentation_layer: usize,
     visibility: Visibility,
+    is_method: bool, // Whether this function is a class method
 }
 
 impl Function {
@@ -70,6 +71,7 @@ impl Function {
             )?,
             visibility: Visibility::generate_random_visibility(is_method, rng),
             current_indentation_layer,
+            is_method,
         };
 
         if !is_method {
@@ -98,6 +100,10 @@ impl Function {
 
     pub fn get_current_indentation_layer(&self) -> usize {
         self.current_indentation_layer
+    }
+
+    pub fn is_class_method(&self) -> bool {
+        self.is_method
     }
 
     /// Generate a type-safe function using typed generation context
@@ -177,6 +183,7 @@ impl Function {
             body: body_with_returns,
             current_indentation_layer,
             visibility: Visibility::generate_random_visibility(is_method, rng),
+            is_method,
         };
 
         // Add the generated function to external_functions

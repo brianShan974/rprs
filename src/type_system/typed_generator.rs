@@ -36,6 +36,8 @@ pub struct TypedGenerationContext {
     function_signatures: HashMap<String, Type>,
     /// External functions reference
     external_functions: Rc<RefCell<Vec<Function>>>,
+    /// Current class methods (if we're inside a class method)
+    current_class_methods: Option<Vec<Function>>,
 }
 
 impl TypedGenerationContext {
@@ -45,6 +47,7 @@ impl TypedGenerationContext {
             variable_types: HashMap::new(),
             function_signatures: HashMap::new(),
             external_functions,
+            current_class_methods: None,
         }
     }
 
@@ -56,6 +59,7 @@ impl TypedGenerationContext {
             variable_types: self.variable_types.clone(),
             function_signatures: self.function_signatures.clone(),
             external_functions: self.external_functions.clone(),
+            current_class_methods: self.current_class_methods.clone(),
         }
     }
 
@@ -86,6 +90,21 @@ impl TypedGenerationContext {
 
     pub fn get_external_functions(&self) -> Rc<RefCell<Vec<Function>>> {
         self.external_functions.clone()
+    }
+
+    /// Set the current class methods (used when generating code inside a class method)
+    pub fn set_current_class_methods(&mut self, methods: Vec<Function>) {
+        self.current_class_methods = Some(methods);
+    }
+
+    /// Get the current class methods (if we're inside a class method)
+    pub fn get_current_class_methods(&self) -> Option<&Vec<Function>> {
+        self.current_class_methods.as_ref()
+    }
+
+    /// Check if we're currently inside a class method
+    pub fn is_inside_class_method(&self) -> bool {
+        self.current_class_methods.is_some()
     }
 
     /// Generate a type-safe variable assignment
@@ -1093,7 +1112,7 @@ impl TypedGenerationContext {
     fn generate_boolean_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
         // Generate boolean expression with depth 2
         Expression::Boolean(BooleanExpression::generate_random_boolean_expression(
-            2, None, rng,
+            2, None, None, rng,
         ))
     }
 }

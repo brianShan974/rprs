@@ -7,6 +7,9 @@ use std::rc::Rc;
 use super::arithmetic_expression::ArithmeticExpression;
 use super::boolean_expression::BooleanExpression;
 use crate::basic::body::fun::function::Function;
+use crate::basic::cls::basic_type::BasicType;
+use crate::basic::cls::class::Class;
+use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::var::variable::Variable;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -48,61 +51,84 @@ impl Expression {
         external_variables: Option<&[Variable]>,
         rng: &mut T,
     ) -> Self {
-        // 8% arithmetic, 8% boolean, 4% string literal, 25% function call, 45% variable reference, 10% fallback
+        // 5% arithmetic, 5% boolean, 3% string literal, 20% function call, 55% variable reference, 12% fallback
         match rng.random_range(0..20) {
-            0..=1 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
+            0 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
                 max_depth,
                 external_functions.clone(),
                 external_variables,
                 rng,
             )),
-            2 => Self::generate_random_string_literal(rng),
-            3..=4 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
+            1 => Self::generate_random_string_literal(rng),
+            2..=3 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
                 max_depth,
+                external_functions.clone(),
                 external_variables,
                 rng,
             )),
-            5..=9 => {
+            4..=7 => {
                 // Generate function call if external_functions is provided and not empty
                 if let Some(functions) = external_functions {
                     let functions_borrowed = functions.borrow();
                     if !functions_borrowed.is_empty() {
-                        let function =
-                            &functions_borrowed[rng.random_range(0..functions_borrowed.len())];
-                        let function_name = function.get_name().to_string();
+                        // Only allow top-level functions to avoid cross-class method calls
+                        let available_functions: Vec<_> = functions_borrowed
+                            .iter()
+                            .filter(|func| !func.is_class_method())
+                            .collect();
 
-                        // Generate random arguments (0-3 expressions)
-                        let num_args = rng.random_range(0..=3);
-                        let mut args = Vec::with_capacity(num_args);
-                        for _ in 0..num_args {
-                            // Higher probability for variable references in function arguments
-                            let arg = if let Some(variables) = external_variables {
-                                if !variables.is_empty() && rng.random_range(0..4) < 3 {
-                                    // 75% chance to generate variable reference
-                                    let variable = &variables[rng.random_range(0..variables.len())];
-                                    Self::VariableReference(variable.get_name().to_string())
+                        if !available_functions.is_empty() {
+                            let function = &available_functions
+                                [rng.random_range(0..available_functions.len())];
+                            let function_name = function.get_name().to_string();
+
+                            // Generate arguments that match function parameter types
+                            let mut args = Vec::with_capacity(function.get_parameters().len());
+                            for param in function.get_parameters() {
+                                let param_type = param.get_type();
+                                let arg = if let Some(variables) = external_variables {
+                                    // Try to find a variable of matching type first
+                                    let matching_vars: Vec<_> = variables
+                                        .iter()
+                                        .filter(|var| {
+                                            if let Some(var_type) = var.get_type() {
+                                                var_type == param_type
+                                            } else {
+                                                false
+                                            }
+                                        })
+                                        .collect();
+
+                                    if !matching_vars.is_empty() && rng.random_range(0..3) < 2 {
+                                        // 67% chance to use matching variable
+                                        let variable = &matching_vars
+                                            [rng.random_range(0..matching_vars.len())];
+                                        Self::VariableReference(variable.get_name().to_string())
+                                    } else {
+                                        // Generate expression of matching type
+                                        Self::generate_expression_for_type(
+                                            param_type,
+                                            max_depth.saturating_sub(1),
+                                            Some(functions.clone()),
+                                            external_variables,
+                                            rng,
+                                        )
+                                    }
                                 } else {
-                                    // Otherwise generate random expression
-                                    Self::generate_random_expression(
+                                    // Generate expression of matching type
+                                    Self::generate_expression_for_type(
+                                        param_type,
                                         max_depth.saturating_sub(1),
                                         Some(functions.clone()),
                                         external_variables,
                                         rng,
                                     )
-                                }
-                            } else {
-                                // No variables available, generate random expression
-                                Self::generate_random_expression(
-                                    max_depth.saturating_sub(1),
-                                    Some(functions.clone()),
-                                    external_variables,
-                                    rng,
-                                )
-                            };
-                            args.push(arg);
-                        }
+                                };
+                                args.push(arg);
+                            }
 
-                        return Self::FunctionCall(function_name, args);
+                            return Self::FunctionCall(function_name, args);
+                        }
                     }
                 }
                 // Fallback to arithmetic expression if no functions available
@@ -113,7 +139,7 @@ impl Expression {
                     rng,
                 ))
             }
-            10..=18 => {
+            8..=14 => {
                 // Generate variable reference if external_variables is provided and not empty
                 if let Some(variables) = external_variables {
                     if !variables.is_empty() {
@@ -287,6 +313,68 @@ impl Expression {
                     }
                 }
                 false // Default to false if variable not found
+            }
+        }
+    }
+
+    /// Generate an expression that matches a specific type
+    pub fn generate_expression_for_type<T: Rng + SeedableRng>(
+        target_type: &Class,
+        max_depth: usize,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
+        external_variables: Option<&[Variable]>,
+        rng: &mut T,
+    ) -> Self {
+        match target_type {
+            Class::Basic(BasicType::Number(NumberType::SignedInteger(_))) => {
+                // Generate integer arithmetic expression
+                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                    max_depth,
+                    true, // target_is_int = true
+                    external_functions,
+                    external_variables,
+                    rng,
+                ))
+            }
+            Class::Basic(BasicType::Number(NumberType::FloatingPoint(_))) => {
+                // Generate float arithmetic expression
+                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                    max_depth,
+                    false, // target_is_int = false
+                    external_functions,
+                    external_variables,
+                    rng,
+                ))
+            }
+            Class::Basic(BasicType::Boolean) => {
+                // Generate boolean expression
+                Expression::Boolean(BooleanExpression::generate_random_boolean_expression(
+                    max_depth,
+                    external_functions,
+                    external_variables,
+                    rng,
+                ))
+            }
+            Class::Basic(BasicType::String) => {
+                // Generate string expression
+                Expression::generate_random_string_literal(rng)
+            }
+            Class::Basic(BasicType::Char) => {
+                // Generate char expression (for now, generate a random char)
+                Expression::StringLiteral(format!(
+                    "'{}'",
+                    (rng.random_range(32..127) as u8) as char
+                ))
+            }
+            _ => {
+                // Fallback to integer expression for unknown types
+                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                    max_depth,
+                    true, // target_is_int = true
+                    external_functions,
+                    external_variables,
+                    rng,
+                ))
             }
         }
     }

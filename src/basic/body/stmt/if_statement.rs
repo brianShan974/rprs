@@ -36,8 +36,12 @@ impl IfStatement {
         }
 
         // Generate condition
-        let condition =
-            BooleanExpression::generate_random_boolean_expression(3, Some(external_variables), rng);
+        let condition = BooleanExpression::generate_random_boolean_expression(
+            3,
+            Some(external_functions.clone()),
+            Some(external_variables),
+            rng,
+        );
 
         // Generate if block
         let if_block = Block::generate_random_block(
@@ -56,6 +60,7 @@ impl IfStatement {
         for _ in 0..num_elseif_blocks {
             let elseif_condition = BooleanExpression::generate_random_boolean_expression(
                 3,
+                Some(external_functions.clone()),
                 Some(external_variables),
                 rng,
             );
@@ -125,8 +130,12 @@ impl IfStatement {
         }
 
         // Generate condition
-        let condition =
-            BooleanExpression::generate_random_boolean_expression(3, Some(external_variables), rng);
+        let condition = BooleanExpression::generate_random_boolean_expression(
+            3,
+            Some(external_functions.clone()),
+            Some(external_variables),
+            rng,
+        );
 
         // Generate if block with return type awareness
         let if_block = Block::generate_type_safe_block_with_return_type(
@@ -147,6 +156,7 @@ impl IfStatement {
         for _ in 0..num_elseif_blocks {
             let elseif_condition = BooleanExpression::generate_random_boolean_expression(
                 3,
+                Some(external_functions.clone()),
                 Some(external_variables),
                 rng,
             );

@@ -90,10 +90,24 @@ impl Variable {
         let prefix =
             VariablePrefix::generate_random_prefix_with_const_control(is_member, allow_const, rng);
         let name = generate_random_identifier(rng);
+        // First determine the type, then generate matching expression
+        let ty = if with_initial_value {
+            // Choose type with adjusted probabilities
+            match rng.random_range(0..10) {
+                0..=3 => Some(INT),   // 40% probability for Int
+                4..=7 => Some(FLOAT), // 40% probability for Float
+                8 => Some(BOOLEAN),   // 10% probability for Boolean
+                9 => Some(STRING),    // 10% probability for String
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        };
+
         let value = if with_initial_value {
-            // Generate expression based on random type choice
-            match rng.random_range(0..4) {
-                0 => {
+            // Generate expression that matches the determined type
+            match &ty {
+                Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
                     // Generate integer arithmetic expression
                     Some(Expression::Arithmetic(
                         ArithmeticExpression::generate_typed_expression(
@@ -105,7 +119,7 @@ impl Variable {
                         ),
                     ))
                 }
-                1 => {
+                Some(FLOAT) | Some(DOUBLE) => {
                     // Generate float arithmetic expression
                     Some(Expression::Arithmetic(
                         ArithmeticExpression::generate_typed_expression(
@@ -117,47 +131,27 @@ impl Variable {
                         ),
                     ))
                 }
-                2 => {
+                Some(BOOLEAN) => {
                     // Generate boolean expression
                     Some(Expression::Boolean(BooleanExpression::Literal(
                         rng.random(),
                     )))
                 }
-                3 => {
+                Some(STRING) => {
                     // Generate string expression
                     Some(Expression::generate_random_string_literal(rng))
                 }
-                _ => unreachable!(),
-            }
-        } else {
-            None
-        };
-        let ty = if let Some(value) = &value {
-            // Infer type from expression
-            match value {
-                Expression::Arithmetic(arith_expr) => {
-                    // Check if it's an integer or float expression
-                    if arith_expr.is_int(external_variables) {
-                        Some(INT) // Use INT for integer expressions
-                    } else {
-                        Some(FLOAT) // Use FLOAT for float expressions
-                    }
-                }
-                Expression::Boolean(_) => Some(BOOLEAN),
-                Expression::StringLiteral(_) => Some(STRING),
-                Expression::FunctionCall(_, _) => Some(FLOAT), // Function calls default to float for now
-                Expression::VariableReference(var_name) => {
-                    // Look up the variable type from external_variables
-                    if let Some(variables) = external_variables {
-                        if let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
-                        {
-                            variable.get_type().cloned()
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
+                _ => {
+                    // Fallback to integer expression
+                    Some(Expression::Arithmetic(
+                        ArithmeticExpression::generate_typed_expression(
+                            2,    // Allow some complexity
+                            true, // target_is_int = true
+                            None, // No external functions for variable initialization
+                            external_variables,
+                            rng,
+                        ),
+                    ))
                 }
             }
         } else {

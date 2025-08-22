@@ -24,8 +24,8 @@ pub struct Block {
 impl Block {
     pub const MAX_DEPTH: usize = 5;
 
-    pub const MAX_NUM_STATEMENTS: usize = 3;
-    pub const MAX_NUM_NEW_VARS: usize = 1;
+    pub const MAX_NUM_STATEMENTS: usize = 8; // Increased from 3 to 8 for more statements
+    pub const MAX_NUM_NEW_VARS: usize = 3; // Increased from 1 to 3 for more variables
 
     /// Create a new block with statements
     pub fn new(statements: Vec<Statement>, current_indentation_layer: usize) -> Self {
