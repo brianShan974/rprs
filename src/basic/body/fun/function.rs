@@ -431,10 +431,10 @@ impl Function {
                                 let return_type = if expr.is_boolean() {
                                     // Boolean expression
                                     BOOLEAN
-                                } else if expr.is_int(None, Some(external_functions)) {
+                                } else if expr.is_int(None, Some(external_functions.clone())) {
                                     // Integer expression
                                     INT
-                                } else if expr.is_float(None, Some(external_functions)) {
+                                } else if expr.is_float(None, Some(external_functions.clone())) {
                                     // Float expression
                                     FLOAT
                                 } else if let Expression::FunctionCall(func_name, _) = expr {
@@ -608,8 +608,32 @@ impl Function {
         }
     }
 
-    fn is_method(&self) -> bool {
-        !self.visibility.is_default()
+    pub fn is_method(&self) -> bool {
+        self.is_method
+    }
+
+    pub fn is_boolean_function(&self) -> bool {
+        self.get_return_type()
+            .map_or(false, |ty| ty.is_boolean_type())
+    }
+
+    pub fn is_numeric_function(&self) -> bool {
+        self.get_return_type()
+            .map_or(false, |ty| ty.is_numeric_type())
+    }
+
+    pub fn is_unit_function(&self) -> bool {
+        self.get_return_type().is_none()
+    }
+
+    pub fn is_integer_function(&self) -> bool {
+        self.get_return_type()
+            .map_or(false, |ty| ty.is_integer_type())
+    }
+
+    pub fn is_float_function(&self) -> bool {
+        self.get_return_type()
+            .map_or(false, |ty| ty.is_float_type())
     }
 }
 

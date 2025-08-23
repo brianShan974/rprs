@@ -1,5 +1,5 @@
+use derive_more::Display;
 use rand::{Rng, SeedableRng};
-use std::fmt;
 
 use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::custom_class::CustomClass;
@@ -31,31 +31,24 @@ pub const STRING: Class = Class::Basic(BasicType::String);
 
 pub const BASIC_TYPES: &[Class] = &[BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BOOLEAN, CHAR, STRING];
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Display)]
 pub enum Class {
+    #[display("{_0}")]
     Basic(BasicType),
+    #[display("{}", _0.get_name())]
     Custom(CustomClass),
-}
-
-impl fmt::Display for Class {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Class::Basic(basic_type) => write!(f, "{}", basic_type),
-            Class::Custom(custom_class) => write!(f, "{}", custom_class.get_name()),
-        }
-    }
 }
 
 impl Class {
     pub fn generate_random_class<T: Rng + SeedableRng>(
         rng: &mut T,
-        defined_classes: Option<&mut Vec<Class>>,
+        defined_classes: Option<&mut Vec<Self>>,
         current_indentation_layer: Option<usize>,
     ) -> Self {
         // 70% chance for basic types, 30% chance for custom types
         match rng.random_range(0..10) {
-            0..=6 => Class::Basic(BasicType::generate_random_basic_type(rng)),
-            _ => Class::Custom(CustomClass::generate_random_custom_class(
+            0..=6 => Self::Basic(BasicType::generate_random_basic_type(rng)),
+            _ => Self::Custom(CustomClass::generate_random_custom_class(
                 rng,
                 defined_classes,
                 current_indentation_layer,
@@ -65,16 +58,35 @@ impl Class {
 
     pub fn get_name(&self) -> String {
         match self {
-            Class::Basic(basic_type) => basic_type.to_string(),
-            Class::Custom(custom_class) => custom_class.get_name(),
+            Self::Basic(basic_type) => basic_type.to_string(),
+            Self::Custom(custom_class) => custom_class.get_name(),
         }
     }
 
     pub fn is_integer_type(&self) -> bool {
-        match self {
-            Class::Basic(BasicType::Number(NumberType::SignedInteger(_))) => true,
-            Class::Basic(BasicType::Number(NumberType::UnsignedInteger(_))) => true,
-            _ => false,
-        }
+        use BasicType::Number;
+        use NumberType::SignedInteger;
+        use NumberType::UnsignedInteger;
+        matches!(
+            self,
+            Self::Basic(Number(SignedInteger(_))) | Self::Basic(Number(UnsignedInteger(_)))
+        )
+    }
+
+    pub fn is_numeric_type(&self) -> bool {
+        use BasicType::Number;
+        matches!(self, Self::Basic(Number(_)))
+    }
+
+    pub fn is_float_type(&self) -> bool {
+        self == &FLOAT || self == &DOUBLE
+    }
+
+    pub fn is_boolean_type(&self) -> bool {
+        self == &BOOLEAN
+    }
+
+    pub fn is_string_type(&self) -> bool {
+        self == &STRING
     }
 }

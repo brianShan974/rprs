@@ -1,11 +1,13 @@
+use rand::seq::IndexedRandom;
 use rand::{Rng, SeedableRng};
 
 use std::fmt::Display;
 
 use super::arithmetic_expression::ArithmeticExpression;
 use crate::basic::body::fun::function::Function;
+use crate::basic::expr::expression::Expression;
+use crate::basic::expr::operator::Operator;
 use crate::basic::var::variable::Variable;
-use ordered_float::OrderedFloat;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -22,7 +24,7 @@ pub enum BooleanExpression {
         op: LogicalOperator,
         right: Box<BooleanExpression>,
     },
-    FunctionCall(String, Vec<crate::basic::expr::expression::Expression>),
+    FunctionCall(String, Vec<Expression>),
     VariableReference(String), // Direct boolean variable reference
 }
 
@@ -54,29 +56,16 @@ impl BooleanExpression {
         if max_depth == 0 {
             // At max depth, FORCE boolean variable reference if available
             if let Some(variables) = external_variables {
-                let boolean_variables: Vec<_> = variables
-                    .iter()
-                    .filter(|var| {
-                        if let Some(var_type) = var.get_type() {
-                            matches!(
-                                var_type,
-                                crate::basic::cls::class::Class::Basic(
-                                    crate::basic::cls::basic_type::BasicType::Boolean
-                                )
-                            )
-                        } else {
-                            false
-                        }
-                    })
-                    .collect();
+                let boolean_variables: Vec<_> =
+                    variables.iter().filter(|var| var.is_boolean()).collect();
 
                 if !boolean_variables.is_empty() {
-                    let variable = &boolean_variables[rng.random_range(0..boolean_variables.len())];
-                    return BooleanExpression::VariableReference(variable.get_name().to_string());
+                    let variable = boolean_variables.choose(rng).unwrap();
+                    return Self::VariableReference(variable.get_name().to_string());
                 }
             }
             // Only fallback to literal if absolutely no boolean variables
-            return BooleanExpression::Literal(rng.random_range(0..2) == 0);
+            return Self::generate_random_boolean_literal(rng);
         }
 
         // For logical operations, HEAVILY prioritize variable-based expressions
@@ -84,56 +73,25 @@ impl BooleanExpression {
             0..=3 => {
                 // Generate direct boolean variable reference (40% probability - MAXIMIZED)
                 if let Some(variables) = external_variables {
-                    let boolean_variables: Vec<_> = variables
-                        .iter()
-                        .filter(|var| {
-                            if let Some(var_type) = var.get_type() {
-                                matches!(
-                                    var_type,
-                                    crate::basic::cls::class::Class::Basic(
-                                        crate::basic::cls::basic_type::BasicType::Boolean
-                                    )
-                                )
-                            } else {
-                                false
-                            }
-                        })
-                        .collect();
+                    let boolean_variables: Vec<_> =
+                        variables.iter().filter(|var| var.is_boolean()).collect();
 
                     if !boolean_variables.is_empty() {
-                        let bool_var =
-                            boolean_variables[rng.random_range(0..boolean_variables.len())];
-                        return BooleanExpression::VariableReference(
-                            bool_var.get_name().to_string(),
-                        );
+                        let bool_var = boolean_variables.choose(rng).unwrap();
+                        return Self::VariableReference(bool_var.get_name().to_string());
                     }
                 }
                 // Fallback to simple variable comparison if no boolean variables
                 if let Some(variables) = external_variables {
-                    let numeric_variables: Vec<_> = variables
-                        .iter()
-                        .filter(|var| {
-                            if let Some(var_type) = var.get_type() {
-                                matches!(
-                                    var_type,
-                                    crate::basic::cls::class::Class::Basic(
-                                        crate::basic::cls::basic_type::BasicType::Number(_)
-                                    )
-                                )
-                            } else {
-                                false
-                            }
-                        })
-                        .collect();
+                    let numeric_variables: Vec<_> =
+                        variables.iter().filter(|var| var.is_numeric()).collect();
 
                     if numeric_variables.len() >= 2 {
                         // Generate variable vs variable comparison
-                        let left_var =
-                            &numeric_variables[rng.random_range(0..numeric_variables.len())];
-                        let right_var =
-                            &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                        let left_var = numeric_variables.choose(rng).unwrap();
+                        let right_var = numeric_variables.choose(rng).unwrap();
                         let op = ComparisonOperator::generate_random_comparison_operator(rng);
-                        return BooleanExpression::Comparison {
+                        return Self::Comparison {
                             left: ArithmeticExpression::VariableReference(
                                 left_var.get_name().to_string(),
                             ),
@@ -145,59 +103,42 @@ impl BooleanExpression {
                     }
                 }
                 // Last resort: boolean literal
-                BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                Self::generate_random_boolean_literal(rng)
             }
             4..=8 => {
                 // Generate variable-based comparison (50% probability)
                 if let Some(variables) = external_variables {
-                    let numeric_variables: Vec<_> = variables
-                        .iter()
-                        .filter(|var| {
-                            if let Some(var_type) = var.get_type() {
-                                matches!(
-                                    var_type,
-                                    crate::basic::cls::class::Class::Basic(
-                                        crate::basic::cls::basic_type::BasicType::Number(_)
-                                    )
-                                )
-                            } else {
-                                false
-                            }
-                        })
-                        .collect();
+                    let numeric_variables: Vec<_> =
+                        variables.iter().filter(|var| var.is_numeric()).collect();
 
                     if !numeric_variables.is_empty() {
                         // At least one operand MUST be a variable
-                        let left_var =
-                            &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                        let left_var = numeric_variables.choose(rng).unwrap();
                         let left = ArithmeticExpression::VariableReference(
                             left_var.get_name().to_string(),
                         );
 
-                        let right = if !numeric_variables.is_empty() && rng.random_range(0..3) < 2 {
+                        let right = if !numeric_variables.is_empty() && rng.random_bool(2.0 / 3.0) {
                             // 67% chance for another variable
-                            let right_var =
-                                &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                            let right_var = numeric_variables.choose(rng).unwrap();
                             ArithmeticExpression::VariableReference(
                                 right_var.get_name().to_string(),
                             )
                         } else {
                             // 33% chance for simple literal
                             if rng.random() {
-                                ArithmeticExpression::Int(rng.random_range(-100..=100))
+                                ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
-                                ArithmeticExpression::Float(OrderedFloat::from(
-                                    rng.random::<f32>() * 100.0,
-                                ))
+                                ArithmeticExpression::generate_random_float_literal(rng)
                             }
                         };
 
                         let op = ComparisonOperator::generate_random_comparison_operator(rng);
-                        return BooleanExpression::Comparison { left, op, right };
+                        return Self::Comparison { left, op, right };
                     }
                 }
                 // Fallback to boolean literal
-                BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                Self::generate_random_boolean_literal(rng)
             }
             9 => {
                 // Generate function call that returns boolean (10% probability - for logical operations)
@@ -207,26 +148,11 @@ impl BooleanExpression {
                         // Filter functions that return boolean types and are NOT class methods
                         let boolean_functions: Vec<_> = functions_borrowed
                             .iter()
-                            .filter(|func| {
-                                // Only allow top-level functions, not class methods
-                                !func.is_class_method()
-                                    && if let Some(return_type) = func.get_return_type() {
-                                        // Only allow functions that return boolean types
-                                        matches!(
-                                            return_type,
-                                            crate::basic::cls::class::Class::Basic(
-                                                crate::basic::cls::basic_type::BasicType::Boolean
-                                            )
-                                        )
-                                    } else {
-                                        false // Functions without return type (Unit) are not allowed
-                                    }
-                            })
+                            .filter(|func| func.is_boolean_function() && !func.is_method())
                             .collect();
 
                         if !boolean_functions.is_empty() {
-                            let function =
-                                &boolean_functions[rng.random_range(0..boolean_functions.len())];
+                            let function = boolean_functions.choose(rng).unwrap();
                             let function_name = function.get_name().to_string();
 
                             // Generate arguments that match function parameter types
@@ -237,25 +163,18 @@ impl BooleanExpression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| {
-                                            if let Some(var_type) = var.get_type() {
-                                                var_type == param_type
-                                            } else {
-                                                false
-                                            }
-                                        })
+                                        .filter(|var| var.get_type() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_range(0..5) < 4 {
+                                    if !matching_vars.is_empty() && rng.random_bool(4.0 / 5.0) {
                                         // 80% chance to use matching variable
-                                        let variable = &matching_vars
-                                            [rng.random_range(0..matching_vars.len())];
-                                        crate::basic::expr::expression::Expression::VariableReference(
+                                        let variable = matching_vars.choose(rng).unwrap();
+                                        Expression::VariableReference(
                                             variable.get_name().to_string(),
                                         )
                                     } else {
                                         // Generate expression of matching type
-                                        crate::basic::expr::expression::Expression::generate_expression_for_type(
+                                        Expression::generate_expression_for_type(
                                             param_type,
                                             max_depth.saturating_sub(1),
                                             Some(functions.clone()),
@@ -265,7 +184,7 @@ impl BooleanExpression {
                                     }
                                 } else {
                                     // Generate expression of matching type
-                                    crate::basic::expr::expression::Expression::generate_expression_for_type(
+                                    Expression::generate_expression_for_type(
                                         param_type,
                                         max_depth.saturating_sub(1),
                                         Some(functions.clone()),
@@ -276,17 +195,17 @@ impl BooleanExpression {
                                 args.push(arg);
                             }
 
-                            return BooleanExpression::FunctionCall(function_name, args);
+                            return Self::FunctionCall(function_name, args);
                         }
                     }
                 }
 
                 // Fallback to boolean literal if no suitable functions available
-                BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                Self::generate_random_boolean_literal(rng)
             }
             _ => {
                 // Generate boolean literal (10% probability - minimized)
-                BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                Self::generate_random_boolean_literal(rng)
             }
         }
     }
@@ -300,205 +219,137 @@ impl BooleanExpression {
         if max_depth == 0 {
             // At max depth, try to generate boolean variable reference first if available (high probability)
             if let Some(variables) = external_variables {
-                let boolean_variables: Vec<_> = variables
-                    .iter()
-                    .filter(|var| {
-                        if let Some(var_type) = var.get_type() {
-                            matches!(
-                                var_type,
-                                crate::basic::cls::class::Class::Basic(
-                                    crate::basic::cls::basic_type::BasicType::Boolean
-                                )
-                            )
-                        } else {
-                            false
-                        }
-                    })
-                    .collect();
+                let boolean_variables: Vec<_> =
+                    variables.iter().filter(|var| var.is_boolean()).collect();
 
-                if !boolean_variables.is_empty() && rng.random_range(0..4) < 3 {
+                if !boolean_variables.is_empty() && rng.random_bool(3.0 / 4.0) {
                     // 75% chance to generate boolean variable reference (increased)
-                    let variable = &boolean_variables[rng.random_range(0..boolean_variables.len())];
-                    return BooleanExpression::VariableReference(variable.get_name().to_string());
+                    let variable = boolean_variables.choose(rng).unwrap();
+                    return Self::VariableReference(variable.get_name().to_string());
                 }
             }
             // Fallback to boolean literal
-            return BooleanExpression::Literal(rng.random_range(0..2) == 0);
+            return Self::generate_random_boolean_literal(rng);
         }
 
         match rng.random_range(0..10) {
             0 => {
                 // Generate boolean literal (10% probability - reduced)
-                BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                Self::generate_random_boolean_literal(rng)
             }
             1..=5 => {
                 // Generate comparison expression (50% probability - reduced to make room for function calls)
                 // Ensure at least one operand is a variable to reduce literal comparisons
-                let left_is_variable = rng.random_range(0..10) < 9; // 90% chance for variable (significantly increased)
-                let right_is_variable = rng.random_range(0..4) < 3; // 75% chance for variable (increased)
+                let left_is_variable = rng.random_bool(9.0 / 10.0); // 90% chance for variable (significantly increased)
+                let right_is_variable = rng.random_bool(3.0 / 4.0); // 75% chance for variable (increased)
 
                 let left = if left_is_variable {
                     // FORCE variable reference first - prioritize direct variable usage
                     if let Some(variables) = external_variables {
-                        let numeric_variables: Vec<_> = variables
-                            .iter()
-                            .filter(|var| {
-                                if let Some(var_type) = var.get_type() {
-                                    matches!(
-                                        var_type,
-                                        crate::basic::cls::class::Class::Basic(
-                                            crate::basic::cls::basic_type::BasicType::Number(_)
-                                        )
-                                    )
-                                } else {
-                                    false
-                                }
-                            })
-                            .collect();
+                        let numeric_variables: Vec<_> =
+                            variables.iter().filter(|var| var.is_numeric()).collect();
 
                         if !numeric_variables.is_empty() {
-                            let variable =
-                                &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                            let variable = numeric_variables.choose(rng).unwrap();
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
                             // If no numeric variables, force simple literal instead of complex expression
                             if rng.random() {
-                                ArithmeticExpression::Int(rng.random_range(-100..=100))
+                                ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
-                                ArithmeticExpression::Float(OrderedFloat::from(
-                                    rng.random::<f32>() * 100.0,
-                                ))
+                                ArithmeticExpression::generate_random_float_literal(rng)
                             }
                         }
                     } else {
                         // If no variables available, force simple literal
                         if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         }
                     }
                 } else {
                     // Generate simple arithmetic expression or literal - avoid too much complexity
-                    if rng.random_range(0..3) == 0 {
+                    if rng.random_bool(1.0 / 3.0) {
                         // 33% chance for simple binary operation
                         let op_left = if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         };
                         let op_right = if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         };
                         ArithmeticExpression::BinaryOp {
                             left: Box::new(op_left),
-                            op: crate::basic::expr::operator::Operator::generate_random_operator(
-                                rng,
-                            ),
+                            op: Operator::generate_random_operator(rng),
                             right: Box::new(op_right),
                         }
                     } else {
                         // 67% chance for simple literal
                         if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         }
                     }
                 };
 
                 let right = if right_is_variable {
-                    // FORCE variable reference first - prioritize direct variable usage
                     if let Some(variables) = external_variables {
-                        let numeric_variables: Vec<_> = variables
-                            .iter()
-                            .filter(|var| {
-                                if let Some(var_type) = var.get_type() {
-                                    matches!(
-                                        var_type,
-                                        crate::basic::cls::class::Class::Basic(
-                                            crate::basic::cls::basic_type::BasicType::Number(_)
-                                        )
-                                    )
-                                } else {
-                                    false
-                                }
-                            })
-                            .collect();
+                        let numeric_variables: Vec<_> =
+                            variables.iter().filter(|var| var.is_numeric()).collect();
 
                         if !numeric_variables.is_empty() {
-                            let variable =
-                                &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                            let variable = numeric_variables.choose(rng).unwrap();
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
-                            // If no numeric variables, force simple literal instead of complex expression
                             if rng.random() {
-                                ArithmeticExpression::Int(rng.random_range(-100..=100))
+                                ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
-                                ArithmeticExpression::Float(OrderedFloat::from(
-                                    rng.random::<f32>() * 100.0,
-                                ))
+                                ArithmeticExpression::generate_random_float_literal(rng)
                             }
                         }
                     } else {
-                        // If no variables available, force simple literal
                         if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         }
                     }
                 } else {
                     // Generate simple arithmetic expression or literal - avoid too much complexity
-                    if rng.random_range(0..3) == 0 {
+                    if rng.random_bool(1.0 / 3.0) {
                         // 33% chance for simple binary operation
                         let op_left = if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         };
                         let op_right = if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         };
                         ArithmeticExpression::BinaryOp {
                             left: Box::new(op_left),
-                            op: crate::basic::expr::operator::Operator::generate_random_operator(
-                                rng,
-                            ),
+                            op: Operator::generate_random_operator(rng),
                             right: Box::new(op_right),
                         }
                     } else {
                         // 67% chance for simple literal
                         if rng.random() {
-                            ArithmeticExpression::Int(rng.random_range(-100..=100))
+                            ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
-                            ArithmeticExpression::Float(OrderedFloat::from(
-                                rng.random::<f32>() * 100.0,
-                            ))
+                            ArithmeticExpression::generate_random_float_literal(rng)
                         }
                     }
                 };
 
                 let op = ComparisonOperator::generate_random_comparison_operator(rng);
-                BooleanExpression::Comparison { left, op, right }
+                Self::Comparison { left, op, right }
             }
             6 => {
                 // Generate logical operation (10% probability - reduced)
@@ -517,69 +368,37 @@ impl BooleanExpression {
                     rng,
                 ));
                 let op = LogicalOperator::generate_random_logical_operator(rng);
-                BooleanExpression::LogicalOp { left, op, right }
+                Self::LogicalOp { left, op, right }
             }
             7..=8 => {
-                // Generate direct boolean variable reference (20% probability - increased)
                 if let Some(variables) = external_variables {
-                    let boolean_variables: Vec<_> = variables
-                        .iter()
-                        .filter(|var| {
-                            if let Some(var_type) = var.get_type() {
-                                matches!(
-                                    var_type,
-                                    crate::basic::cls::class::Class::Basic(
-                                        crate::basic::cls::basic_type::BasicType::Boolean
-                                    )
-                                )
-                            } else {
-                                false
-                            }
-                        })
-                        .collect();
+                    let boolean_variables: Vec<_> =
+                        variables.iter().filter(|var| var.is_boolean()).collect();
 
                     if !boolean_variables.is_empty() {
                         // Create a direct boolean variable reference
-                        let bool_var =
-                            boolean_variables[rng.random_range(0..boolean_variables.len())];
-                        BooleanExpression::VariableReference(bool_var.get_name().to_string())
+                        let bool_var = boolean_variables.choose(rng).unwrap();
+                        Self::VariableReference(bool_var.get_name().to_string())
                     } else {
                         // Fallback to boolean literal if no boolean variables available
-                        BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                        Self::generate_random_boolean_literal(rng)
                     }
                 } else {
                     // Fallback to boolean literal if no variables available
-                    BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                    Self::generate_random_boolean_literal(rng)
                 }
             }
             9 => {
-                // Generate function call that returns boolean (10% probability - NEW)
                 if let Some(functions) = external_functions {
                     let functions_borrowed = functions.borrow();
                     if !functions_borrowed.is_empty() {
-                        // Filter functions that return boolean types and are NOT class methods
                         let boolean_functions: Vec<_> = functions_borrowed
                             .iter()
-                            .filter(|func| {
-                                // Only allow top-level functions, not class methods
-                                !func.is_class_method()
-                                    && if let Some(return_type) = func.get_return_type() {
-                                        // Only allow functions that return boolean types
-                                        matches!(
-                                            return_type,
-                                            crate::basic::cls::class::Class::Basic(
-                                                crate::basic::cls::basic_type::BasicType::Boolean
-                                            )
-                                        )
-                                    } else {
-                                        false // Functions without return type (Unit) are not allowed
-                                    }
-                            })
+                            .filter(|func| func.is_boolean_function() && !func.is_method())
                             .collect();
 
                         if !boolean_functions.is_empty() {
-                            let function =
-                                &boolean_functions[rng.random_range(0..boolean_functions.len())];
+                            let function = boolean_functions.choose(rng).unwrap();
                             let function_name = function.get_name().to_string();
 
                             // Generate arguments that match function parameter types
@@ -587,28 +406,20 @@ impl BooleanExpression {
                             for param in function.get_parameters() {
                                 let param_type = param.get_type();
                                 let arg = if let Some(variables) = external_variables {
-                                    // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| {
-                                            if let Some(var_type) = var.get_type() {
-                                                var_type == param_type
-                                            } else {
-                                                false
-                                            }
-                                        })
+                                        .filter(|var| var.get_type() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_range(0..5) < 4 {
+                                    if !matching_vars.is_empty() && rng.random_bool(4.0 / 5.0) {
                                         // 80% chance to use matching variable
-                                        let variable = &matching_vars
-                                            [rng.random_range(0..matching_vars.len())];
-                                        crate::basic::expr::expression::Expression::VariableReference(
+                                        let variable = matching_vars.choose(rng).unwrap();
+                                        Expression::VariableReference(
                                             variable.get_name().to_string(),
                                         )
                                     } else {
                                         // Generate expression of matching type
-                                        crate::basic::expr::expression::Expression::generate_expression_for_type(
+                                        Expression::generate_expression_for_type(
                                             param_type,
                                             max_depth.saturating_sub(1),
                                             Some(functions.clone()),
@@ -618,7 +429,7 @@ impl BooleanExpression {
                                     }
                                 } else {
                                     // Generate expression of matching type
-                                    crate::basic::expr::expression::Expression::generate_expression_for_type(
+                                    Expression::generate_expression_for_type(
                                         param_type,
                                         max_depth.saturating_sub(1),
                                         Some(functions.clone()),
@@ -629,19 +440,23 @@ impl BooleanExpression {
                                 args.push(arg);
                             }
 
-                            return BooleanExpression::FunctionCall(function_name, args);
+                            return Self::FunctionCall(function_name, args);
                         }
                     }
                 }
 
                 // Fallback to boolean literal if no suitable functions available
-                BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                Self::generate_random_boolean_literal(rng)
             }
             _ => {
                 // Fallback to boolean literal for any other case
-                BooleanExpression::Literal(rng.random_range(0..2) == 0)
+                Self::generate_random_boolean_literal(rng)
             }
         }
+    }
+
+    pub fn generate_random_boolean_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        Self::Literal(rng.random())
     }
 }
 
@@ -660,7 +475,7 @@ impl ComparisonOperator {
 
 impl LogicalOperator {
     pub fn generate_random_logical_operator<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        if rng.random_range(0..2) == 0 {
+        if rng.random() {
             LogicalOperator::And
         } else {
             LogicalOperator::Or
@@ -671,16 +486,16 @@ impl LogicalOperator {
 impl Display for BooleanExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BooleanExpression::Literal(b) => {
+            Self::Literal(b) => {
                 write!(f, "{}", b)
             }
-            BooleanExpression::Comparison { left, op, right } => {
+            Self::Comparison { left, op, right } => {
                 write!(f, "{} {} {}", left, op, right)
             }
-            BooleanExpression::LogicalOp { left, op, right } => {
+            Self::LogicalOp { left, op, right } => {
                 write!(f, "{} {} {}", left, op, right)
             }
-            BooleanExpression::FunctionCall(name, args) => {
+            Self::FunctionCall(name, args) => {
                 let args_str = args
                     .iter()
                     .map(|arg| format!("{}", arg))
@@ -688,7 +503,7 @@ impl Display for BooleanExpression {
                     .join(", ");
                 write!(f, "{}({})", name, args_str)
             }
-            BooleanExpression::VariableReference(var_name) => {
+            Self::VariableReference(var_name) => {
                 write!(f, "{}", var_name)
             }
         }

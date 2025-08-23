@@ -8,10 +8,7 @@ use crate::basic::{
         custom_class::CustomClass,
         number_types::number::NumberType,
     },
-    expr::{
-        arithmetic_expression::ArithmeticExpression, boolean_expression::BooleanExpression,
-        expression::Expression,
-    },
+    expr::expression::Expression,
     var::variable::Variable,
 };
 
@@ -84,29 +81,17 @@ impl ObjectInstance {
         // In a full implementation, this would use the typed generation system
         match class_property.get_type() {
             Some(Class::Basic(BasicType::Number(number_type))) => match number_type {
-                NumberType::SignedInteger(_) => {
-                    Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(-100..=100)))
-                }
-                NumberType::UnsignedInteger(_) => {
-                    Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
-                }
-                NumberType::FloatingPoint(_) => {
-                    Expression::Arithmetic(ArithmeticExpression::Float(
-                        ordered_float::OrderedFloat::from(rng.random::<f32>() * 100.0),
-                    ))
-                }
+                NumberType::SignedInteger(_) => Expression::generate_random_int_literal(rng),
+                NumberType::UnsignedInteger(_) => Expression::generate_random_int_literal(rng),
+                NumberType::FloatingPoint(_) => Expression::generate_random_float_literal(rng),
             },
-            Some(&BOOLEAN) => {
-                Expression::Boolean(BooleanExpression::Literal(rng.random_range(0..=1) == 0))
-            }
+            Some(&BOOLEAN) => Expression::generate_random_boolean_literal(rng),
             Some(&STRING) => {
                 // For now, generate a simple int literal
-                Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
+                Expression::generate_random_int_literal(rng)
             }
-            Some(&CHAR) => {
-                Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100)))
-            }
-            _ => Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(0..=100))),
+            Some(&CHAR) => Expression::generate_random_int_literal(rng),
+            _ => Expression::generate_random_int_literal(rng),
         }
     }
 

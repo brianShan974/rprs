@@ -1,3 +1,4 @@
+use rand::seq::IndexedRandom;
 use rand::{Rng, SeedableRng};
 
 use std::cell::RefCell;
@@ -73,7 +74,7 @@ impl SingleStatement {
                 // Get available mutable variables
                 let available_vars = external_variables
                     .iter()
-                    .filter(|v| v.is_mutable()) // Only mutable variables
+                    .filter(|v| v.is_mutable())
                     .map(|v| v.get_name().to_string())
                     .collect::<Vec<_>>();
 
@@ -90,8 +91,7 @@ impl SingleStatement {
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Choose a random mutable variable
-                    let var_name =
-                        available_vars[rng.random_range(0..available_vars.len())].clone();
+                    let var_name = available_vars.choose(rng).unwrap().clone();
 
                     // Find the variable to get its type
                     let var_type = external_variables
@@ -153,8 +153,7 @@ impl SingleStatement {
                     }
 
                     // Choose a random function
-                    let function =
-                        &available_functions[rng.random_range(0..available_functions.len())];
+                    let function = available_functions.choose(rng).unwrap();
                     let function_name = function.get_name().to_string();
 
                     // Generate arguments that match function parameter types
@@ -165,19 +164,12 @@ impl SingleStatement {
                             // Try to find a variable of matching type first
                             let matching_vars: Vec<_> = external_variables
                                 .iter()
-                                .filter(|var| {
-                                    if let Some(var_type) = var.get_type() {
-                                        var_type == param_type
-                                    } else {
-                                        false
-                                    }
-                                })
+                                .filter(|var| var.get_type() == Some(param_type))
                                 .collect();
 
-                            if !matching_vars.is_empty() && rng.random_range(0..3) < 2 {
+                            if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
                                 // 67% chance to use matching variable
-                                let variable =
-                                    &matching_vars[rng.random_range(0..matching_vars.len())];
+                                let variable = matching_vars.choose(rng).unwrap();
                                 Expression::VariableReference(variable.get_name().to_string())
                             } else {
                                 // Generate expression of matching type
@@ -210,7 +202,7 @@ impl SingleStatement {
                 // Get available mutable variables (simplified for testing)
                 let available_vars = external_variables
                     .iter()
-                    .filter(|v| v.is_mutable()) // Only check if mutable
+                    .filter(|v| v.is_mutable())
                     .map(|v| v.get_name().to_string())
                     .collect::<Vec<_>>();
 
@@ -226,36 +218,23 @@ impl SingleStatement {
                     SingleStatement::VariableDeclaration(var)
                 } else {
                     // Choose a random mutable variable
-                    let var_name =
-                        available_vars[rng.random_range(0..available_vars.len())].clone();
+                    let var_name = available_vars.choose(rng).unwrap().clone();
                     let op =
                         CompoundAssignmentOperator::generate_random_compound_assignment_operator(
                             rng,
                         );
 
                     // Generate numeric expression for the right side
-                    let expr = if !external_variables.is_empty() && rng.random_range(0..2) == 0 {
+                    let expr = if !external_variables.is_empty() && rng.random_bool(1.0 / 2.0) {
                         // 50% chance to generate variable reference
                         // Only use numeric variables for compound assignment
                         let numeric_variables: Vec<_> = external_variables
                             .iter()
-                            .filter(|var| {
-                                if let Some(var_type) = var.get_type() {
-                                    matches!(
-                                        var_type,
-                                        crate::basic::cls::class::Class::Basic(
-                                            crate::basic::cls::basic_type::BasicType::Number(_)
-                                        )
-                                    )
-                                } else {
-                                    false
-                                }
-                            })
+                            .filter(|var| var.is_numeric())
                             .collect();
 
                         if !numeric_variables.is_empty() {
-                            let variable =
-                                &numeric_variables[rng.random_range(0..numeric_variables.len())];
+                            let variable = numeric_variables.choose(rng).unwrap();
                             Expression::VariableReference(variable.get_name().to_string())
                         } else {
                             // Fallback to random numeric expression if no numeric variables available
@@ -281,7 +260,7 @@ impl SingleStatement {
             }
             8 => {
                 // Generate object creation (20% chance)
-                if rng.random_range(0..10) < 2 {
+                if rng.random_bool(1.0 / 5.0) {
                     // For now, generate a simple object creation
                     // In a full implementation, this would use custom classes from the context
                     let var = Variable::generate_random_variable_with_const_control(
@@ -379,7 +358,7 @@ impl SingleStatement {
                 // Generate type-safe assignment
                 let mutable_vars = typed_context.get_mutable_variables();
                 if !mutable_vars.is_empty() {
-                    let var = &mutable_vars[rng.random_range(0..mutable_vars.len())];
+                    let var = mutable_vars.choose(rng).unwrap();
                     match typed_context.generate_type_safe_assignment(var, rng) {
                         Ok(assignment) => assignment,
                         Err(_) => {
@@ -401,7 +380,7 @@ impl SingleStatement {
                 // Generate type-safe function call
                 let available_funcs = typed_context.get_available_functions();
                 if !available_funcs.is_empty() {
-                    let func_name = &available_funcs[rng.random_range(0..available_funcs.len())];
+                    let func_name = available_funcs.choose(rng).unwrap();
                     match typed_context.generate_type_safe_function_call(func_name, rng) {
                         Ok(call) => call,
                         Err(_) => {
@@ -425,22 +404,11 @@ impl SingleStatement {
                 let all_mutable_vars = typed_context.get_mutable_variables();
                 let numeric_mutable_vars: Vec<&Variable> = all_mutable_vars
                     .iter()
-                    .filter(|var| {
-                        if let Some(var_type) = var.get_type() {
-                            matches!(
-                                var_type,
-                                crate::basic::cls::class::Class::Basic(
-                                    crate::basic::cls::basic_type::BasicType::Number(_)
-                                )
-                            )
-                        } else {
-                            false
-                        }
-                    })
+                    .filter(|var| var.is_numeric())
                     .collect();
 
                 if !numeric_mutable_vars.is_empty() {
-                    let var = numeric_mutable_vars[rng.random_range(0..numeric_mutable_vars.len())];
+                    let var = numeric_mutable_vars.choose(rng).unwrap();
                     let op =
                         CompoundAssignmentOperator::generate_random_compound_assignment_operator(
                             rng,
@@ -450,24 +418,13 @@ impl SingleStatement {
                     let expr = match rng.random_range(0..3) {
                         0 => {
                             // 33% chance: Generate numeric variable reference if available
-                            let numeric_vars: Vec<&Variable> = all_mutable_vars
+                            let numeric_vars: Vec<_> = all_mutable_vars
                                 .iter()
-                                .filter(|var| {
-                                    if let Some(var_type) = var.get_type() {
-                                        matches!(
-                                            var_type,
-                                            crate::basic::cls::class::Class::Basic(
-                                                crate::basic::cls::basic_type::BasicType::Number(_)
-                                            )
-                                        )
-                                    } else {
-                                        false
-                                    }
-                                })
+                                .filter(|var| var.is_numeric())
                                 .collect();
 
                             if !numeric_vars.is_empty() {
-                                let ref_var = numeric_vars[rng.random_range(0..numeric_vars.len())];
+                                let ref_var = numeric_vars.choose(rng).unwrap();
                                 Expression::VariableReference(ref_var.get_name().to_string())
                             } else {
                                 Expression::Arithmetic(ArithmeticExpression::Int(

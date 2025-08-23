@@ -1,7 +1,8 @@
+use rand::seq::IndexedRandom;
 use rand::{Rng, SeedableRng};
 
 use std::cell::RefCell;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::rc::Rc;
 
 use super::arithmetic_expression::ArithmeticExpression;
@@ -12,6 +13,14 @@ use crate::basic::cls::class::Class;
 use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::var::variable::Variable;
 
+pub const SAFE_CHARS: &[char] = &[
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4',
+    '5', '6', '7', '8', '9', ' ', '!', '#', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
+    ':', ';', '<', '=', '>', '?', '@', '[', ']', '^', '_', '|', '~',
+];
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Expression {
     Arithmetic(ArithmeticExpression),
@@ -21,13 +30,13 @@ pub enum Expression {
     VariableReference(String),
 }
 
-impl fmt::Display for Expression {
+impl Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expression::Arithmetic(arith) => write!(f, "{}", arith),
-            Expression::Boolean(boolean) => write!(f, "{}", boolean),
-            Expression::StringLiteral(s) => write!(f, "\"{}\"", s),
-            Expression::FunctionCall(name, args) => {
+            Self::Arithmetic(arith) => write!(f, "{}", arith),
+            Self::Boolean(boolean) => write!(f, "{}", boolean),
+            Self::StringLiteral(s) => write!(f, "\"{}\"", s),
+            Self::FunctionCall(name, args) => {
                 if args.is_empty() {
                     write!(f, "{}()", name)
                 } else {
@@ -39,7 +48,7 @@ impl fmt::Display for Expression {
                     write!(f, "{}({})", name, args_str)
                 }
             }
-            Expression::VariableReference(var_name) => write!(f, "{}", var_name),
+            Self::VariableReference(var_name) => write!(f, "{}", var_name),
         }
     }
 }
@@ -78,8 +87,7 @@ impl Expression {
                             .collect();
 
                         if !available_functions.is_empty() {
-                            let function = &available_functions
-                                [rng.random_range(0..available_functions.len())];
+                            let function = available_functions.choose(rng).unwrap();
                             let function_name = function.get_name().to_string();
 
                             // Generate arguments that match function parameter types
@@ -90,19 +98,12 @@ impl Expression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| {
-                                            if let Some(var_type) = var.get_type() {
-                                                var_type == param_type
-                                            } else {
-                                                false
-                                            }
-                                        })
+                                        .filter(|var| var.get_type() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_range(0..3) < 2 {
+                                    if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
                                         // 67% chance to use matching variable
-                                        let variable = &matching_vars
-                                            [rng.random_range(0..matching_vars.len())];
+                                        let variable = matching_vars.choose(rng).unwrap();
                                         Self::VariableReference(variable.get_name().to_string())
                                     } else {
                                         // Generate expression of matching type
@@ -143,7 +144,7 @@ impl Expression {
                 // Generate variable reference if external_variables is provided and not empty
                 if let Some(variables) = external_variables {
                     if !variables.is_empty() {
-                        let variable = &variables[rng.random_range(0..variables.len())];
+                        let variable = variables.choose(rng).unwrap();
                         return Self::VariableReference(variable.get_name().to_string());
                     }
                 }
@@ -185,23 +186,9 @@ impl Expression {
         let length = rng.random_range(3..=10);
         let mut chars = Vec::with_capacity(length);
 
-        // Define safe characters to use (excluding problematic ones)
-        // Exclude: " (34), $ (36), \ (92), ` (96), { (123), } (125), and some other problematic chars
-        let safe_chars = [
-            // Letters (a-z, A-Z)
-            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
-            'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-            'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y',
-            'Z', // Numbers (0-9)
-            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', // Safe symbols
-            ' ', '!', '#', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<',
-            '=', '>', '?', '@', '[', ']', '^', '_', '|', '~',
-        ];
-
         // Generate random characters from the safe set
         for _ in 0..length {
-            let char_index = rng.random_range(0..safe_chars.len());
-            chars.push(safe_chars[char_index]);
+            chars.push(SAFE_CHARS.choose(rng).unwrap());
         }
 
         let string = chars.into_iter().collect::<String>();
@@ -211,8 +198,8 @@ impl Expression {
     /// Check if this expression is primarily an integer type
     pub fn is_int(
         &self,
-        external_variables: Option<&[crate::basic::var::variable::Variable]>,
-        external_functions: Option<&Rc<RefCell<Vec<Function>>>>,
+        external_variables: Option<&[Variable]>,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
     ) -> bool {
         match self {
             Self::Arithmetic(arith) => arith.is_int(external_variables),
@@ -231,7 +218,7 @@ impl Expression {
                         }
                     }
                 }
-                false // Default to false if function not found or has no return type
+                false
             }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
@@ -242,7 +229,7 @@ impl Expression {
                         }
                     }
                 }
-                false // Default to false if variable not found or type unknown
+                false
             }
         }
     }
@@ -250,8 +237,8 @@ impl Expression {
     /// Check if this expression is primarily a float type
     pub fn is_float(
         &self,
-        external_variables: Option<&[crate::basic::var::variable::Variable]>,
-        external_functions: Option<&Rc<RefCell<Vec<Function>>>>,
+        external_variables: Option<&[Variable]>,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
     ) -> bool {
         match self {
             Self::Arithmetic(arith) => arith.is_float(external_variables),
@@ -267,18 +254,11 @@ impl Expression {
                     {
                         if let Some(return_type) = func.get_return_type() {
                             // Float type if it's a floating point number type
-                            return matches!(
-                                return_type,
-                                crate::basic::cls::class::Class::Basic(
-                                    crate::basic::cls::basic_type::BasicType::Number(
-                                        crate::basic::cls::number_types::number::NumberType::FloatingPoint(_)
-                                    )
-                                )
-                            );
+                            return return_type.is_float_type();
                         }
                     }
                 }
-                false // Default to false if function not found or has no return type
+                false
             }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
@@ -289,30 +269,7 @@ impl Expression {
                         }
                     }
                 }
-                false // Default to false if variable not found or type unknown
-            }
-        }
-    }
-
-    /// Check if this expression is a compile-time constant
-    pub fn is_compile_time_constant(
-        &self,
-        external_variables: Option<&[crate::basic::var::variable::Variable]>,
-    ) -> bool {
-        match self {
-            Self::Arithmetic(arith) => arith.is_compile_time_constant(external_variables),
-            Self::Boolean(_) => true, // Boolean literals are compile-time constants
-            Self::StringLiteral(_) => true, // String literals are compile-time constants
-            Self::FunctionCall(_, _) => false, // Function calls are not compile-time constants
-            Self::VariableReference(var_name) => {
-                // Only const val variables are compile-time constants
-                if let Some(variables) = external_variables {
-                    if let Some(variable) = variables.iter().find(|v| v.get_name() == var_name) {
-                        // Check if the variable is a const val
-                        return variable.get_prefix().get_init().is_const();
-                    }
-                }
-                false // Default to false if variable not found
+                false
             }
         }
     }
@@ -328,7 +285,7 @@ impl Expression {
         match target_type {
             Class::Basic(BasicType::Number(NumberType::SignedInteger(_))) => {
                 // Generate integer arithmetic expression
-                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                Self::Arithmetic(ArithmeticExpression::generate_typed_expression(
                     max_depth,
                     true, // target_is_int = true
                     external_functions,
@@ -338,7 +295,7 @@ impl Expression {
             }
             Class::Basic(BasicType::Number(NumberType::FloatingPoint(_))) => {
                 // Generate float arithmetic expression
-                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                Self::Arithmetic(ArithmeticExpression::generate_typed_expression(
                     max_depth,
                     false, // target_is_int = false
                     external_functions,
@@ -348,7 +305,7 @@ impl Expression {
             }
             Class::Basic(BasicType::Boolean) => {
                 // Generate boolean expression
-                Expression::Boolean(BooleanExpression::generate_random_boolean_expression(
+                Self::Boolean(BooleanExpression::generate_random_boolean_expression(
                     max_depth,
                     external_functions,
                     external_variables,
@@ -357,18 +314,15 @@ impl Expression {
             }
             Class::Basic(BasicType::String) => {
                 // Generate string expression
-                Expression::generate_random_string_literal(rng)
+                Self::generate_random_string_literal(rng)
             }
             Class::Basic(BasicType::Char) => {
                 // Generate char expression (for now, generate a random char)
-                Expression::StringLiteral(format!(
-                    "'{}'",
-                    (rng.random_range(32..127) as u8) as char
-                ))
+                Self::StringLiteral(format!("'{}'", (rng.random_range(32..127) as u8) as char))
             }
             _ => {
                 // Fallback to integer expression for unknown types
-                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                Self::Arithmetic(ArithmeticExpression::generate_typed_expression(
                     max_depth,
                     true, // target_is_int = true
                     external_functions,
@@ -377,5 +331,17 @@ impl Expression {
                 ))
             }
         }
+    }
+
+    pub fn generate_random_int_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        Self::Arithmetic(ArithmeticExpression::generate_random_int_literal(rng))
+    }
+
+    pub fn generate_random_float_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        Self::Arithmetic(ArithmeticExpression::generate_random_float_literal(rng))
+    }
+
+    pub fn generate_random_boolean_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        Self::Boolean(BooleanExpression::generate_random_boolean_literal(rng))
     }
 }

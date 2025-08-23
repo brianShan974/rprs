@@ -275,4 +275,28 @@ impl Variable {
             ty,
         }
     }
+
+    pub fn is_numeric(&self) -> bool {
+        self.ty.as_ref().map_or(false, |ty| ty.is_numeric_type())
+    }
+
+    pub fn is_integer(&self) -> bool {
+        self.ty.as_ref().map_or(false, |ty| ty.is_integer_type())
+    }
+
+    pub fn is_float(&self) -> bool {
+        self.ty.as_ref().map_or(false, |ty| ty.is_float_type())
+    }
+
+    pub fn is_boolean(&self) -> bool {
+        self.ty.as_ref().map_or(false, |ty| ty.is_boolean_type())
+    }
+
+    pub fn is_string(&self) -> bool {
+        self.ty.as_ref().map_or(false, |ty| ty.is_string_type())
+    }
+
+    pub fn is_const(&self) -> bool {
+        self.prefix.get_init().is_const()
+    }
 }

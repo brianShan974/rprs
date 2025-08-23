@@ -1,5 +1,4 @@
-use ordered_float::OrderedFloat;
-use rand::{Rng, SeedableRng};
+use rand::{Rng, SeedableRng, seq::IndexedRandom};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -244,7 +243,7 @@ impl TypedGenerationContext {
         }
 
         // Randomly select a compatible function
-        let function = &compatible_functions[rng.random_range(0..compatible_functions.len())];
+        let function = compatible_functions.choose(rng).unwrap();
         let func_name = function.get_name();
 
         if let Some(func_type) = self.function_signatures.get(func_name) {
@@ -318,14 +317,14 @@ impl TypedGenerationContext {
             // Generate simple literal based on target type
             match target_type {
                 Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
-                    Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                    Ok(ArithmeticExpression::generate_random_int_literal(rng))
                 }
-                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => Ok(
-                    ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 100.0)),
-                ),
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
+                    Ok(ArithmeticExpression::generate_random_float_literal(rng))
+                }
                 _ => {
                     // Default to int for other types
-                    Ok(ArithmeticExpression::Int(rng.random_range(-100..=100)))
+                    Ok(ArithmeticExpression::generate_random_int_literal(rng))
                 }
             }
         } else {
@@ -340,13 +339,11 @@ impl TypedGenerationContext {
                             match target_type {
                                 Type::Basic(Class::Basic(BasicType::Number(
                                     NumberType::SignedInteger(_),
-                                ))) => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
+                                ))) => Ok(ArithmeticExpression::generate_random_int_literal(rng)),
                                 Type::Basic(Class::Basic(BasicType::Number(
                                     NumberType::FloatingPoint(_),
-                                ))) => Ok(ArithmeticExpression::Float(OrderedFloat::from(
-                                    rng.random::<f32>() * 100.0,
-                                ))),
-                                _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
+                                ))) => Ok(ArithmeticExpression::generate_random_float_literal(rng)),
+                                _ => Ok(ArithmeticExpression::generate_random_int_literal(rng)),
                             }
                         }
                     }
@@ -375,13 +372,11 @@ impl TypedGenerationContext {
                     match target_type {
                         Type::Basic(Class::Basic(BasicType::Number(
                             NumberType::SignedInteger(_),
-                        ))) => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
+                        ))) => Ok(ArithmeticExpression::generate_random_int_literal(rng)),
                         Type::Basic(Class::Basic(BasicType::Number(
                             NumberType::FloatingPoint(_),
-                        ))) => Ok(ArithmeticExpression::Float(OrderedFloat::from(
-                            rng.random::<f32>() * 100.0,
-                        ))),
-                        _ => Ok(ArithmeticExpression::Int(rng.random_range(-100..=100))),
+                        ))) => Ok(ArithmeticExpression::generate_random_float_literal(rng)),
+                        _ => Ok(ArithmeticExpression::generate_random_int_literal(rng)),
                     }
                 }
                 _ => unreachable!(),
@@ -765,17 +760,11 @@ impl TypedGenerationContext {
                                 match return_type {
                                     Type::Basic(Class::Basic(BasicType::Number(
                                         NumberType::FloatingPoint(_),
-                                    ))) => Expression::Arithmetic(ArithmeticExpression::Float(
-                                        OrderedFloat::from(rng.random::<f32>() * 100.0),
-                                    )),
+                                    ))) => Expression::generate_random_float_literal(rng),
                                     Type::Basic(Class::Basic(BasicType::Number(
                                         NumberType::SignedInteger(_),
-                                    ))) => Expression::Arithmetic(ArithmeticExpression::Int(
-                                        rng.random_range(-100..=100),
-                                    )),
-                                    _ => Expression::Arithmetic(ArithmeticExpression::Int(
-                                        rng.random_range(-100..=100),
-                                    )),
+                                    ))) => Expression::generate_random_int_literal(rng),
+                                    _ => Expression::generate_random_int_literal(rng),
                                 }
                             });
                         SingleStatement::Return(Some(expr))
@@ -844,20 +833,14 @@ impl TypedGenerationContext {
         if depth > 5 {
             // Prevent infinite recursion by generating simple literals
             return match target_type {
-                Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => Ok(
-                    Expression::Arithmetic(ArithmeticExpression::Int(rng.random_range(-100..100))),
-                ),
-                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
-                    Ok(Expression::Arithmetic(ArithmeticExpression::Float(
-                        OrderedFloat::from(rng.random::<f32>() * 100.0),
-                    )))
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
+                    Ok(Expression::generate_random_int_literal(rng))
                 }
-                Type::Basic(BOOLEAN) => Ok(Expression::Boolean(BooleanExpression::Literal(
-                    rng.random(),
-                ))),
-                _ => Ok(Expression::Arithmetic(ArithmeticExpression::Int(
-                    rng.random_range(-100..100),
-                ))),
+                Type::Basic(Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))) => {
+                    Ok(Expression::generate_random_float_literal(rng))
+                }
+                Type::Basic(BOOLEAN) => Ok(Expression::generate_random_boolean_literal(rng)),
+                _ => Ok(Expression::generate_random_int_literal(rng)),
             };
         }
 
@@ -915,7 +898,7 @@ impl TypedGenerationContext {
                 let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
 
                 // 70% chance for string literal, 30% chance for variable reference or function call
-                if rng.random_range(0..10) < 7 {
+                if rng.random_bool(7.0 / 10.0) {
                     Ok(Expression::generate_random_string_literal(rng))
                 } else {
                     Ok(Expression::generate_random_expression(
@@ -950,15 +933,12 @@ impl TypedGenerationContext {
         match rng.random_range(0..10) {
             0..=2 => {
                 // Generate float literal
-                let float_value = rng.random::<f32>() * 100.0;
-                Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(float_value)))
+                Expression::generate_random_float_literal(rng)
             }
             3 => {
                 // Generate float arithmetic expression
-                let left =
-                    ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
-                let right =
-                    ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
+                let left = ArithmeticExpression::generate_random_float_literal(rng);
+                let right = ArithmeticExpression::generate_random_float_literal(rng);
                 let op = Operator::generate_random_operator(rng);
                 Expression::Arithmetic(ArithmeticExpression::BinaryOp {
                     left: Box::new(left),
@@ -968,31 +948,18 @@ impl TypedGenerationContext {
             }
             4..=6 => {
                 // Generate variable reference for float type
-                let float_vars: Vec<&Variable> = self
+                let float_vars: Vec<_> = self
                     .variable_types
                     .keys()
-                    .filter(|var| {
-                        if let Some(var_type) = var.get_type() {
-                            !var_type.is_integer_type()
-                                && matches!(
-                                    var_type,
-                                    Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))
-                                )
-                        } else {
-                            false
-                        }
-                    })
+                    .filter(|var| var.is_float())
                     .collect();
 
                 if !float_vars.is_empty() {
-                    let var = float_vars[rng.random_range(0..float_vars.len())];
+                    let var = float_vars.choose(rng).unwrap();
                     Expression::VariableReference(var.get_name().to_string())
                 } else {
                     // Fallback to float literal if no float variables available
-                    let float_value = rng.random::<f32>() * 100.0;
-                    Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(
-                        float_value,
-                    )))
+                    Expression::generate_random_float_literal(rng)
                 }
             }
             7..=9 => {
@@ -1007,10 +974,7 @@ impl TypedGenerationContext {
                     Ok(expr) => expr,
                     Err(_) => {
                         // Fallback to float literal
-                        let float_value = rng.random::<f32>() * 100.0;
-                        Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(
-                            float_value,
-                        )))
+                        Expression::generate_random_float_literal(rng)
                     }
                 }
             }
@@ -1021,16 +985,13 @@ impl TypedGenerationContext {
     /// Generate a double expression specifically
     fn generate_double_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
         // 70% chance to generate double literal, 30% chance to generate double arithmetic
-        if rng.random_range(0..10) < 7 {
+        if rng.random_bool(7.0 / 10.0) {
             // Generate double literal (using float for now, but with decimal)
-            let double_value = rng.random::<f32>() * 100.0;
-            Expression::Arithmetic(ArithmeticExpression::Float(OrderedFloat::from(
-                double_value,
-            )))
+            Expression::generate_random_float_literal(rng)
         } else {
             // Generate double arithmetic expression
-            let left = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
-            let right = ArithmeticExpression::Float(OrderedFloat::from(rng.random::<f32>() * 50.0));
+            let left = ArithmeticExpression::generate_random_float_literal(rng);
+            let right = ArithmeticExpression::generate_random_float_literal(rng);
             let op = Operator::generate_random_operator(rng);
             Expression::Arithmetic(ArithmeticExpression::BinaryOp {
                 left: Box::new(left),
@@ -1050,13 +1011,12 @@ impl TypedGenerationContext {
         match rng.random_range(0..10) {
             0..=2 => {
                 // Generate integer literal
-                let int_value = rng.random_range(-100..100);
-                Expression::Arithmetic(ArithmeticExpression::Int(int_value))
+                Expression::generate_random_int_literal(rng)
             }
             3 => {
                 // Generate integer arithmetic expression
-                let left = ArithmeticExpression::Int(rng.random_range(-50..50));
-                let right = ArithmeticExpression::Int(rng.random_range(-50..50));
+                let left = ArithmeticExpression::generate_random_int_literal(rng);
+                let right = ArithmeticExpression::generate_random_int_literal(rng);
                 let op = Operator::generate_random_operator(rng);
                 Expression::Arithmetic(ArithmeticExpression::BinaryOp {
                     left: Box::new(left),
@@ -1069,22 +1029,15 @@ impl TypedGenerationContext {
                 let int_vars: Vec<&Variable> = self
                     .variable_types
                     .keys()
-                    .filter(|var| {
-                        if let Some(var_type) = var.get_type() {
-                            var_type.is_integer_type()
-                        } else {
-                            false
-                        }
-                    })
+                    .filter(|var| var.is_integer())
                     .collect();
 
                 if !int_vars.is_empty() {
-                    let var = int_vars[rng.random_range(0..int_vars.len())];
+                    let var = int_vars.choose(rng).unwrap();
                     Expression::VariableReference(var.get_name().to_string())
                 } else {
                     // Fallback to integer literal if no integer variables available
-                    let int_value = rng.random_range(-100..100);
-                    Expression::Arithmetic(ArithmeticExpression::Int(int_value))
+                    Expression::generate_random_int_literal(rng)
                 }
             }
             7..=9 => {
@@ -1099,8 +1052,7 @@ impl TypedGenerationContext {
                     Ok(expr) => expr,
                     Err(_) => {
                         // Fallback to integer literal
-                        let int_value = rng.random_range(-100..100);
-                        Expression::Arithmetic(ArithmeticExpression::Int(int_value))
+                        Expression::generate_random_int_literal(rng)
                     }
                 }
             }
