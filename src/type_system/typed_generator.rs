@@ -4,26 +4,30 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::basic::{
-    body::{
-        fun::function::Function,
-        stmt::{single_statement::SingleStatement, statement::Statement},
-    },
-    cls::{
-        basic_type::BasicType,
-        class::{BOOLEAN, Class, FLOAT, INT, STRING},
-        number_types::{
-            floating_point::FloatingPointType, number::NumberType,
-            signed_integer::SignedIntegerType, unsigned_integer::UnsignedIntegerType,
+use crate::type_system::type_result::TypeError;
+use crate::type_system::{Type, TypeChecker};
+use crate::{
+    basic::{
+        body::{
+            fun::function::Function,
+            stmt::{single_statement::SingleStatement, statement::Statement},
         },
+        cls::{
+            basic_type::BasicType,
+            class::{BOOLEAN, Class, FLOAT, INT, STRING},
+            number_types::{
+                floating_point::FloatingPointType, number::NumberType,
+                signed_integer::SignedIntegerType, unsigned_integer::UnsignedIntegerType,
+            },
+        },
+        expr::{
+            arithmetic_expression::ArithmeticExpression, boolean_expression::BooleanExpression,
+            expression::Expression, operator::Operator,
+        },
+        var::variable::Variable,
     },
-    expr::{
-        arithmetic_expression::ArithmeticExpression, boolean_expression::BooleanExpression,
-        expression::Expression, operator::Operator,
-    },
-    var::variable::Variable,
+    type_system::type_result::TypeResult,
 };
-use crate::type_system::{Type, TypeChecker, TypeError, TypeResult};
 
 /// Type-aware code generation context
 pub struct TypedGenerationContext {
@@ -42,7 +46,7 @@ pub struct TypedGenerationContext {
 impl TypedGenerationContext {
     pub fn new(external_functions: Rc<RefCell<Vec<Function>>>) -> Self {
         Self {
-            type_checker: TypeChecker::new(),
+            type_checker: TypeChecker::default(),
             variable_types: HashMap::new(),
             function_signatures: HashMap::new(),
             external_functions,
@@ -54,7 +58,7 @@ impl TypedGenerationContext {
     /// This is used for block scoping - variables added to the child won't affect the parent
     pub fn create_child_context(&self) -> Self {
         Self {
-            type_checker: TypeChecker::new(),
+            type_checker: TypeChecker::default(),
             variable_types: self.variable_types.clone(),
             function_signatures: self.function_signatures.clone(),
             external_functions: self.external_functions.clone(),
@@ -122,10 +126,10 @@ impl TypedGenerationContext {
 
             // Validate that the generated expression type matches the variable type
             let expr_type = self.infer_expression_type(&expr)?;
-            if !self
+            if self
                 .type_checker
                 .check_compatibility(&expr_type, var_type)
-                .is_ok()
+                .is_err()
             {
                 return Err(TypeError {
                     message: format!(
@@ -217,15 +221,13 @@ impl TypedGenerationContext {
         let compatible_functions: Vec<_> = functions_borrowed
             .iter()
             .filter(|func| {
-                if let Some(func_type) = self.function_signatures.get(func.get_name()) {
-                    if let Type::Function(_, return_type) = func_type {
-                        // Check if return type is compatible with target type
-                        self.type_checker
-                            .check_compatibility(return_type, target_type)
-                            .is_ok()
-                    } else {
-                        false
-                    }
+                if let Some(Type::Function(_, return_type)) =
+                    self.function_signatures.get(func.get_name())
+                {
+                    // Check if return type is compatible with target type
+                    self.type_checker
+                        .check_compatibility(return_type, target_type)
+                        .is_ok()
                 } else {
                     false
                 }
@@ -246,54 +248,44 @@ impl TypedGenerationContext {
         let function = compatible_functions.choose(rng).unwrap();
         let func_name = function.get_name();
 
-        if let Some(func_type) = self.function_signatures.get(func_name) {
-            if let Type::Function(param_types, _) = func_type {
-                let mut args = Vec::new();
+        if let Some(Type::Function(param_types, _)) = self.function_signatures.get(func_name) {
+            let mut args = Vec::new();
 
-                // Generate arguments that match the parameter types
-                for param_type in param_types {
-                    let arg = self.generate_expression_for_type_with_depth(
-                        param_type,
-                        Some(functions.clone()),
-                        depth + 1,
-                        rng,
-                    )?;
-                    args.push(arg);
-                }
-
-                // Return the appropriate expression type based on target type
-                match target_type {
-                    Type::Basic(Class::Basic(BasicType::Number(_))) => {
-                        // For numeric types, return ArithmeticExpression
-                        Ok(Expression::Arithmetic(ArithmeticExpression::FunctionCall(
-                            func_name.to_string(),
-                            args,
-                        )))
-                    }
-                    Type::Basic(BOOLEAN) => {
-                        // For boolean type, return BooleanExpression with function call
-                        Ok(Expression::Boolean(BooleanExpression::FunctionCall(
-                            func_name.to_string(),
-                            args,
-                        )))
-                    }
-                    Type::Basic(STRING) => {
-                        // For string type, return Expression::FunctionCall
-                        Ok(Expression::FunctionCall(func_name.to_string(), args))
-                    }
-                    _ => {
-                        // For other types, return Expression::FunctionCall
-                        Ok(Expression::FunctionCall(func_name.to_string(), args))
-                    }
-                }
-            } else {
-                // Fallback
-                self.generate_expression_for_type_with_depth(
-                    target_type,
+            // Generate arguments that match the parameter types
+            for param_type in param_types {
+                let arg = self.generate_expression_for_type_with_depth(
+                    param_type,
                     Some(functions.clone()),
                     depth + 1,
                     rng,
-                )
+                )?;
+                args.push(arg);
+            }
+
+            // Return the appropriate expression type based on target type
+            match target_type {
+                Type::Basic(Class::Basic(BasicType::Number(_))) => {
+                    // For numeric types, return ArithmeticExpression
+                    Ok(Expression::Arithmetic(ArithmeticExpression::FunctionCall(
+                        func_name.to_string(),
+                        args,
+                    )))
+                }
+                Type::Basic(BOOLEAN) => {
+                    // For boolean type, return BooleanExpression with function call
+                    Ok(Expression::Boolean(BooleanExpression::FunctionCall(
+                        func_name.to_string(),
+                        args,
+                    )))
+                }
+                Type::Basic(STRING) => {
+                    // For string type, return Expression::FunctionCall
+                    Ok(Expression::FunctionCall(func_name.to_string(), args))
+                }
+                _ => {
+                    // For other types, return Expression::FunctionCall
+                    Ok(Expression::FunctionCall(func_name.to_string(), args))
+                }
             }
         } else {
             // Fallback
@@ -580,22 +572,22 @@ impl TypedGenerationContext {
         let statements = func.get_body().get_statements();
 
         for statement in statements {
-            if let Statement::Single(single_stmt) = statement {
-                if let SingleStatement::Return(expr) = single_stmt {
-                    return match expr {
-                        Some(expr) => {
-                            // If there's a return expression, infer its type
-                            match self.infer_expression_type(expr) {
-                                Ok(ty) => ty,
-                                Err(_) => Type::Basic(FLOAT),
-                            }
+            if let Statement::Single(single_stmt) = statement
+                && let SingleStatement::Return(expr) = single_stmt
+            {
+                return match expr {
+                    Some(expr) => {
+                        // If there's a return expression, infer its type
+                        match self.infer_expression_type(expr) {
+                            Ok(ty) => ty,
+                            Err(_) => Type::Basic(FLOAT),
                         }
-                        None => {
-                            // Return without value - Unit type
-                            Type::Basic(BOOLEAN)
-                        }
-                    };
-                }
+                    }
+                    None => {
+                        // Return without value - Unit type
+                        Type::Basic(BOOLEAN)
+                    }
+                };
             }
         }
 
@@ -633,12 +625,10 @@ impl TypedGenerationContext {
                     }
                     ArithmeticExpression::FunctionCall(func_name, _) => {
                         // Look up function return type
-                        if let Some(func_type) = self.function_signatures.get(func_name) {
-                            if let Type::Function(_, return_type) = func_type {
-                                Ok(*return_type.clone())
-                            } else {
-                                Ok(Type::Basic(FLOAT)) // Fallback
-                            }
+                        if let Some(Type::Function(_, return_type)) =
+                            self.function_signatures.get(func_name)
+                        {
+                            Ok(*return_type.clone())
                         } else {
                             Ok(Type::Basic(FLOAT)) // Fallback
                         }
@@ -658,12 +648,10 @@ impl TypedGenerationContext {
             Expression::StringLiteral(_) => Ok(Type::Basic(STRING)),
             Expression::FunctionCall(func_name, _) => {
                 // Look up function return type
-                if let Some(func_type) = self.function_signatures.get(func_name) {
-                    if let Type::Function(_, return_type) = func_type {
-                        Ok(*return_type.clone())
-                    } else {
-                        Ok(Type::Unknown) // Fallback
-                    }
+                if let Some(Type::Function(_, return_type)) =
+                    self.function_signatures.get(func_name)
+                {
+                    Ok(*return_type.clone())
                 } else {
                     Ok(Type::Unknown) // Fallback
                 }
@@ -708,12 +696,10 @@ impl TypedGenerationContext {
             }
             ArithmeticExpression::FunctionCall(func_name, _) => {
                 // Look up function return type
-                if let Some(func_type) = self.function_signatures.get(func_name) {
-                    if let Type::Function(_, return_type) = func_type {
-                        Ok(*return_type.clone())
-                    } else {
-                        Ok(Type::Basic(FLOAT)) // Fallback
-                    }
+                if let Some(Type::Function(_, return_type)) =
+                    self.function_signatures.get(func_name)
+                {
+                    Ok(*return_type.clone())
                 } else {
                     Ok(Type::Basic(FLOAT)) // Fallback
                 }

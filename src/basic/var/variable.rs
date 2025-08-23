@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use derive_more::Constructor;
 use rand::{Rng, SeedableRng};
 
@@ -9,6 +11,8 @@ use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
 use crate::basic::expr::boolean_expression::BooleanExpression;
 use crate::basic::expr::expression::Expression;
 use crate::basic::utils::generate_random_identifier;
+
+pub type VarRef = Rc<Variable>;
 
 #[derive(Constructor, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable {
@@ -277,23 +281,23 @@ impl Variable {
     }
 
     pub fn is_numeric(&self) -> bool {
-        self.ty.as_ref().map_or(false, |ty| ty.is_numeric_type())
+        self.ty.as_ref().is_some_and(|ty| ty.is_numeric_type())
     }
 
     pub fn is_integer(&self) -> bool {
-        self.ty.as_ref().map_or(false, |ty| ty.is_integer_type())
+        self.ty.as_ref().is_some_and(|ty| ty.is_integer_type())
     }
 
     pub fn is_float(&self) -> bool {
-        self.ty.as_ref().map_or(false, |ty| ty.is_float_type())
+        self.ty.as_ref().is_some_and(|ty| ty.is_float_type())
     }
 
     pub fn is_boolean(&self) -> bool {
-        self.ty.as_ref().map_or(false, |ty| ty.is_boolean_type())
+        self.ty.as_ref().is_some_and(|ty| ty.is_boolean_type())
     }
 
     pub fn is_string(&self) -> bool {
-        self.ty.as_ref().map_or(false, |ty| ty.is_string_type())
+        self.ty.as_ref().is_some_and(|ty| ty.is_string_type())
     }
 
     pub fn is_const(&self) -> bool {

@@ -1,44 +1,43 @@
-use crate::type_system::{Type, TypeContext, TypeError, TypeResult};
+use crate::type_system::{
+    Type,
+    type_context::TypeContext,
+    type_result::{TypeError, TypeResult},
+};
 
 /// Simplified type checker for validating type safety
+#[derive(Default)]
 pub struct TypeChecker {
     context: TypeContext,
 }
 
 impl TypeChecker {
-    pub fn new() -> Self {
-        Self {
-            context: TypeContext::new(),
-        }
-    }
-
     pub fn with_context(context: TypeContext) -> Self {
         Self { context }
     }
 
     /// Check if a type is valid
-    pub fn check_type(&self, ty: &Type) -> TypeResult<()> {
+    pub fn check_type(ty: &Type) -> TypeResult<()> {
         match ty {
             Type::Basic(_) => Ok(()),
             Type::Function(params, ret) => {
                 for param in params {
-                    self.check_type(param)?;
+                    Self::check_type(param)?;
                 }
-                self.check_type(ret)
+                Self::check_type(ret)
             }
             Type::Generic(_, params) => {
                 for param in params {
-                    self.check_type(param)?;
+                    Self::check_type(param)?;
                 }
                 Ok(())
             }
             Type::Union(types) => {
                 for ty in types {
-                    self.check_type(ty)?;
+                    Self::check_type(ty)?;
                 }
                 Ok(())
             }
-            Type::Nullable(inner) => self.check_type(inner),
+            Type::Nullable(inner) => Self::check_type(inner),
             Type::Variable(_) => Ok(()),
             Type::Unknown => Ok(()),
             Type::Error => Err(TypeError {
@@ -66,14 +65,14 @@ impl TypeChecker {
 
     /// Add a variable to the context
     pub fn add_variable(&mut self, name: String, ty: Type) -> TypeResult<()> {
-        self.check_type(&ty)?;
+        Self::check_type(&ty)?;
         self.context.add_variable(name, ty);
         Ok(())
     }
 
     /// Add a function to the context
     pub fn add_function(&mut self, name: String, ty: Type) -> TypeResult<()> {
-        self.check_type(&ty)?;
+        Self::check_type(&ty)?;
         self.context.add_function(name, ty);
         Ok(())
     }

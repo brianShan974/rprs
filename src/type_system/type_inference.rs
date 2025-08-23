@@ -2,10 +2,15 @@ use std::collections::HashMap;
 
 use crate::{
     basic::cls::class::{BOOLEAN, FLOAT, INT, STRING},
-    type_system::{Type, TypeContext, TypeError, TypeResult},
+    type_system::{
+        Type,
+        type_context::TypeContext,
+        type_result::{TypeError, TypeResult},
+    },
 };
 
 /// Simplified type inference engine
+#[derive(Default)]
 pub struct TypeInference {
     context: TypeContext,
     type_variables: HashMap<String, Type>,
@@ -13,14 +18,6 @@ pub struct TypeInference {
 }
 
 impl TypeInference {
-    pub fn new() -> Self {
-        Self {
-            context: TypeContext::new(),
-            type_variables: HashMap::new(),
-            next_var_id: 0,
-        }
-    }
-
     pub fn with_context(context: TypeContext) -> Self {
         Self {
             context,

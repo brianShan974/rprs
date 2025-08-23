@@ -37,12 +37,11 @@ impl ArithmeticExpression {
             ArithmeticExpression::FunctionCall(_, _) => false,
             ArithmeticExpression::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
-                if let Some(variables) = external_variables {
-                    if let Some(variable) = variables.iter().find(|v| v.get_name() == var_name) {
-                        if let Some(var_type) = variable.get_type() {
-                            return var_type.is_integer_type();
-                        }
-                    }
+                if let Some(variables) = external_variables
+                    && let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
+                    && let Some(var_type) = variable.get_type()
+                {
+                    return var_type.is_integer_type();
                 }
                 false // Default to false if variable not found or type unknown
             }
@@ -72,7 +71,7 @@ impl ArithmeticExpression {
                             && var.is_numeric()
                             && var
                                 .get_type()
-                                .map_or(false, |ty| ty.is_integer_type() == target_is_int)
+                                .is_some_and(|ty| ty.is_integer_type() == target_is_int)
                     })
                     .collect();
 
@@ -111,7 +110,7 @@ impl ArithmeticExpression {
                                 && var.is_numeric()
                                 && var
                                     .get_type()
-                                    .map_or(false, |ty| ty.is_integer_type() == target_is_int)
+                                    .is_some_and(|ty| ty.is_integer_type() == target_is_int)
                         })
                         .collect();
 
@@ -574,7 +573,7 @@ impl ArithmeticExpression {
         match rng.random_range(0..=19) {
             0..=1 => {
                 // Generate literal (10% probability - reduced)
-                if rng.random() {
+                if rng.random_bool(1.0 / 2.0) {
                     ArithmeticExpression::generate_random_int_literal(rng)
                 } else {
                     ArithmeticExpression::generate_random_float_literal(rng)
@@ -634,7 +633,7 @@ impl ArithmeticExpression {
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
                             // Fallback to literal if no variables available
-                            if rng.random() {
+                            if rng.random_bool(1.0 / 2.0) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -642,7 +641,7 @@ impl ArithmeticExpression {
                         }
                     } else {
                         // Fallback to literal if no variables available
-                        if rng.random() {
+                        if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -650,7 +649,7 @@ impl ArithmeticExpression {
                     }
                 } else {
                     // Generate literal
-                    if rng.random() {
+                    if rng.random_bool(1.0 / 2.0) {
                         ArithmeticExpression::generate_random_int_literal(rng)
                     } else {
                         ArithmeticExpression::generate_random_float_literal(rng)
@@ -668,7 +667,7 @@ impl ArithmeticExpression {
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
                             // Fallback to literal if no variables available
-                            if rng.random() {
+                            if rng.random_bool(1.0 / 2.0) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -676,7 +675,7 @@ impl ArithmeticExpression {
                         }
                     } else {
                         // Fallback to literal if no variables available
-                        if rng.random() {
+                        if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -684,7 +683,7 @@ impl ArithmeticExpression {
                     }
                 } else {
                     // Generate literal
-                    if rng.random() {
+                    if rng.random_bool(1.0 / 2.0) {
                         ArithmeticExpression::generate_random_int_literal(rng)
                     } else {
                         ArithmeticExpression::generate_random_float_literal(rng)

@@ -142,11 +142,11 @@ impl Expression {
             }
             8..=14 => {
                 // Generate variable reference if external_variables is provided and not empty
-                if let Some(variables) = external_variables {
-                    if !variables.is_empty() {
-                        let variable = variables.choose(rng).unwrap();
-                        return Self::VariableReference(variable.get_name().to_string());
-                    }
+                if let Some(variables) = external_variables
+                    && !variables.is_empty()
+                {
+                    let variable = variables.choose(rng).unwrap();
+                    return Self::VariableReference(variable.get_name().to_string());
                 }
                 // Fallback to arithmetic expression if no variables available
                 Self::Arithmetic(ArithmeticExpression::generate_random_expression(
@@ -207,27 +207,24 @@ impl Expression {
             Self::StringLiteral(_) => false,
             Self::FunctionCall(func_name, _) => {
                 // For function calls, look up the actual function return type
-                if let Some(functions) = external_functions {
-                    if let Some(func) = functions
+                if let Some(functions) = external_functions
+                    && let Some(func) = functions
                         .borrow()
                         .iter()
                         .find(|f| f.get_name() == func_name)
-                    {
-                        if let Some(return_type) = func.get_return_type() {
-                            return return_type.is_integer_type();
-                        }
-                    }
+                    && let Some(return_type) = func.get_return_type()
+                {
+                    return return_type.is_integer_type();
                 }
                 false
             }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
-                if let Some(variables) = external_variables {
-                    if let Some(variable) = variables.iter().find(|v| v.get_name() == var_name) {
-                        if let Some(var_type) = variable.get_type() {
-                            return var_type.is_integer_type();
-                        }
-                    }
+                if let Some(variables) = external_variables
+                    && let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
+                    && let Some(var_type) = variable.get_type()
+                {
+                    return var_type.is_integer_type();
                 }
                 false
             }
@@ -246,28 +243,25 @@ impl Expression {
             Self::StringLiteral(_) => false,
             Self::FunctionCall(func_name, _) => {
                 // For function calls, look up the actual function return type
-                if let Some(functions) = external_functions {
-                    if let Some(func) = functions
+                if let Some(functions) = external_functions
+                    && let Some(func) = functions
                         .borrow()
                         .iter()
                         .find(|f| f.get_name() == func_name)
-                    {
-                        if let Some(return_type) = func.get_return_type() {
-                            // Float type if it's a floating point number type
-                            return return_type.is_float_type();
-                        }
-                    }
+                    && let Some(return_type) = func.get_return_type()
+                {
+                    // Float type if it's a floating point number type
+                    return return_type.is_float_type();
                 }
                 false
             }
             Self::VariableReference(var_name) => {
                 // Look up the variable type from external_variables
-                if let Some(variables) = external_variables {
-                    if let Some(variable) = variables.iter().find(|v| v.get_name() == var_name) {
-                        if let Some(var_type) = variable.get_type() {
-                            return !var_type.is_integer_type(); // Float if not integer
-                        }
-                    }
+                if let Some(variables) = external_variables
+                    && let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
+                    && let Some(var_type) = variable.get_type()
+                {
+                    return !var_type.is_integer_type(); // Float if not integer
                 }
                 false
             }

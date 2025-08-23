@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE};
@@ -22,46 +21,6 @@ pub enum Type {
     Unknown,
     /// Error type (used for type errors)
     Error,
-}
-
-impl Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Type::Basic(class) => write!(f, "{}", class),
-            Type::Function(params, ret) => {
-                let params_str = params
-                    .iter()
-                    .map(|t| t.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                write!(f, "({}) -> {}", params_str, ret)
-            }
-            Type::Generic(name, params) => {
-                if params.is_empty() {
-                    write!(f, "{}", name)
-                } else {
-                    let params_str = params
-                        .iter()
-                        .map(|t| t.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    write!(f, "{}<{}>", name, params_str)
-                }
-            }
-            Type::Union(types) => {
-                let types_str = types
-                    .iter()
-                    .map(|t| t.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" | ");
-                write!(f, "{}", types_str)
-            }
-            Type::Nullable(inner) => write!(f, "{}?", inner),
-            Type::Variable(name) => write!(f, "{}", name),
-            Type::Unknown => write!(f, "?"),
-            Type::Error => write!(f, "Error"),
-        }
-    }
 }
 
 impl Type {
@@ -152,95 +111,42 @@ impl Type {
     }
 }
 
-/// Type context for storing type information
-#[derive(Clone, Debug)]
-pub struct TypeContext {
-    /// Variable types
-    variables: HashMap<String, Type>,
-    /// Function signatures
-    functions: HashMap<String, Type>,
-    /// Type aliases
-    aliases: HashMap<String, Type>,
-}
-
-impl TypeContext {
-    pub fn new() -> Self {
-        Self {
-            variables: HashMap::new(),
-            functions: HashMap::new(),
-            aliases: HashMap::new(),
-        }
-    }
-
-    /// Add a variable with its type
-    pub fn add_variable(&mut self, name: String, ty: Type) {
-        self.variables.insert(name, ty);
-    }
-
-    /// Get the type of a variable
-    pub fn get_variable_type(&self, name: &str) -> Option<&Type> {
-        self.variables.get(name)
-    }
-
-    /// Add a function signature
-    pub fn add_function(&mut self, name: String, ty: Type) {
-        self.functions.insert(name, ty);
-    }
-
-    /// Get the type of a function
-    pub fn get_function_type(&self, name: &str) -> Option<&Type> {
-        self.functions.get(name)
-    }
-
-    /// Add a type alias
-    pub fn add_alias(&mut self, name: String, ty: Type) {
-        self.aliases.insert(name, ty);
-    }
-
-    /// Resolve a type alias
-    pub fn resolve_alias(&self, name: &str) -> Option<&Type> {
-        self.aliases.get(name)
-    }
-
-    /// Check if a variable exists
-    pub fn has_variable(&self, name: &str) -> bool {
-        self.variables.contains_key(name)
-    }
-
-    /// Check if a function exists
-    pub fn has_function(&self, name: &str) -> bool {
-        self.functions.contains_key(name)
-    }
-
-    /// Get all variable names
-    pub fn get_variable_names(&self) -> Vec<String> {
-        self.variables.keys().cloned().collect()
-    }
-
-    /// Get all function names
-    pub fn get_function_names(&self) -> Vec<String> {
-        self.functions.keys().cloned().collect()
-    }
-}
-
-/// Type error information
-#[derive(Clone, Debug)]
-pub struct TypeError {
-    pub message: String,
-    pub location: String,
-    pub expected: Option<Type>,
-    pub found: Option<Type>,
-}
-
-impl Display for TypeError {
+impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Type error at {}: {}", self.location, self.message)?;
-        if let (Some(expected), Some(found)) = (&self.expected, &self.found) {
-            write!(f, " (expected {}, found {})", expected, found)?;
+        match self {
+            Type::Basic(class) => write!(f, "{}", class),
+            Type::Function(params, ret) => {
+                let params_str = params
+                    .iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "({}) -> {}", params_str, ret)
+            }
+            Type::Generic(name, params) => {
+                if params.is_empty() {
+                    write!(f, "{}", name)
+                } else {
+                    let params_str = params
+                        .iter()
+                        .map(|t| t.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    write!(f, "{}<{}>", name, params_str)
+                }
+            }
+            Type::Union(types) => {
+                let types_str = types
+                    .iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                write!(f, "{}", types_str)
+            }
+            Type::Nullable(inner) => write!(f, "{}?", inner),
+            Type::Variable(name) => write!(f, "{}", name),
+            Type::Unknown => write!(f, "?"),
+            Type::Error => write!(f, "Error"),
         }
-        Ok(())
     }
 }
-
-/// Result type for type checking operations
-pub type TypeResult<T> = Result<T, TypeError>;

@@ -126,7 +126,7 @@ impl BooleanExpression {
                             )
                         } else {
                             // 33% chance for simple literal
-                            if rng.random() {
+                            if rng.random_bool(1.0 / 2.0) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -254,7 +254,7 @@ impl BooleanExpression {
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
                             // If no numeric variables, force simple literal instead of complex expression
-                            if rng.random() {
+                            if rng.random_bool(1.0 / 2.0) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -262,7 +262,7 @@ impl BooleanExpression {
                         }
                     } else {
                         // If no variables available, force simple literal
-                        if rng.random() {
+                        if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -272,12 +272,12 @@ impl BooleanExpression {
                     // Generate simple arithmetic expression or literal - avoid too much complexity
                     if rng.random_bool(1.0 / 3.0) {
                         // 33% chance for simple binary operation
-                        let op_left = if rng.random() {
+                        let op_left = if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
                         };
-                        let op_right = if rng.random() {
+                        let op_right = if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -289,7 +289,7 @@ impl BooleanExpression {
                         }
                     } else {
                         // 67% chance for simple literal
-                        if rng.random() {
+                        if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -305,30 +305,26 @@ impl BooleanExpression {
                         if !numeric_variables.is_empty() {
                             let variable = numeric_variables.choose(rng).unwrap();
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
-                        } else {
-                            if rng.random() {
-                                ArithmeticExpression::generate_random_int_literal(rng)
-                            } else {
-                                ArithmeticExpression::generate_random_float_literal(rng)
-                            }
-                        }
-                    } else {
-                        if rng.random() {
+                        } else if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
                         }
+                    } else if rng.random_bool(1.0 / 2.0) {
+                        ArithmeticExpression::generate_random_int_literal(rng)
+                    } else {
+                        ArithmeticExpression::generate_random_float_literal(rng)
                     }
                 } else {
                     // Generate simple arithmetic expression or literal - avoid too much complexity
                     if rng.random_bool(1.0 / 3.0) {
                         // 33% chance for simple binary operation
-                        let op_left = if rng.random() {
+                        let op_left = if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
                         };
-                        let op_right = if rng.random() {
+                        let op_right = if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -340,7 +336,7 @@ impl BooleanExpression {
                         }
                     } else {
                         // 67% chance for simple literal
-                        if rng.random() {
+                        if rng.random_bool(1.0 / 2.0) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -475,7 +471,7 @@ impl ComparisonOperator {
 
 impl LogicalOperator {
     pub fn generate_random_logical_operator<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        if rng.random() {
+        if rng.random_bool(1.0 / 2.0) {
             LogicalOperator::And
         } else {
             LogicalOperator::Or

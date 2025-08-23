@@ -77,7 +77,7 @@ impl IfStatement {
         }
 
         // Generate else block (50% chance)
-        let else_block = if rng.random() {
+        let else_block = if rng.random_bool(1.0 / 2.0) {
             Some(Block::generate_random_block(
                 external_variables,
                 external_functions,
@@ -175,7 +175,7 @@ impl IfStatement {
         }
 
         // Generate else block with return type awareness (50% chance)
-        let else_block = if rng.random() {
+        let else_block = if rng.random_bool(1.0 / 2.0) {
             Some(Block::generate_type_safe_block_with_return_type(
                 external_variables,
                 external_functions,

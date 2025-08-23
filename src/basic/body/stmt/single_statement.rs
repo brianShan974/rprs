@@ -284,7 +284,7 @@ impl SingleStatement {
                 }
             }
             9 => {
-                if rng.random() {
+                if rng.random_bool(1.0 / 2.0) {
                     SingleStatement::Return(Some(Expression::generate_random_expression(
                         3,
                         Some(external_functions.clone()),

@@ -1,4 +1,4 @@
-use crate::type_system::{Type, TypeContext};
+use crate::type_system::{Type, type_context::TypeContext};
 
 /// Type environment for managing scoped type information
 pub struct TypeEnvironment {
@@ -11,14 +11,14 @@ pub struct TypeEnvironment {
 impl TypeEnvironment {
     pub fn new() -> Self {
         Self {
-            contexts: vec![TypeContext::new()],
-            global_context: TypeContext::new(),
+            contexts: vec![TypeContext::default()],
+            global_context: TypeContext::default(),
         }
     }
 
     /// Enter a new scope
     pub fn enter_scope(&mut self) {
-        self.contexts.push(TypeContext::new());
+        self.contexts.push(TypeContext::default());
     }
 
     /// Exit the current scope

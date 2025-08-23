@@ -73,6 +73,12 @@ impl Class {
         )
     }
 
+    pub fn is_signed_integer_type(&self) -> bool {
+        use BasicType::Number;
+        use NumberType::SignedInteger;
+        matches!(self, Self::Basic(Number(SignedInteger(_))))
+    }
+
     pub fn is_numeric_type(&self) -> bool {
         use BasicType::Number;
         matches!(self, Self::Basic(Number(_)))

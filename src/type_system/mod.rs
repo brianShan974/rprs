@@ -1,6 +1,8 @@
 pub mod type_checker;
+pub mod type_context;
 pub mod type_environment;
 pub mod type_inference;
+pub mod type_result;
 pub mod typed_generator;
 pub mod types;
 

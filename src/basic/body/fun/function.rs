@@ -10,11 +10,7 @@ use crate::basic::{
         fun::parameter::Parameter,
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
-    cls::{
-        basic_type::BasicType,
-        class::{BOOLEAN, Class, FLOAT, INT},
-        number_types::number::NumberType,
-    },
+    cls::class::{BOOLEAN, Class, FLOAT, INT},
     expr::expression::Expression,
     utils::generate_random_identifier,
     var::{prefix::visibility::Visibility, variable::Variable},
@@ -235,10 +231,10 @@ impl Function {
                         }
                     }
                     // Check else block
-                    if let Some(else_block) = if_stmt.get_else_block() {
-                        if Self::has_return_statement(else_block) {
-                            return true;
-                        }
+                    if let Some(else_block) = if_stmt.get_else_block()
+                        && Self::has_return_statement(else_block)
+                    {
+                        return true;
                     }
                 }
                 Statement::For(for_stmt) => {
@@ -339,10 +335,10 @@ impl Function {
         for statement in statements {
             match statement {
                 Statement::Single(single_stmt) => {
-                    if let SingleStatement::Return(expr) = single_stmt {
-                        if expr.is_none() {
-                            return true; // Found empty return
-                        }
+                    if let SingleStatement::Return(expr) = single_stmt
+                        && expr.is_none()
+                    {
+                        return true; // Found empty return
                     }
                 }
                 Statement::If(if_stmt) => {
@@ -357,10 +353,10 @@ impl Function {
                         }
                     }
                     // Check else block
-                    if let Some(else_block) = if_stmt.get_else_block() {
-                        if Self::has_empty_return_in_body(else_block) {
-                            return true;
-                        }
+                    if let Some(else_block) = if_stmt.get_else_block()
+                        && Self::has_empty_return_in_body(else_block)
+                    {
+                        return true;
                     }
                 }
                 Statement::For(for_stmt) => {
@@ -573,19 +569,9 @@ impl Function {
             Some(first_type.clone())
         } else {
             // Mixed types - we need to find a common type or choose the most appropriate one
-            let has_boolean = return_types.iter().any(|ty| *ty == BOOLEAN);
-            let has_int = return_types.iter().any(|ty| {
-                matches!(
-                    ty,
-                    Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))
-                )
-            });
-            let has_float = return_types.iter().any(|ty| {
-                matches!(
-                    ty,
-                    Class::Basic(BasicType::Number(NumberType::FloatingPoint(_)))
-                )
-            });
+            let has_boolean = return_types.contains(&BOOLEAN);
+            let has_int = return_types.iter().any(|ty| ty.is_signed_integer_type());
+            let has_float = return_types.iter().any(|ty| ty.is_float_type());
 
             if has_boolean && (has_int || has_float) {
                 // Mixed Boolean and Number types - this is problematic
@@ -614,12 +600,12 @@ impl Function {
 
     pub fn is_boolean_function(&self) -> bool {
         self.get_return_type()
-            .map_or(false, |ty| ty.is_boolean_type())
+            .is_some_and(|ty| ty.is_boolean_type())
     }
 
     pub fn is_numeric_function(&self) -> bool {
         self.get_return_type()
-            .map_or(false, |ty| ty.is_numeric_type())
+            .is_some_and(|ty| ty.is_numeric_type())
     }
 
     pub fn is_unit_function(&self) -> bool {
@@ -628,12 +614,11 @@ impl Function {
 
     pub fn is_integer_function(&self) -> bool {
         self.get_return_type()
-            .map_or(false, |ty| ty.is_integer_type())
+            .is_some_and(|ty| ty.is_integer_type())
     }
 
     pub fn is_float_function(&self) -> bool {
-        self.get_return_type()
-            .map_or(false, |ty| ty.is_float_type())
+        self.get_return_type().is_some_and(|ty| ty.is_float_type())
     }
 }
 

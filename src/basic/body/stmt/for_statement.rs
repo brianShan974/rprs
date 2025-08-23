@@ -63,7 +63,7 @@ impl ForStatement {
         let loop_type = ForLoopType::RangeLoop {
             start: rng.random_range(0..10),
             end: rng.random_range(10..50),
-            step: if rng.random() {
+            step: if rng.random_bool(1.0 / 2.0) {
                 Some(rng.random_range(1..5))
             } else {
                 None
@@ -129,7 +129,7 @@ impl ForStatement {
         let loop_type = ForLoopType::RangeLoop {
             start: rng.random_range(0..10),
             end: rng.random_range(10..50),
-            step: if rng.random() {
+            step: if rng.random_bool(1.0 / 2.0) {
                 Some(rng.random_range(1..5))
             } else {
                 None
