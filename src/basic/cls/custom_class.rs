@@ -147,7 +147,7 @@ impl CustomClass {
                 rng,
             ) {
                 // Add the method to the main typed context so other methods can call it
-                typed_context.add_function(&method).ok();
+                typed_context.add_function(&method);
                 custom_class.add_method(method);
             }
         }

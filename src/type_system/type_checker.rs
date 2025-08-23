@@ -1,8 +1,4 @@
-use crate::type_system::{
-    Type,
-    type_context::TypeContext,
-    type_result::{TypeError, TypeResult},
-};
+use crate::type_system::{Type, type_context::TypeContext, type_result::TypeResult};
 
 /// Simplified type checker for validating type safety
 #[derive(Default)]
@@ -18,7 +14,7 @@ impl TypeChecker {
     /// Check if a type is valid
     pub fn check_type(ty: &Type) -> TypeResult<()> {
         match ty {
-            Type::Basic(_) => Ok(()),
+            Type::Basic(_) => Some(()),
             Type::Function(params, ret) => {
                 for param in params {
                     Self::check_type(param)?;
@@ -29,37 +25,27 @@ impl TypeChecker {
                 for param in params {
                     Self::check_type(param)?;
                 }
-                Ok(())
+                Some(())
             }
             Type::Union(types) => {
                 for ty in types {
                     Self::check_type(ty)?;
                 }
-                Ok(())
+                Some(())
             }
             Type::Nullable(inner) => Self::check_type(inner),
-            Type::Variable(_) => Ok(()),
-            Type::Unknown => Ok(()),
-            Type::Error => Err(TypeError {
-                message: "Error type is not valid".to_string(),
-                location: "type check".to_string(),
-                expected: None,
-                found: Some(ty.clone()),
-            }),
+            Type::Variable(_) => Some(()),
+            Type::Unknown => Some(()),
+            Type::Error => None,
         }
     }
 
     /// Check type compatibility
     pub fn check_compatibility(&self, source: &Type, target: &Type) -> TypeResult<()> {
         if source.is_assignable_to(target) {
-            Ok(())
+            Some(())
         } else {
-            Err(TypeError {
-                message: format!("Type {} is not assignable to {}", source, target),
-                location: "type compatibility".to_string(),
-                expected: Some(target.clone()),
-                found: Some(source.clone()),
-            })
+            None
         }
     }
 
@@ -67,14 +53,14 @@ impl TypeChecker {
     pub fn add_variable(&mut self, name: String, ty: Type) -> TypeResult<()> {
         Self::check_type(&ty)?;
         self.context.add_variable(name, ty);
-        Ok(())
+        Some(())
     }
 
     /// Add a function to the context
     pub fn add_function(&mut self, name: String, ty: Type) -> TypeResult<()> {
         Self::check_type(&ty)?;
         self.context.add_function(name, ty);
-        Ok(())
+        Some(())
     }
 
     /// Get the type of a variable

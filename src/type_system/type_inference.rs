@@ -2,11 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     basic::cls::class::{BOOLEAN, FLOAT, INT, STRING},
-    type_system::{
-        Type,
-        type_context::TypeContext,
-        type_result::{TypeError, TypeResult},
-    },
+    type_system::{Type, type_context::TypeContext, type_result::TypeResult},
 };
 
 /// Simplified type inference engine
@@ -39,73 +35,50 @@ impl TypeInference {
     pub fn infer_literal_type(&self, value: &str) -> TypeResult<Type> {
         // Simple type inference based on string representation
         if value.parse::<i32>().is_ok() {
-            Ok(Type::Basic(INT))
+            Some(Type::Basic(INT))
         } else if value.parse::<f32>().is_ok() {
-            Ok(Type::Basic(FLOAT))
+            Some(Type::Basic(FLOAT))
         } else if value == "true" || value == "false" {
-            Ok(Type::Basic(BOOLEAN))
+            Some(Type::Basic(BOOLEAN))
         } else if value.starts_with('"') && value.ends_with('"') {
-            Ok(Type::Basic(STRING))
+            Some(Type::Basic(STRING))
         } else {
-            Err(TypeError {
-                message: format!("Cannot infer type for literal: {}", value),
-                location: "type inference".to_string(),
-                expected: None,
-                found: None,
-            })
+            None
         }
     }
 
     /// Infer type from variable name
     pub fn infer_variable_type(&self, var_name: &str) -> TypeResult<Type> {
-        self.context
-            .get_variable_type(var_name)
-            .cloned()
-            .ok_or_else(|| TypeError {
-                message: format!("Variable '{}' not found", var_name),
-                location: "type inference".to_string(),
-                expected: None,
-                found: None,
-            })
+        self.context.get_variable_type(var_name).cloned()
     }
 
     /// Unify two types (find the most specific common type)
     pub fn unify_types(&mut self, t1: &Type, t2: &Type) -> TypeResult<Type> {
         if t1 == t2 {
-            return Ok(t1.clone());
+            return Some(t1.clone());
         }
 
         match (t1, t2) {
             // If one is unknown, use the other
-            (Type::Unknown, other) | (other, Type::Unknown) => Ok(other.clone()),
+            (Type::Unknown, other) | (other, Type::Unknown) => Some(other.clone()),
 
             // If both are basic types, find common type
             (Type::Basic(_), Type::Basic(_)) => {
                 // For simplicity, return the first type
-                Ok(t1.clone())
+                Some(t1.clone())
             }
 
             // If one is nullable and the other isn't, make both nullable
             (Type::Nullable(inner), other) | (other, Type::Nullable(inner)) => {
                 if inner.as_ref() == other {
-                    Ok(Type::Nullable(Box::new(other.clone())))
+                    Some(Type::Nullable(Box::new(other.clone())))
                 } else {
-                    Err(TypeError {
-                        message: format!("Cannot unify types {} and {}", t1, t2),
-                        location: "type unification".to_string(),
-                        expected: None,
-                        found: None,
-                    })
+                    None
                 }
             }
 
             // For other cases, return error
-            _ => Err(TypeError {
-                message: format!("Cannot unify types {} and {}", t1, t2),
-                location: "type unification".to_string(),
-                expected: None,
-                found: None,
-            }),
+            _ => None,
         }
     }
 

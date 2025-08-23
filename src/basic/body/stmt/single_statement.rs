@@ -359,15 +359,14 @@ impl SingleStatement {
                 let mutable_vars = typed_context.get_mutable_variables();
                 if !mutable_vars.is_empty() {
                     let var = mutable_vars.choose(rng).unwrap();
-                    match typed_context.generate_type_safe_assignment(var, rng) {
-                        Ok(assignment) => assignment,
-                        Err(_) => {
-                            // Fallback to variable declaration
-                            let var = typed_context
-                                .generate_type_compatible_variable_no_const(false, rng);
-                            let _ = typed_context.add_variable(&var);
-                            SingleStatement::VariableDeclaration(var)
-                        }
+                    if let Some(assignment) = typed_context.generate_type_safe_assignment(var, rng)
+                    {
+                        assignment
+                    } else {
+                        let var =
+                            typed_context.generate_type_compatible_variable_no_const(false, rng);
+                        let _ = typed_context.add_variable(&var);
+                        SingleStatement::VariableDeclaration(var)
                     }
                 } else {
                     // No mutable variables, generate new variable
@@ -381,15 +380,16 @@ impl SingleStatement {
                 let available_funcs = typed_context.get_available_functions();
                 if !available_funcs.is_empty() {
                     let func_name = available_funcs.choose(rng).unwrap();
-                    match typed_context.generate_type_safe_function_call(func_name, rng) {
-                        Ok(call) => call,
-                        Err(_) => {
-                            // Fallback to variable declaration
-                            let var = typed_context
-                                .generate_type_compatible_variable_no_const(false, rng);
-                            let _ = typed_context.add_variable(&var);
-                            SingleStatement::VariableDeclaration(var)
-                        }
+                    if let Some(call) =
+                        typed_context.generate_type_safe_function_call(func_name, rng)
+                    {
+                        call
+                    } else {
+                        // Fallback to variable declaration
+                        let var =
+                            typed_context.generate_type_compatible_variable_no_const(false, rng);
+                        let _ = typed_context.add_variable(&var);
+                        SingleStatement::VariableDeclaration(var)
                     }
                 } else {
                     // No functions available, generate variable
