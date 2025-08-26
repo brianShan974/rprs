@@ -79,7 +79,7 @@ impl ObjectInstance {
     ) -> Expression {
         // For now, generate simple expressions based on property type
         // In a full implementation, this would use the typed generation system
-        match class_property.get_type() {
+        match class_property.get_class() {
             Some(Class::Basic(BasicType::Number(number_type))) => match number_type {
                 NumberType::SignedInteger(_) => Expression::generate_random_int_literal(rng),
                 NumberType::UnsignedInteger(_) => Expression::generate_random_int_literal(rng),

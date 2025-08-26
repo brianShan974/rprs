@@ -46,18 +46,13 @@ impl ForStatement {
         // Generate loop variable name
         let loop_variable_name = generate_random_identifier(rng);
 
-        // Create loop variable and add it to external variables for the loop body
+        // Create loop variable (but don't add it to external variables)
         let loop_variable = Variable::new(
             VariablePrefix::default(),
             loop_variable_name.clone(),
             None,
             Some(INT),
         );
-        let loop_body_variables: Vec<Variable> = external_variables
-            .iter()
-            .map(|v| v.to_owned())
-            .chain(std::iter::once(loop_variable))
-            .collect();
 
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
@@ -71,8 +66,15 @@ impl ForStatement {
         };
 
         // Generate loop body with smaller depth limit
+        // Create a combined list that includes the loop variable for the loop body scope
+        let loop_body_variables: Vec<Variable> = external_variables
+            .iter()
+            .map(|v| v.to_owned())
+            .chain(std::iter::once(loop_variable.clone()))
+            .collect();
+
         let loop_block = Block::generate_random_block(
-            &loop_body_variables,
+            &loop_body_variables, // Include loop variable in loop body scope
             external_functions,
             current_indentation_layer,
             false,
@@ -90,6 +92,10 @@ impl ForStatement {
 
     pub fn get_loop_block(&self) -> &Block {
         &self.loop_block
+    }
+
+    pub fn get_loop_variable_name(&self) -> &str {
+        &self.loop_variable_name
     }
 
     /// Generate a type-safe for statement with expected return type

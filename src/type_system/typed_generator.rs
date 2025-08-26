@@ -484,7 +484,7 @@ impl TypedGenerationContext {
 
     /// Infer the type of a variable
     fn infer_variable_type(&self, var: &Variable) -> TypeResult<Option<Class>> {
-        Some(var.get_type().cloned())
+        Some(var.get_class().cloned())
     }
 
     /// Infer the type of a function

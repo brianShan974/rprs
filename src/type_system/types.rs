@@ -26,7 +26,11 @@ pub enum Type {
 impl Type {
     /// Check if this type is a numeric type
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Type::Basic(_)) // All basic types are numeric for now
+        if let Self::Basic(cls) = self {
+            cls.is_numeric_type()
+        } else {
+            false
+        }
     }
 
     /// Check if this type is a boolean type

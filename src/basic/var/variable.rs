@@ -61,7 +61,7 @@ impl Variable {
         &self.prefix
     }
 
-    pub fn get_type(&self) -> Option<&Class> {
+    pub fn get_class(&self) -> Option<&Class> {
         self.ty.as_ref()
     }
 

@@ -101,7 +101,7 @@ impl Expression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| var.get_type() == Some(param_type))
+                                        .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
                                     if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
@@ -252,7 +252,7 @@ impl Expression {
                 // Look up the variable type from external_variables
                 if let Some(variables) = external_variables
                     && let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
-                    && let Some(var_type) = variable.get_type()
+                    && let Some(var_type) = variable.get_class()
                 {
                     return var_type.is_integer_type();
                 }
@@ -290,7 +290,7 @@ impl Expression {
                 // Look up the variable type from external_variables
                 if let Some(variables) = external_variables
                     && let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
-                    && let Some(var_type) = variable.get_type()
+                    && let Some(var_type) = variable.get_class()
                 {
                     return !var_type.is_integer_type(); // Float if not integer
                 }

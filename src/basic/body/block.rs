@@ -65,6 +65,7 @@ impl Block {
         }
 
         // Create combined external variables for child blocks
+        // This includes both external variables and newly declared variables in this block
         let combined_external_variables: Vec<Variable> = external_variables
             .iter()
             .map(|v| v.to_owned())
@@ -72,7 +73,14 @@ impl Block {
             .collect();
 
         let num_statements = rng.random_range(1..=Self::MAX_NUM_STATEMENTS);
-        let mut statements = Vec::with_capacity(num_statements);
+        let mut statements = Vec::with_capacity(num_statements + new_variables.len());
+
+        // Add variable declaration statements for new variables
+        for new_var in &new_variables {
+            statements.push(Statement::Single(SingleStatement::VariableDeclaration(
+                new_var.clone(),
+            )));
+        }
 
         // Generate random statements with depth limit
         for _ in 0..num_statements {

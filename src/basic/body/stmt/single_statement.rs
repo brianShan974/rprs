@@ -99,7 +99,7 @@ impl SingleStatement {
                     let var_type = external_variables
                         .iter()
                         .find(|v| v.get_name() == var_name)
-                        .and_then(|v| v.get_type());
+                        .and_then(|v| v.get_class());
 
                     let expr = if let Some(target_type) = var_type {
                         // Generate expression of matching type
@@ -167,7 +167,7 @@ impl SingleStatement {
                             // Try to find a variable of matching type first
                             let matching_vars: Vec<_> = external_variables
                                 .iter()
-                                .filter(|var| var.get_type() == Some(param_type))
+                                .filter(|var| var.get_class() == Some(param_type))
                                 .collect();
 
                             if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {

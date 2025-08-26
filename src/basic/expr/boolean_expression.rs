@@ -163,7 +163,7 @@ impl BooleanExpression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| var.get_type() == Some(param_type))
+                                        .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
                                     if !matching_vars.is_empty() && rng.random_bool(4.0 / 5.0) {
@@ -404,7 +404,7 @@ impl BooleanExpression {
                                 let arg = if let Some(variables) = external_variables {
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| var.get_type() == Some(param_type))
+                                        .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
                                     if !matching_vars.is_empty() && rng.random_bool(4.0 / 5.0) {

@@ -57,7 +57,7 @@ impl ArithmeticExpression {
                 // Look up the variable type from external_variables
                 if let Some(variables) = external_variables
                     && let Some(variable) = variables.iter().find(|v| v.get_name() == var_name)
-                    && let Some(var_type) = variable.get_type()
+                    && let Some(var_type) = variable.get_class()
                 {
                     return var_type.is_integer_type();
                 }
@@ -88,7 +88,7 @@ impl ArithmeticExpression {
                         var.is_const()
                             && var.is_numeric()
                             && var
-                                .get_type()
+                                .get_class()
                                 .is_some_and(|ty| ty.is_integer_type() == target_is_int)
                     })
                     .collect();
@@ -127,7 +127,7 @@ impl ArithmeticExpression {
                             var.is_const()
                                 && var.is_numeric()
                                 && var
-                                    .get_type()
+                                    .get_class()
                                     .is_some_and(|ty| ty.is_integer_type() == target_is_int)
                         })
                         .collect();
@@ -206,9 +206,9 @@ impl ArithmeticExpression {
                     .filter(|var| {
                         var.is_numeric()
                             && if target_is_int {
-                                var.get_type().map_or(false, |t| t.is_integer_type())
+                                var.get_class().map_or(false, |t| t.is_integer_type())
                             } else {
-                                var.get_type().map_or(false, |t| t.is_float_type())
+                                var.get_class().map_or(false, |t| t.is_float_type())
                             }
                     })
                     .collect();
@@ -247,9 +247,9 @@ impl ArithmeticExpression {
                         .filter(|var| {
                             var.is_numeric()
                                 && if target_is_int {
-                                    var.get_type().map_or(false, |t| t.is_integer_type())
+                                    var.get_class().map_or(false, |t| t.is_integer_type())
                                 } else {
-                                    var.get_type().map_or(false, |t| t.is_float_type())
+                                    var.get_class().map_or(false, |t| t.is_float_type())
                                 }
                         })
                         .collect();
@@ -291,9 +291,9 @@ impl ArithmeticExpression {
                             .filter(|var| {
                                 var.is_numeric()
                                     && if target_is_int {
-                                        var.get_type().map_or(false, |t| t.is_integer_type())
+                                        var.get_class().map_or(false, |t| t.is_integer_type())
                                     } else {
-                                        var.get_type().map_or(false, |t| t.is_float_type())
+                                        var.get_class().map_or(false, |t| t.is_float_type())
                                     }
                             })
                             .collect();
@@ -334,9 +334,9 @@ impl ArithmeticExpression {
                             .filter(|v| {
                                 v.is_numeric()
                                     && if target_is_int {
-                                        v.get_type().map_or(false, |t| t.is_integer_type())
+                                        v.get_class().map_or(false, |t| t.is_integer_type())
                                     } else {
-                                        v.get_type().map_or(false, |t| t.is_float_type())
+                                        v.get_class().map_or(false, |t| t.is_float_type())
                                     }
                             })
                             .collect();
@@ -400,7 +400,7 @@ impl ArithmeticExpression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| var.get_type() == Some(param_type))
+                                        .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
                                     if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
@@ -468,7 +468,7 @@ impl ArithmeticExpression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| var.get_type() == Some(param_type))
+                                        .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
                                     if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
@@ -754,7 +754,7 @@ impl ArithmeticExpression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| var.get_type() == Some(param_type))
+                                        .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
                                     if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
@@ -818,7 +818,7 @@ impl ArithmeticExpression {
                                     // Try to find a variable of matching type first
                                     let matching_vars: Vec<_> = variables
                                         .iter()
-                                        .filter(|var| var.get_type() == Some(param_type))
+                                        .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
                                     if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {

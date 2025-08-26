@@ -17,6 +17,8 @@ use crate::basic::{
 };
 use crate::type_system::{Type, TypedGenerationContext};
 
+pub type FuncRef = Rc<Function>;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Function {
     name: String,

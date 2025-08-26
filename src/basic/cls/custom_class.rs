@@ -71,7 +71,7 @@ impl CustomClass {
                 .map(|var| {
                     Parameter::new(
                         var.get_name().to_string(),
-                        var.get_type().cloned().unwrap_or(FLOAT),
+                        var.get_class().cloned().unwrap_or(FLOAT),
                     )
                 })
                 .collect();
@@ -130,7 +130,7 @@ impl CustomClass {
                 .map(|var| {
                     Parameter::new(
                         var.get_name().to_string(),
-                        var.get_type().cloned().unwrap_or(FLOAT),
+                        var.get_class().cloned().unwrap_or(FLOAT),
                     )
                 })
                 .collect();
@@ -193,7 +193,7 @@ impl fmt::Display for CustomClass {
                 property.get_prefix(),
                 property.get_name(),
                 property
-                    .get_type()
+                    .get_class()
                     .map(|c| c.get_name())
                     .unwrap_or_else(|| "Unknown".to_string()),
                 property

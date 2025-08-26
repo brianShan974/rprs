@@ -9,8 +9,6 @@ pub struct TypeContext {
     variables: HashMap<String, Type>,
     /// Function signatures
     functions: HashMap<String, Type>,
-    /// Type aliases
-    aliases: HashMap<String, Type>,
 }
 
 impl TypeContext {
@@ -32,16 +30,6 @@ impl TypeContext {
     /// Get the type of a function
     pub fn get_function_type(&self, name: &str) -> Option<&Type> {
         self.functions.get(name)
-    }
-
-    /// Add a type alias
-    pub fn add_alias(&mut self, name: String, ty: Type) {
-        self.aliases.insert(name, ty);
-    }
-
-    /// Resolve a type alias
-    pub fn resolve_alias(&self, name: &str) -> Option<&Type> {
-        self.aliases.get(name)
     }
 
     /// Check if a variable exists
