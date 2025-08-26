@@ -583,6 +583,7 @@ impl TypedGenerationContext {
             }
             Expression::Boolean(_) => Some(Type::Basic(BOOLEAN)),
             Expression::StringLiteral(_) => Some(Type::Basic(STRING)),
+            Expression::ClassInstantiation(_) => None, // TODO: Handle class instantiation properly
             Expression::FunctionCall(func_name, _) => {
                 // Look up function return type
                 if let Some(Type::Function(_, return_type)) =
@@ -829,6 +830,7 @@ impl TypedGenerationContext {
                         1,
                         external_functions,
                         Some(&variables), // Pass available variables
+                        None,
                         rng,
                     ))
                 }
@@ -841,6 +843,7 @@ impl TypedGenerationContext {
                     2,
                     external_functions,
                     Some(&variables), // Pass available variables
+                    None,
                     rng,
                 ))
             }

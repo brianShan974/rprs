@@ -28,6 +28,7 @@ pub enum Expression {
     StringLiteral(String),
     FunctionCall(String, Vec<Expression>),
     VariableReference(String),
+    ClassInstantiation(String), // 类实例化，如 A()
 }
 
 impl Display for Expression {
@@ -49,6 +50,7 @@ impl Display for Expression {
                 }
             }
             Self::VariableReference(var_name) => write!(f, "{}", var_name),
+            Self::ClassInstantiation(class_name) => write!(f, "{}()", class_name),
         }
     }
 }
@@ -58,9 +60,10 @@ impl Expression {
         max_depth: usize,
         external_functions: Option<Rc<RefCell<Vec<Function>>>>,
         external_variables: Option<&[Variable]>,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
-        // 5% arithmetic, 5% boolean, 3% string literal, 20% function call, 55% variable reference, 12% fallback
+        // 5% arithmetic, 5% boolean, 3% string literal, 15% function call, 55% variable reference, 12% class instantiation
         match rng.random_range(0..20) {
             0 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
                 max_depth,
@@ -140,7 +143,33 @@ impl Expression {
                     rng,
                 ))
             }
-            8..=14 => {
+            8..=11 => {
+                // Generate class instantiation if defined_classes is provided and not empty
+                if let Some(classes) = defined_classes
+                    && !classes.is_empty()
+                {
+                    // Filter for custom classes only
+                    let custom_classes: Vec<_> = classes
+                        .iter()
+                        .filter(|class| matches!(class, Class::Custom(_)))
+                        .collect();
+
+                    if !custom_classes.is_empty() {
+                        let class = custom_classes.choose(rng).unwrap();
+                        if let Class::Custom(custom_class) = class {
+                            return Self::ClassInstantiation(custom_class.get_name());
+                        }
+                    }
+                }
+                // Fallback to arithmetic expression if no custom classes available
+                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
+                    max_depth,
+                    None,
+                    external_variables,
+                    rng,
+                ))
+            }
+            12..=18 => {
                 // Generate variable reference if external_variables is provided and not empty
                 if let Some(variables) = external_variables
                     && !variables.is_empty()
@@ -205,6 +234,7 @@ impl Expression {
             Self::Arithmetic(arith) => arith.is_int(external_variables),
             Self::Boolean(_) => false,
             Self::StringLiteral(_) => false,
+            Self::ClassInstantiation(_) => false, // 类实例化不是整数类型
             Self::FunctionCall(func_name, _) => {
                 // For function calls, look up the actual function return type
                 if let Some(functions) = external_functions
@@ -241,6 +271,7 @@ impl Expression {
             Self::Arithmetic(arith) => arith.is_float(external_variables),
             Self::Boolean(_) => false,
             Self::StringLiteral(_) => false,
+            Self::ClassInstantiation(_) => false, // 类实例化不是浮点类型
             Self::FunctionCall(func_name, _) => {
                 // For function calls, look up the actual function return type
                 if let Some(functions) = external_functions
@@ -313,6 +344,10 @@ impl Expression {
             Class::Basic(BasicType::Char) => {
                 // Generate char expression (for now, generate a random char)
                 Self::StringLiteral(format!("'{}'", (rng.random_range(32..127) as u8) as char))
+            }
+            Class::Custom(custom_class) => {
+                // Generate class instantiation for custom classes
+                Self::ClassInstantiation(custom_class.get_name())
             }
             _ => {
                 // Fallback to integer expression for unknown types

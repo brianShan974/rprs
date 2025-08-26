@@ -9,6 +9,7 @@ use crate::basic::body::stmt::{
     for_statement::ForStatement, if_statement::IfStatement, single_statement::SingleStatement,
     when_statement::WhenStatement, while_statement::WhileStatement,
 };
+use crate::basic::cls::class::Class;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
@@ -44,6 +45,7 @@ impl Statement {
                 SingleStatement::generate_random_single_statement(
                     external_variables,
                     external_functions,
+                    None, // defined_classes
                     rng,
                 ),
             ));
@@ -54,6 +56,7 @@ impl Statement {
             0..=5 => Statement::Single(SingleStatement::generate_random_single_statement(
                 external_variables,
                 external_functions.clone(),
+                None, // defined_classes
                 rng,
             )),
             6..=7 => Statement::If(IfStatement::generate_random_if_statement(
@@ -103,6 +106,7 @@ impl Statement {
             max_depth,
             typed_context,
             None,
+            None, // defined_classes
             rng,
         )
     }
@@ -115,6 +119,7 @@ impl Statement {
         max_depth: Option<usize>,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
         if matches!(max_depth, Some(0)) {
@@ -131,6 +136,7 @@ impl Statement {
                     external_functions,
                     typed_context,
                     expected_return_type,
+                    defined_classes, // Pass defined classes to single statement generation
                     rng,
                 ),
             ));
@@ -145,6 +151,7 @@ impl Statement {
                     external_functions.clone(),
                     typed_context,
                     expected_return_type,
+                    defined_classes, // Pass defined classes to single statement generation
                     rng,
                 ),
             ),

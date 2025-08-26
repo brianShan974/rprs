@@ -26,9 +26,17 @@ impl Parameter {
         defined_classes: Option<&[Class]>,
     ) -> Self {
         let defined_classes = defined_classes.unwrap_or(BASIC_TYPES);
-        Self {
-            name: generate_random_identifier(rng),
-            ty: defined_classes.choose(rng).unwrap().clone(),
+        if defined_classes.is_empty() {
+            // Fallback to a basic type if no classes are available
+            Self {
+                name: generate_random_identifier(rng),
+                ty: BASIC_TYPES.choose(rng).unwrap().clone(),
+            }
+        } else {
+            Self {
+                name: generate_random_identifier(rng),
+                ty: defined_classes.choose(rng).unwrap().clone(),
+            }
         }
     }
 

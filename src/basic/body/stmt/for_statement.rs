@@ -109,21 +109,19 @@ impl ForStatement {
         // Generate loop variable name
         let loop_variable_name = generate_random_identifier(rng);
 
-        // Create loop variable and add it to the context
+        // Create loop variable (but don't add it to the main context)
         let loop_variable = Variable::new(
             VariablePrefix::default(),
             loop_variable_name.clone(),
             None,
             Some(INT),
         );
-        let _ = typed_context.add_variable(&loop_variable);
 
-        // Add loop variable to external variables for the loop body
-        let loop_body_variables: Vec<Variable> = external_variables
-            .iter()
-            .map(|v| v.to_owned())
-            .chain(std::iter::once(loop_variable))
-            .collect();
+        // Create a child context for the loop body to ensure proper variable scoping
+        let mut loop_context = typed_context.create_child_context();
+
+        // Add the loop variable to the child context only
+        let _ = loop_context.add_variable(&loop_variable);
 
         // Only generate range loop
         let loop_type = ForLoopType::RangeLoop {
@@ -136,15 +134,16 @@ impl ForStatement {
             },
         };
 
-        // Generate loop body with return type awareness
+        // Generate loop body with return type awareness using child context
         let loop_block = Block::generate_type_safe_block_with_return_type(
-            &loop_body_variables,
+            external_variables, // Use original external variables, not including loop variable
             external_functions,
             current_indentation_layer,
             false,
             max_depth - 1,
-            typed_context,
+            &mut loop_context, // Use the child context
             expected_return_type,
+            None, // defined_classes
             rng,
         )?;
 

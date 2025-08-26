@@ -95,7 +95,23 @@ impl File {
             top_level_constants.push(constant);
         }
 
-        // Generate type-safe functions
+        // Generate type-safe classes FIRST
+        let num_classes = rng.random_range(1..=Self::MAX_CLASSES); // 确保至少生成一个类
+        let mut classes = Vec::with_capacity(num_classes);
+
+        for _ in 0..num_classes {
+            let mut typed_context = TypedGenerationContext::new(Rc::new(RefCell::new(Vec::new())));
+            let class = CustomClass::generate_type_safe_custom_class(rng, &mut typed_context, None);
+            classes.push(class);
+        }
+
+        // Convert classes to Class enum for expression generation
+        let defined_classes: Vec<crate::basic::cls::class::Class> = classes
+            .iter()
+            .map(|class| crate::basic::cls::class::Class::Custom(class.clone()))
+            .collect();
+
+        // Generate type-safe functions with access to defined classes
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
@@ -106,7 +122,7 @@ impl File {
             if let Some(function) = Function::generate_type_safe_function(
                 &Vec::new(),
                 external_functions.clone(),
-                None,
+                Some(&defined_classes), // Pass defined classes to function generation
                 None,
                 None,
                 false,
@@ -115,16 +131,6 @@ impl File {
             ) {
                 functions.push(function);
             }
-        }
-
-        // Generate type-safe classes
-        let num_classes = rng.random_range(0..=Self::MAX_CLASSES);
-        let mut classes = Vec::with_capacity(num_classes);
-
-        for _ in 0..num_classes {
-            let mut typed_context = TypedGenerationContext::new(external_functions.clone());
-            let class = CustomClass::generate_type_safe_custom_class(rng, &mut typed_context, None);
-            classes.push(class);
         }
 
         Self {

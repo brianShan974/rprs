@@ -6,6 +6,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
+use crate::basic::cls::class::Class;
 use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
 use crate::basic::expr::expression::Expression;
 use crate::basic::obj::object_instance::ObjectInstance;
@@ -56,6 +57,7 @@ impl SingleStatement {
     pub fn generate_random_single_statement<T: Rng + SeedableRng>(
         external_variables: &[Variable],
         external_functions: Rc<RefCell<Vec<Function>>>,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
         match rng.random_range(0..10) as u32 {
@@ -114,6 +116,7 @@ impl SingleStatement {
                             3,
                             Some(external_functions.clone()),
                             Some(external_variables),
+                            defined_classes, // Pass defined classes to expression generation
                             rng,
                         )
                     };
@@ -242,6 +245,7 @@ impl SingleStatement {
                                 3,
                                 Some(external_functions.clone()),
                                 Some(external_variables),
+                                defined_classes, // Pass defined classes to expression generation
                                 rng,
                             )
                         }
@@ -251,6 +255,7 @@ impl SingleStatement {
                             3,
                             Some(external_functions.clone()),
                             Some(external_variables),
+                            defined_classes, // Pass defined classes to expression generation
                             rng,
                         )
                     };
@@ -289,6 +294,7 @@ impl SingleStatement {
                         3,
                         Some(external_functions.clone()),
                         Some(external_variables),
+                        defined_classes, // Pass defined classes to expression generation
                         rng,
                     )))
                 } else {
@@ -321,6 +327,7 @@ impl SingleStatement {
             external_functions,
             typed_context,
             None,
+            None, // defined_classes
             rng,
         )
     }
@@ -331,6 +338,7 @@ impl SingleStatement {
         external_functions: Rc<RefCell<Vec<Function>>>,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
         // Add external variables to typed context
@@ -438,6 +446,7 @@ impl SingleStatement {
                                 2,
                                 Some(typed_context.get_external_functions()),
                                 Some(&typed_context.get_mutable_variables()),
+                                defined_classes, // Pass defined classes to expression generation
                                 rng,
                             )
                         }

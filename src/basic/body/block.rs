@@ -3,6 +3,7 @@ use crate::basic::{
         fun::function::Function,
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
+    cls::class::Class,
     var::variable::Variable,
 };
 use crate::type_system::{Type, TypedGenerationContext};
@@ -25,7 +26,7 @@ impl Block {
     pub const MAX_DEPTH: usize = 5;
 
     pub const MAX_NUM_STATEMENTS: usize = 8; // Increased from 3 to 8 for more statements
-    pub const MAX_NUM_NEW_VARS: usize = 3; // Increased from 1 to 3 for more variables
+    pub const MAX_NUM_NEW_VARS: usize = Self::MAX_NUM_STATEMENTS / 2; // Increased from 1 to 3 for more variables
 
     /// Create a new block with statements
     pub fn new(statements: Vec<Statement>, current_indentation_layer: usize) -> Self {
@@ -127,6 +128,7 @@ impl Block {
             max_depth,
             typed_context,
             None,
+            None, // defined_classes
             rng,
         )
     }
@@ -140,6 +142,7 @@ impl Block {
         max_depth: usize,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
         if max_depth == 0 {
@@ -186,6 +189,7 @@ impl Block {
                 Some(max_depth - 1),
                 &mut block_context, // Use the block-specific context
                 expected_return_type,
+                defined_classes, // Pass defined classes to statement generation
                 rng,
             )?);
         }

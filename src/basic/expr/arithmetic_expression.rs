@@ -10,6 +10,24 @@ use crate::basic::var::variable::Variable;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+// Probability constants for expression generation
+const PROBABILITY_CONST_VARIABLE_USE: f64 = 1.0 / 3.0;
+const PROBABILITY_VARIABLE_USE_AT_MAX_DEPTH: f64 = 9.0 / 10.0;
+const PROBABILITY_VARIABLE_USE_IN_BINARY_OP: f64 = 2.0 / 3.0;
+const PROBABILITY_INT_VS_FLOAT_LITERAL: f64 = 1.0 / 2.0;
+
+// Range constants for random generation
+const MAX_INT_LITERAL: i32 = 100;
+const MIN_INT_LITERAL: i32 = -MAX_INT_LITERAL;
+const MAX_FLOAT_LITERAL: f32 = MAX_INT_LITERAL as f32;
+const MIN_FLOAT_LITERAL: f32 = -MAX_FLOAT_LITERAL;
+
+// Expression generation strategy constants
+const NUM_EXPRESSION_STRATEGIES: usize = 10;
+const NUM_BINARY_OP_STRATEGIES: usize = 10;
+const MAX_EXPRESSION_RANGE: usize = 19;
+const MAX_COMPILE_TIME_CONST_RANGE: usize = 3;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ArithmeticExpression {
     Int(i32),
@@ -75,7 +93,7 @@ impl ArithmeticExpression {
                     })
                     .collect();
 
-                if !const_vars.is_empty() && rng.random_bool(1.0 / 3.0) {
+                if !const_vars.is_empty() && rng.random_bool(PROBABILITY_CONST_VARIABLE_USE) {
                     let variable = const_vars.choose(rng).unwrap();
                     return ArithmeticExpression::VariableReference(
                         variable.get_name().to_string(),
@@ -90,7 +108,7 @@ impl ArithmeticExpression {
             };
         }
 
-        match rng.random_range(0..=3) {
+        match rng.random_range(0..=MAX_COMPILE_TIME_CONST_RANGE) {
             0 => {
                 // Generate literal of target type
                 if target_is_int {
@@ -183,10 +201,21 @@ impl ArithmeticExpression {
         if max_depth == 0 {
             // At max depth, try to generate variable reference of matching type first
             if let Some(variables) = external_variables {
-                let matching_vars: Vec<_> =
-                    variables.iter().filter(|var| var.is_numeric()).collect();
+                let matching_vars: Vec<_> = variables
+                    .iter()
+                    .filter(|var| {
+                        var.is_numeric()
+                            && if target_is_int {
+                                var.get_type().map_or(false, |t| t.is_integer_type())
+                            } else {
+                                var.get_type().map_or(false, |t| t.is_float_type())
+                            }
+                    })
+                    .collect();
 
-                if !matching_vars.is_empty() && rng.random_bool(9.0 / 10.0) {
+                if !matching_vars.is_empty()
+                    && rng.random_bool(PROBABILITY_VARIABLE_USE_AT_MAX_DEPTH)
+                {
                     let variable = matching_vars.choose(rng).unwrap();
                     return ArithmeticExpression::VariableReference(
                         variable.get_name().to_string(),
@@ -201,7 +230,7 @@ impl ArithmeticExpression {
             };
         }
 
-        match rng.random_range(0..=19) {
+        match rng.random_range(0..=MAX_EXPRESSION_RANGE) {
             0..=1 => {
                 // Generate literal of target type (10% probability - reduced for more complex expressions)
                 if target_is_int {
@@ -213,8 +242,17 @@ impl ArithmeticExpression {
             2..=9 => {
                 // Generate variable reference of matching type if available (40% probability - increased from 30%)
                 if let Some(variables) = external_variables {
-                    let matching_vars: Vec<_> =
-                        variables.iter().filter(|var| var.is_numeric()).collect();
+                    let matching_vars: Vec<_> = variables
+                        .iter()
+                        .filter(|var| {
+                            var.is_numeric()
+                                && if target_is_int {
+                                    var.get_type().map_or(false, |t| t.is_integer_type())
+                                } else {
+                                    var.get_type().map_or(false, |t| t.is_float_type())
+                                }
+                        })
+                        .collect();
 
                     if !matching_vars.is_empty() {
                         let variable = matching_vars.choose(rng).unwrap();
@@ -223,18 +261,7 @@ impl ArithmeticExpression {
                         );
                     }
                 }
-                // AGGRESSIVE: Use any available variable instead of fallback to literal
-                if let Some(variables) = external_variables {
-                    let all_numeric_vars: Vec<_> =
-                        variables.iter().filter(|var| var.is_numeric()).collect();
-
-                    if !all_numeric_vars.is_empty() {
-                        let variable = all_numeric_vars.choose(rng).unwrap();
-                        return ArithmeticExpression::VariableReference(
-                            variable.get_name().to_string(),
-                        );
-                    }
-                }
+                // Fallback to literal of target type (removed aggressive variable usage)
                 // Last resort fallback to literal
                 if target_is_int {
                     ArithmeticExpression::generate_random_int_literal(rng)
@@ -247,7 +274,7 @@ impl ArithmeticExpression {
                 // Ensure a good mix of variable + literal combinations
                 // Use different strategies to create more variable + literal combinations
                 // Increase variable + literal combinations to 85% probability
-                let strategy = rng.random_range(0..10);
+                let strategy = rng.random_range(0..NUM_BINARY_OP_STRATEGIES);
                 let (left_is_variable, right_is_variable) = match strategy {
                     0..=3 => (true, false), // variable + literal (40%)
                     4..=7 => (false, true), // literal + variable (40%)
@@ -259,8 +286,17 @@ impl ArithmeticExpression {
                 let left = if left_is_variable {
                     // Try to generate variable reference of matching type
                     if let Some(variables) = external_variables {
-                        let matching_vars: Vec<_> =
-                            variables.iter().filter(|var| var.is_numeric()).collect();
+                        let matching_vars: Vec<_> = variables
+                            .iter()
+                            .filter(|var| {
+                                var.is_numeric()
+                                    && if target_is_int {
+                                        var.get_type().map_or(false, |t| t.is_integer_type())
+                                    } else {
+                                        var.get_type().map_or(false, |t| t.is_float_type())
+                                    }
+                            })
+                            .collect();
 
                         if !matching_vars.is_empty() {
                             let variable = matching_vars.choose(rng).unwrap();
@@ -293,8 +329,17 @@ impl ArithmeticExpression {
                 let right = if right_is_variable {
                     // Try to generate variable reference of matching type
                     if let Some(variables) = external_variables {
-                        let matching_vars: Vec<_> =
-                            variables.iter().filter(|v| v.is_numeric()).collect();
+                        let matching_vars: Vec<_> = variables
+                            .iter()
+                            .filter(|v| {
+                                v.is_numeric()
+                                    && if target_is_int {
+                                        v.get_type().map_or(false, |t| t.is_integer_type())
+                                    } else {
+                                        v.get_type().map_or(false, |t| t.is_float_type())
+                                    }
+                            })
+                            .collect();
 
                         if !matching_vars.is_empty() {
                             let variable = matching_vars.choose(rng).unwrap();
@@ -593,18 +638,7 @@ impl ArithmeticExpression {
                         );
                     }
                 }
-                // AGGRESSIVE: Use any available variable instead of fallback to literal
-                if let Some(variables) = external_variables {
-                    let all_numeric_vars: Vec<_> =
-                        variables.iter().filter(|var| var.is_numeric()).collect();
-
-                    if !all_numeric_vars.is_empty() {
-                        let variable = all_numeric_vars.choose(rng).unwrap();
-                        return ArithmeticExpression::VariableReference(
-                            variable.get_name().to_string(),
-                        );
-                    }
-                }
+                // Fallback to literal (removed aggressive variable usage)
                 // Last resort fallback to literal
                 ArithmeticExpression::generate_random_int_literal(rng)
             }

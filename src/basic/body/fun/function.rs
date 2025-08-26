@@ -145,6 +145,7 @@ impl Function {
             max_depth,
             typed_context,
             return_type_system.as_ref(),
+            defined_classes, // Pass defined classes to block generation
             rng,
         )?;
 

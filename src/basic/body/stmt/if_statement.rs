@@ -146,6 +146,7 @@ impl IfStatement {
             max_depth - 1,
             typed_context,
             expected_return_type,
+            None, // defined_classes
             rng,
         )?;
 
@@ -168,6 +169,7 @@ impl IfStatement {
                 max_depth - 1,
                 typed_context,
                 expected_return_type,
+                None, // defined_classes
                 rng,
             ) {
                 elseif_blocks.push((elseif_condition, elseif_block));
@@ -184,6 +186,7 @@ impl IfStatement {
                 max_depth - 1,
                 typed_context,
                 expected_return_type,
+                None, // defined_classes
                 rng,
             )?)
         } else {

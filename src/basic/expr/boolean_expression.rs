@@ -237,8 +237,8 @@ impl BooleanExpression {
                 // Generate boolean literal (10% probability - reduced)
                 Self::generate_random_boolean_literal(rng)
             }
-            1..=5 => {
-                // Generate comparison expression (50% probability - reduced to make room for function calls)
+            1..=4 => {
+                // Generate comparison expression (40% probability - reduced to make room for function calls)
                 // Ensure at least one operand is a variable to reduce literal comparisons
                 let left_is_variable = rng.random_bool(9.0 / 10.0); // 90% chance for variable (significantly increased)
                 let right_is_variable = rng.random_bool(3.0 / 4.0); // 75% chance for variable (increased)
@@ -366,7 +366,7 @@ impl BooleanExpression {
                 let op = LogicalOperator::generate_random_logical_operator(rng);
                 Self::LogicalOp { left, op, right }
             }
-            7..=8 => {
+            7 => {
                 if let Some(variables) = external_variables {
                     let boolean_variables: Vec<_> =
                         variables.iter().filter(|var| var.is_boolean()).collect();
@@ -384,7 +384,7 @@ impl BooleanExpression {
                     Self::generate_random_boolean_literal(rng)
                 }
             }
-            9 => {
+            8..=9 => {
                 if let Some(functions) = external_functions {
                     let functions_borrowed = functions.borrow();
                     if !functions_borrowed.is_empty() {

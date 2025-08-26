@@ -97,11 +97,15 @@ impl Variable {
         // First determine the type, then generate matching expression
         let ty = if with_initial_value {
             // Choose type with adjusted probabilities
-            match rng.random_range(0..10) {
-                0..=3 => Some(INT),   // 40% probability for Int
-                4..=7 => Some(FLOAT), // 40% probability for Float
-                8 => Some(BOOLEAN),   // 10% probability for Boolean
-                9 => Some(STRING),    // 10% probability for String
+            match rng.random_range(0..15) {
+                0..=5 => Some(INT),    // 40% probability for Int
+                6..=11 => Some(FLOAT), // 40% probability for Float
+                12 => Some(BOOLEAN),   // 7% probability for Boolean
+                13 => Some(STRING),    // 7% probability for String
+                14 => {
+                    // 6% probability for custom class (we'll handle this in value generation)
+                    Some(INT) // For now, fallback to Int, but we'll generate custom class in value
+                }
                 _ => unreachable!(),
             }
         } else {
@@ -146,16 +150,32 @@ impl Variable {
                     Some(Expression::generate_random_string_literal(rng))
                 }
                 _ => {
-                    // Fallback to integer expression
-                    Some(Expression::Arithmetic(
-                        ArithmeticExpression::generate_typed_expression(
-                            2,    // Allow some complexity
-                            true, // target_is_int = true
-                            None, // No external functions for variable initialization
-                            external_variables,
-                            rng,
-                        ),
-                    ))
+                    // Check if we should generate a custom class instantiation
+                    if rng.random_bool(0.1) && external_variables.is_some() {
+                        // 10% chance to try to generate a custom class instantiation
+                        // We'll need to find a custom class from somewhere
+                        // For now, fallback to integer expression
+                        Some(Expression::Arithmetic(
+                            ArithmeticExpression::generate_typed_expression(
+                                2,    // Allow some complexity
+                                true, // target_is_int = true
+                                None, // No external functions for variable initialization
+                                external_variables,
+                                rng,
+                            ),
+                        ))
+                    } else {
+                        // Fallback to integer expression
+                        Some(Expression::Arithmetic(
+                            ArithmeticExpression::generate_typed_expression(
+                                2,    // Allow some complexity
+                                true, // target_is_int = true
+                                None, // No external functions for variable initialization
+                                external_variables,
+                                rng,
+                            ),
+                        ))
+                    }
                 }
             }
         } else {
