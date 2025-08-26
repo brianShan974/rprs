@@ -1,4 +1,4 @@
-use rand::{Rng, SeedableRng};
+use rand::{Rng, SeedableRng, seq::IndexedRandom};
 
 use std::cell::RefCell;
 use std::fmt::Display;
@@ -130,9 +130,9 @@ impl Function {
 
         // Decide on return type first (before generating body)
         let return_type = if is_method {
-            Self::decide_method_return_type(rng)
+            Self::decide_method_return_type_with_custom_types(rng, defined_classes)
         } else {
-            Self::decide_return_type(rng)
+            Self::decide_return_type_with_custom_types(rng, defined_classes)
         };
 
         // Convert return type to Type system type for context
@@ -209,6 +209,65 @@ impl Function {
             2 => Some(FLOAT),
             _ => Some(INT),
         }
+    }
+
+    /// Decide on a return type for the function with support for custom types
+    fn decide_return_type_with_custom_types<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&[Class]>,
+    ) -> Option<Class> {
+        // If we have defined classes, include them in the selection
+        if let Some(classes) = defined_classes {
+            if !classes.is_empty() {
+                // 50% chance for basic types, 50% chance for custom types
+                match rng.random_range(0..10) {
+                    0..=4 => {
+                        // Basic types
+                        match rng.random_range(0..4) {
+                            0 => None, // No return type (Unit)
+                            1 => Some(BOOLEAN),
+                            2 => Some(FLOAT),
+                            _ => Some(INT),
+                        }
+                    }
+                    5..=9 => {
+                        // Custom types - select from available custom classes
+                        let custom_classes: Vec<&Class> = classes
+                            .iter()
+                            .filter(|c| matches!(c, Class::Custom(_)))
+                            .collect();
+
+                        if !custom_classes.is_empty() {
+                            Some((*custom_classes.choose(rng).unwrap()).clone())
+                        } else {
+                            // Fallback to basic types if no custom classes available
+                            match rng.random_range(0..4) {
+                                0 => None, // No return type (Unit)
+                                1 => Some(BOOLEAN),
+                                2 => Some(FLOAT),
+                                _ => Some(INT),
+                            }
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            } else {
+                // No defined classes, use basic types only
+                Self::decide_return_type(rng)
+            }
+        } else {
+            // No defined classes provided, use basic types only
+            Self::decide_return_type(rng)
+        }
+    }
+
+    /// Decide on a return type for a method with support for custom types
+    fn decide_method_return_type_with_custom_types<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&[Class]>,
+    ) -> Option<Class> {
+        // Methods can also return custom types
+        Self::decide_return_type_with_custom_types(rng, defined_classes)
     }
 
     /// Check if function body has any return statement (recursively)

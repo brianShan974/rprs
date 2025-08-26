@@ -63,7 +63,7 @@ impl Expression {
         defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
-        // 5% arithmetic, 5% boolean, 3% string literal, 15% function call, 55% variable reference, 12% class instantiation
+        // 5% arithmetic, 5% boolean, 3% string literal, 15% function call, 45% variable reference, 17% class instantiation
         match rng.random_range(0..20) {
             0 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
                 max_depth,
@@ -169,7 +169,7 @@ impl Expression {
                     rng,
                 ))
             }
-            12..=18 => {
+            12..=16 => {
                 // Generate variable reference if external_variables is provided and not empty
                 if let Some(variables) = external_variables
                     && !variables.is_empty()

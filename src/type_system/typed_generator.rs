@@ -715,6 +715,25 @@ impl TypedGenerationContext {
                             .unwrap_or(Expression::generate_random_string_literal(rng));
                         SingleStatement::Return(Some(expr))
                     }
+                    Type::Basic(Class::Custom(_)) => {
+                        // Custom class return type - generate object creation
+                        if let Type::Basic(Class::Custom(custom_class)) = return_type {
+                            let expr = self
+                                .generate_expression_for_type(
+                                    return_type,
+                                    Some(self.external_functions.clone()),
+                                    rng,
+                                )
+                                .unwrap_or_else(|| {
+                                    // Fallback: generate a simple object creation
+                                    Expression::ClassInstantiation(custom_class.get_name())
+                                });
+                            SingleStatement::Return(Some(expr))
+                        } else {
+                            // This should never happen, but just in case
+                            SingleStatement::Return(None)
+                        }
+                    }
                     _ => {
                         // Other types - try to generate appropriate expression or fallback to empty return
                         if let Some(expr) = self.generate_expression_for_type(
@@ -765,6 +784,11 @@ impl TypedGenerationContext {
                     Some(Expression::generate_random_float_literal(rng))
                 }
                 Type::Basic(BOOLEAN) => Some(Expression::generate_random_boolean_literal(rng)),
+                Type::Basic(STRING) => Some(Expression::generate_random_string_literal(rng)),
+                Type::Basic(Class::Custom(custom_class)) => {
+                    // For custom types, generate object instantiation
+                    Some(Expression::ClassInstantiation(custom_class.get_name()))
+                }
                 _ => Some(Expression::generate_random_int_literal(rng)),
             };
         }
@@ -833,6 +857,56 @@ impl TypedGenerationContext {
                         None,
                         rng,
                     ))
+                }
+            }
+            Type::Basic(Class::Custom(custom_class)) => {
+                // Generate custom class expression
+                let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
+
+                // 40% chance for variable reference, 40% chance for new instantiation, 20% chance for function call
+                match rng.random_range(0..10) {
+                    0..=3 => {
+                        // Try to find existing variables of the same custom type
+                        let matching_vars: Vec<_> = self
+                            .variable_types
+                            .keys()
+                            .filter(|var| {
+                                if let Some(var_type) = var.get_class() {
+                                    matches!(var_type, Class::Custom(name) if name.name == custom_class.name)
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if !matching_vars.is_empty() {
+                            let var = matching_vars.choose(rng).unwrap();
+                            Some(Expression::VariableReference(var.get_name().to_string()))
+                        } else {
+                            // Fallback to new instantiation if no matching variables found
+                            Some(Expression::ClassInstantiation(custom_class.get_name()))
+                        }
+                    }
+                    4..=7 => {
+                        // Generate new instantiation
+                        Some(Expression::ClassInstantiation(custom_class.get_name()))
+                    }
+                    8..=9 => {
+                        // Try to generate function call that returns the same custom type
+                        if let Some(expr) = self
+                            .generate_type_safe_function_call_expression_with_depth(
+                                &Type::Basic(Class::Custom(custom_class.clone())),
+                                depth + 1,
+                                rng,
+                            )
+                        {
+                            Some(expr)
+                        } else {
+                            // Fallback to new instantiation if no suitable function found
+                            Some(Expression::ClassInstantiation(custom_class.get_name()))
+                        }
+                    }
+                    _ => unreachable!(),
                 }
             }
             _ => {
