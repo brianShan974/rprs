@@ -13,17 +13,16 @@ use std::rc::Rc;
 // Probability constants for expression generation
 const PROBABILITY_CONST_VARIABLE_USE: f64 = 1.0 / 3.0;
 const PROBABILITY_VARIABLE_USE_AT_MAX_DEPTH: f64 = 9.0 / 10.0;
-const PROBABILITY_VARIABLE_USE_IN_BINARY_OP: f64 = 2.0 / 3.0;
+const PROBABILITY_USE_MATCHING_VARIABLE: f64 = 2.0 / 3.0;
 const PROBABILITY_INT_VS_FLOAT_LITERAL: f64 = 1.0 / 2.0;
+const PROBABILITY_FUNCTION_CALL_ON_LHS: f64 = 1.0 / 2.0;
 
 // Range constants for random generation
 const MAX_INT_LITERAL: i32 = 100;
 const MIN_INT_LITERAL: i32 = -MAX_INT_LITERAL;
-const MAX_FLOAT_LITERAL: f32 = MAX_INT_LITERAL as f32;
-const MIN_FLOAT_LITERAL: f32 = -MAX_FLOAT_LITERAL;
+const FLOAT_LITERAL_RANGE: f32 = MAX_INT_LITERAL as f32;
 
 // Expression generation strategy constants
-const NUM_EXPRESSION_STRATEGIES: usize = 10;
 const NUM_BINARY_OP_STRATEGIES: usize = 10;
 const MAX_EXPRESSION_RANGE: usize = 19;
 const MAX_COMPILE_TIME_CONST_RANGE: usize = 3;
@@ -403,7 +402,9 @@ impl ArithmeticExpression {
                                         .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
+                                    if !matching_vars.is_empty()
+                                        && rng.random_bool(PROBABILITY_USE_MATCHING_VARIABLE)
+                                    {
                                         // 67% chance to use matching variable
                                         let variable = matching_vars.choose(rng).unwrap();
                                         Expression::VariableReference(
@@ -471,7 +472,9 @@ impl ArithmeticExpression {
                                         .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
+                                    if !matching_vars.is_empty()
+                                        && rng.random_bool(PROBABILITY_USE_MATCHING_VARIABLE)
+                                    {
                                         // 67% chance to use matching variable
                                         let variable = matching_vars.choose(rng).unwrap();
                                         Expression::VariableReference(
@@ -504,7 +507,7 @@ impl ArithmeticExpression {
                                 ArithmeticExpression::FunctionCall(function_name, args);
 
                             // Decide whether function call should be left or right operand
-                            if rng.random_bool(1.0 / 2.0) {
+                            if rng.random_bool(PROBABILITY_FUNCTION_CALL_ON_LHS) {
                                 ArithmeticExpression::BinaryOp {
                                     left: Box::new(function_call),
                                     op: Operator::generate_random_operator(rng),
@@ -601,7 +604,9 @@ impl ArithmeticExpression {
                 let numeric_variables: Vec<_> =
                     variables.iter().filter(|var| var.is_numeric()).collect();
 
-                if !numeric_variables.is_empty() && rng.random_bool(9.0 / 10.0) {
+                if !numeric_variables.is_empty()
+                    && rng.random_bool(PROBABILITY_VARIABLE_USE_AT_MAX_DEPTH)
+                {
                     let variable = numeric_variables.choose(rng).unwrap();
                     return ArithmeticExpression::VariableReference(
                         variable.get_name().to_string(),
@@ -618,7 +623,7 @@ impl ArithmeticExpression {
         match rng.random_range(0..=19) {
             0..=1 => {
                 // Generate literal (10% probability - reduced)
-                if rng.random_bool(1.0 / 2.0) {
+                if rng.random_bool(PROBABILITY_INT_VS_FLOAT_LITERAL) {
                     ArithmeticExpression::generate_random_int_literal(rng)
                 } else {
                     ArithmeticExpression::generate_random_float_literal(rng)
@@ -667,7 +672,7 @@ impl ArithmeticExpression {
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
                             // Fallback to literal if no variables available
-                            if rng.random_bool(1.0 / 2.0) {
+                            if rng.random_bool(PROBABILITY_INT_VS_FLOAT_LITERAL) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -675,7 +680,7 @@ impl ArithmeticExpression {
                         }
                     } else {
                         // Fallback to literal if no variables available
-                        if rng.random_bool(1.0 / 2.0) {
+                        if rng.random_bool(PROBABILITY_INT_VS_FLOAT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -683,7 +688,7 @@ impl ArithmeticExpression {
                     }
                 } else {
                     // Generate literal
-                    if rng.random_bool(1.0 / 2.0) {
+                    if rng.random_bool(PROBABILITY_INT_VS_FLOAT_LITERAL) {
                         ArithmeticExpression::generate_random_int_literal(rng)
                     } else {
                         ArithmeticExpression::generate_random_float_literal(rng)
@@ -701,7 +706,7 @@ impl ArithmeticExpression {
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
                             // Fallback to literal if no variables available
-                            if rng.random_bool(1.0 / 2.0) {
+                            if rng.random_bool(PROBABILITY_INT_VS_FLOAT_LITERAL) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -709,7 +714,7 @@ impl ArithmeticExpression {
                         }
                     } else {
                         // Fallback to literal if no variables available
-                        if rng.random_bool(1.0 / 2.0) {
+                        if rng.random_bool(PROBABILITY_INT_VS_FLOAT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -717,7 +722,7 @@ impl ArithmeticExpression {
                     }
                 } else {
                     // Generate literal
-                    if rng.random_bool(1.0 / 2.0) {
+                    if rng.random_bool(PROBABILITY_INT_VS_FLOAT_LITERAL) {
                         ArithmeticExpression::generate_random_int_literal(rng)
                     } else {
                         ArithmeticExpression::generate_random_float_literal(rng)
@@ -757,7 +762,9 @@ impl ArithmeticExpression {
                                         .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
+                                    if !matching_vars.is_empty()
+                                        && rng.random_bool(PROBABILITY_USE_MATCHING_VARIABLE)
+                                    {
                                         // 67% chance to use matching variable
                                         let variable = matching_vars.choose(rng).unwrap();
                                         Expression::VariableReference(
@@ -821,7 +828,9 @@ impl ArithmeticExpression {
                                         .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
+                                    if !matching_vars.is_empty()
+                                        && rng.random_bool(PROBABILITY_USE_MATCHING_VARIABLE)
+                                    {
                                         // 67% chance to use matching variable
                                         let variable = matching_vars.choose(rng).unwrap();
                                         Expression::VariableReference(
@@ -854,7 +863,7 @@ impl ArithmeticExpression {
                                 ArithmeticExpression::FunctionCall(function_name, args);
 
                             // Decide whether function call should be left or right operand
-                            if rng.random_bool(1.0 / 2.0) {
+                            if rng.random_bool(PROBABILITY_FUNCTION_CALL_ON_LHS) {
                                 ArithmeticExpression::BinaryOp {
                                     left: Box::new(function_call),
                                     op: Operator::generate_random_operator(rng),
@@ -895,11 +904,13 @@ impl ArithmeticExpression {
     }
 
     pub fn generate_random_int_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        Self::Int(rng.random_range(-100..=100))
+        Self::Int(rng.random_range(MIN_INT_LITERAL..=MAX_INT_LITERAL))
     }
 
     pub fn generate_random_float_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        Self::Float(OrderedFloat::from(rng.random::<f32>() * 100.0))
+        Self::Float(OrderedFloat::from(
+            rng.random::<f32>() * FLOAT_LITERAL_RANGE,
+        ))
     }
 }
 

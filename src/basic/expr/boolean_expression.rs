@@ -11,6 +11,15 @@ use crate::basic::var::variable::Variable;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+const PROBABILITY_OPERATOR_AND: f64 = 1.0 / 2.0;
+const PROBABILITY_SIMPLE_BINARY_EXPRESSION: f64 = 1.0 / 3.0;
+const PROBABILITY_INT_LITERAL: f64 = 1.0 / 2.0;
+const PROBABILITY_LEFT_IS_VAR: f64 = 9.0 / 10.0;
+const PROBABILITY_RIGHT_IS_VAR: f64 = 3.0 / 4.0;
+const PROBABILITY_USE_ANOTHER_VAR: f64 = 2.0 / 3.0;
+const PROBABILITY_USE_MATCHING_VAR: f64 = 4.0 / 5.0;
+const PROBABILITY_GEN_BOOLEAN_REF: f64 = 3.0 / 4.0;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BooleanExpression {
     Literal(bool),
@@ -118,7 +127,9 @@ impl BooleanExpression {
                             left_var.get_name().to_string(),
                         );
 
-                        let right = if !numeric_variables.is_empty() && rng.random_bool(2.0 / 3.0) {
+                        let right = if !numeric_variables.is_empty()
+                            && rng.random_bool(PROBABILITY_USE_ANOTHER_VAR)
+                        {
                             // 67% chance for another variable
                             let right_var = numeric_variables.choose(rng).unwrap();
                             ArithmeticExpression::VariableReference(
@@ -126,7 +137,7 @@ impl BooleanExpression {
                             )
                         } else {
                             // 33% chance for simple literal
-                            if rng.random_bool(1.0 / 2.0) {
+                            if rng.random_bool(PROBABILITY_INT_LITERAL) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -166,7 +177,9 @@ impl BooleanExpression {
                                         .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_bool(4.0 / 5.0) {
+                                    if !matching_vars.is_empty()
+                                        && rng.random_bool(PROBABILITY_USE_MATCHING_VAR)
+                                    {
                                         // 80% chance to use matching variable
                                         let variable = matching_vars.choose(rng).unwrap();
                                         Expression::VariableReference(
@@ -222,7 +235,7 @@ impl BooleanExpression {
                 let boolean_variables: Vec<_> =
                     variables.iter().filter(|var| var.is_boolean()).collect();
 
-                if !boolean_variables.is_empty() && rng.random_bool(3.0 / 4.0) {
+                if !boolean_variables.is_empty() && rng.random_bool(PROBABILITY_GEN_BOOLEAN_REF) {
                     // 75% chance to generate boolean variable reference (increased)
                     let variable = boolean_variables.choose(rng).unwrap();
                     return Self::VariableReference(variable.get_name().to_string());
@@ -240,8 +253,8 @@ impl BooleanExpression {
             1..=4 => {
                 // Generate comparison expression (40% probability - reduced to make room for function calls)
                 // Ensure at least one operand is a variable to reduce literal comparisons
-                let left_is_variable = rng.random_bool(9.0 / 10.0); // 90% chance for variable (significantly increased)
-                let right_is_variable = rng.random_bool(3.0 / 4.0); // 75% chance for variable (increased)
+                let left_is_variable = rng.random_bool(PROBABILITY_LEFT_IS_VAR); // 90% chance for variable (significantly increased)
+                let right_is_variable = rng.random_bool(PROBABILITY_RIGHT_IS_VAR); // 75% chance for variable (increased)
 
                 let left = if left_is_variable {
                     // FORCE variable reference first - prioritize direct variable usage
@@ -254,7 +267,7 @@ impl BooleanExpression {
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
                         } else {
                             // If no numeric variables, force simple literal instead of complex expression
-                            if rng.random_bool(1.0 / 2.0) {
+                            if rng.random_bool(PROBABILITY_INT_LITERAL) {
                                 ArithmeticExpression::generate_random_int_literal(rng)
                             } else {
                                 ArithmeticExpression::generate_random_float_literal(rng)
@@ -262,7 +275,7 @@ impl BooleanExpression {
                         }
                     } else {
                         // If no variables available, force simple literal
-                        if rng.random_bool(1.0 / 2.0) {
+                        if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -270,14 +283,14 @@ impl BooleanExpression {
                     }
                 } else {
                     // Generate simple arithmetic expression or literal - avoid too much complexity
-                    if rng.random_bool(1.0 / 3.0) {
+                    if rng.random_bool(PROBABILITY_SIMPLE_BINARY_EXPRESSION) {
                         // 33% chance for simple binary operation
-                        let op_left = if rng.random_bool(1.0 / 2.0) {
+                        let op_left = if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
                         };
-                        let op_right = if rng.random_bool(1.0 / 2.0) {
+                        let op_right = if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -289,7 +302,7 @@ impl BooleanExpression {
                         }
                     } else {
                         // 67% chance for simple literal
-                        if rng.random_bool(1.0 / 2.0) {
+                        if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -305,26 +318,26 @@ impl BooleanExpression {
                         if !numeric_variables.is_empty() {
                             let variable = numeric_variables.choose(rng).unwrap();
                             ArithmeticExpression::VariableReference(variable.get_name().to_string())
-                        } else if rng.random_bool(1.0 / 2.0) {
+                        } else if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
                         }
-                    } else if rng.random_bool(1.0 / 2.0) {
+                    } else if rng.random_bool(PROBABILITY_INT_LITERAL) {
                         ArithmeticExpression::generate_random_int_literal(rng)
                     } else {
                         ArithmeticExpression::generate_random_float_literal(rng)
                     }
                 } else {
                     // Generate simple arithmetic expression or literal - avoid too much complexity
-                    if rng.random_bool(1.0 / 3.0) {
+                    if rng.random_bool(PROBABILITY_SIMPLE_BINARY_EXPRESSION) {
                         // 33% chance for simple binary operation
-                        let op_left = if rng.random_bool(1.0 / 2.0) {
+                        let op_left = if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
                         };
-                        let op_right = if rng.random_bool(1.0 / 2.0) {
+                        let op_right = if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -336,7 +349,7 @@ impl BooleanExpression {
                         }
                     } else {
                         // 67% chance for simple literal
-                        if rng.random_bool(1.0 / 2.0) {
+                        if rng.random_bool(PROBABILITY_INT_LITERAL) {
                             ArithmeticExpression::generate_random_int_literal(rng)
                         } else {
                             ArithmeticExpression::generate_random_float_literal(rng)
@@ -407,7 +420,9 @@ impl BooleanExpression {
                                         .filter(|var| var.get_class() == Some(param_type))
                                         .collect();
 
-                                    if !matching_vars.is_empty() && rng.random_bool(4.0 / 5.0) {
+                                    if !matching_vars.is_empty()
+                                        && rng.random_bool(PROBABILITY_USE_MATCHING_VAR)
+                                    {
                                         // 80% chance to use matching variable
                                         let variable = matching_vars.choose(rng).unwrap();
                                         Expression::VariableReference(
@@ -471,7 +486,7 @@ impl ComparisonOperator {
 
 impl LogicalOperator {
     pub fn generate_random_logical_operator<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        if rng.random_bool(1.0 / 2.0) {
+        if rng.random_bool(PROBABILITY_OPERATOR_AND) {
             LogicalOperator::And
         } else {
             LogicalOperator::Or

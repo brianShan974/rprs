@@ -13,6 +13,11 @@ use crate::basic::obj::object_instance::ObjectInstance;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
+const PROBABILITY_RETURN_SOME_EXPRESSION: f64 = 1.0 / 2.0;
+const PROBABILITY_GENERATE_OBJECT_INSTANTIATION: f64 = 1.0 / 5.0;
+const PROBABILITY_GENERATE_NUMERIC_EXPRESSION_FOR_RHS: f64 = 1.0 / 2.0;
+const PROBABILITY_USE_MATCHING_VARIABLE: f64 = 2.0 / 3.0;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CompoundAssignmentOperator {
     AddAssign,      // +=
@@ -170,7 +175,9 @@ impl SingleStatement {
                                 .filter(|var| var.get_class() == Some(param_type))
                                 .collect();
 
-                            if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
+                            if !matching_vars.is_empty()
+                                && rng.random_bool(PROBABILITY_USE_MATCHING_VARIABLE)
+                            {
                                 // 67% chance to use matching variable
                                 let variable = matching_vars.choose(rng).unwrap();
                                 Expression::VariableReference(variable.get_name().to_string())
@@ -228,7 +235,9 @@ impl SingleStatement {
                         );
 
                     // Generate numeric expression for the right side
-                    let expr = if !external_variables.is_empty() && rng.random_bool(1.0 / 2.0) {
+                    let expr = if !external_variables.is_empty()
+                        && rng.random_bool(PROBABILITY_GENERATE_NUMERIC_EXPRESSION_FOR_RHS)
+                    {
                         // 50% chance to generate variable reference
                         // Only use numeric variables for compound assignment
                         let numeric_variables: Vec<_> = external_variables
@@ -265,7 +274,7 @@ impl SingleStatement {
             }
             8 => {
                 // Generate object creation (20% chance)
-                if rng.random_bool(1.0 / 5.0) {
+                if rng.random_bool(PROBABILITY_GENERATE_OBJECT_INSTANTIATION) {
                     // For now, generate a simple object creation
                     // In a full implementation, this would use custom classes from the context
                     let var = Variable::generate_random_variable_with_const_control(
@@ -289,7 +298,7 @@ impl SingleStatement {
                 }
             }
             9 => {
-                if rng.random_bool(1.0 / 2.0) {
+                if rng.random_bool(PROBABILITY_RETURN_SOME_EXPRESSION) {
                     SingleStatement::Return(Some(Expression::generate_random_expression(
                         3,
                         Some(external_functions.clone()),

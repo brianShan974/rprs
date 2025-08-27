@@ -201,16 +201,6 @@ impl Function {
         }
     }
 
-    /// Decide on a return type for a method (can have Unit return type)
-    fn decide_method_return_type<T: Rng + SeedableRng>(rng: &mut T) -> Option<Class> {
-        match rng.random_range(0..4) {
-            0 => None, // No return type (Unit)
-            1 => Some(BOOLEAN),
-            2 => Some(FLOAT),
-            _ => Some(INT),
-        }
-    }
-
     /// Decide on a return type for the function with support for custom types
     fn decide_return_type_with_custom_types<T: Rng + SeedableRng>(
         rng: &mut T,

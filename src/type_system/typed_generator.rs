@@ -28,6 +28,9 @@ use crate::{
     type_system::type_result::TypeResult,
 };
 
+const PROBABILITY_STRING_LITERAL: f64 = 7.0 / 10.0;
+const PROBABILITY_DOUBLE_LITERAL: f64 = 1.0 / 2.0;
+
 /// Type-aware code generation context
 pub struct TypedGenerationContext {
     /// Type checker for validation
@@ -846,8 +849,7 @@ impl TypedGenerationContext {
                 // Generate string expression with higher probability for string literals
                 let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
 
-                // 70% chance for string literal, 30% chance for variable reference or function call
-                if rng.random_bool(7.0 / 10.0) {
+                if rng.random_bool(PROBABILITY_STRING_LITERAL) {
                     Some(Expression::generate_random_string_literal(rng))
                 } else {
                     Some(Expression::generate_random_expression(
@@ -861,8 +863,6 @@ impl TypedGenerationContext {
             }
             Type::Basic(Class::Custom(custom_class)) => {
                 // Generate custom class expression
-                let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
-
                 // 40% chance for variable reference, 40% chance for new instantiation, 20% chance for function call
                 match rng.random_range(0..10) {
                     0..=3 => {
@@ -983,8 +983,7 @@ impl TypedGenerationContext {
 
     /// Generate a double expression specifically
     fn generate_double_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
-        // 70% chance to generate double literal, 30% chance to generate double arithmetic
-        if rng.random_bool(7.0 / 10.0) {
+        if rng.random_bool(PROBABILITY_DOUBLE_LITERAL) {
             // Generate double literal (using float for now, but with decimal)
             Expression::generate_random_float_literal(rng)
         } else {
