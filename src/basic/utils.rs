@@ -117,3 +117,28 @@ pub fn is_reserved_keyword(name: &str) -> bool {
         || SOFT_KEYWORDS.contains(&name)
         || MODIFIER_KEYWORDS.contains(&name)
 }
+
+pub fn generate_unique_identifier<T: Rng + SeedableRng>(
+    rng: &mut T,
+    existing_names: &[String],
+) -> String {
+    let mut attempts = 0;
+    const MAX_ATTEMPTS: usize = 100; // Prevent infinite loops
+
+    loop {
+        let name = generate_random_identifier(rng);
+
+        // Check if the name already exists
+        if !existing_names.contains(&name) {
+            return name;
+        }
+
+        attempts += 1;
+        if attempts >= MAX_ATTEMPTS {
+            // If we can't find a unique name after many attempts,
+            // append a random number to make it unique
+            let random_suffix = rng.random_range(1000..9999);
+            return format!("{}_{}", generate_random_identifier(rng), random_suffix);
+        }
+    }
+}

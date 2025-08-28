@@ -7,7 +7,7 @@ use crate::basic::body::block::{INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
 use crate::basic::body::fun::parameter::Parameter;
 use crate::basic::cls::class::{Class, FLOAT};
-use crate::basic::utils::generate_random_identifier;
+use crate::basic::utils::generate_unique_identifier;
 use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
 
@@ -48,8 +48,10 @@ impl CustomClass {
         rng: &mut T,
         defined_classes: Option<&mut Vec<Class>>,
         current_indentation_layer: Option<usize>,
+        existing_names: Option<&[String]>,
     ) -> Self {
-        let name = generate_random_identifier(rng);
+        let existing_names = existing_names.unwrap_or(&[]);
+        let name = generate_unique_identifier(rng, existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let mut custom_class = Self::new(name, current_indentation_layer);
 
@@ -90,6 +92,7 @@ impl CustomClass {
                 true,                                             // Is method
                 &mut typed_context,
                 rng,
+                None, // existing_names - use default for methods
             ) {
                 custom_class.add_method(method);
             }
@@ -107,8 +110,10 @@ impl CustomClass {
         rng: &mut T,
         typed_context: &mut TypedGenerationContext,
         current_indentation_layer: Option<usize>,
+        existing_names: Option<&[String]>,
     ) -> Self {
-        let name = generate_random_identifier(rng);
+        let existing_names = existing_names.unwrap_or(&[]);
+        let name = generate_unique_identifier(rng, existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let mut custom_class = Self::new(name, current_indentation_layer);
 
@@ -173,6 +178,7 @@ impl CustomClass {
             true, // Is method
             typed_context,
             rng,
+            None, // existing_names - use default for methods
         )
     }
 }

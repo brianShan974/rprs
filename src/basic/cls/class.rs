@@ -52,6 +52,7 @@ impl Class {
                 rng,
                 defined_classes,
                 current_indentation_layer,
+                None, // existing_names - use default
             )),
         }
     }

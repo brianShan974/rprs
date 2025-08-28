@@ -97,14 +97,14 @@ impl Variable {
         // First determine the type, then generate matching expression
         let ty = if with_initial_value {
             // Choose type with adjusted probabilities
-            match rng.random_range(0..15) {
-                0..=5 => Some(INT),    // 40% probability for Int
-                6..=11 => Some(FLOAT), // 40% probability for Float
-                12 => Some(BOOLEAN),   // 7% probability for Boolean
-                13 => Some(STRING),    // 7% probability for String
-                14 => {
-                    // 6% probability for custom class (we'll handle this in value generation)
-                    Some(INT) // For now, fallback to Int, but we'll generate custom class in value
+            match rng.random_range(0..20) {
+                0..=6 => Some(INT),    // 35% probability for Int
+                7..=13 => Some(FLOAT), // 35% probability for Float
+                14 => Some(BOOLEAN),   // 5% probability for Boolean
+                15 => Some(STRING),    // 5% probability for String
+                16..=19 => {
+                    // 20% probability for custom class
+                    Some(INT) // We'll handle custom class in value generation
                 }
                 _ => unreachable!(),
             }
@@ -151,8 +151,8 @@ impl Variable {
                 }
                 _ => {
                     // Check if we should generate a custom class instantiation
-                    if rng.random_bool(0.1) && external_variables.is_some() {
-                        // 10% chance to try to generate a custom class instantiation
+                    if rng.random_bool(0.3) {
+                        // 30% chance to try to generate a custom class instantiation
                         // We'll need to find a custom class from somewhere
                         // For now, fallback to integer expression
                         Some(Expression::Arithmetic(
@@ -273,6 +273,11 @@ impl Variable {
                             rng,
                         ));
                     (Some(expr), Some(INT))
+                }
+                Some(Class::Custom(custom_class)) => {
+                    // Generate custom class instantiation
+                    let expr = Expression::ClassInstantiation(custom_class.get_name());
+                    (Some(expr), target_type.clone())
                 }
                 _ => {
                     // Default to integer arithmetic expression with possible variable references

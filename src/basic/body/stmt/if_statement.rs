@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
+use crate::basic::cls::class::Class;
 use crate::basic::expr::boolean_expression::BooleanExpression;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
@@ -123,6 +124,7 @@ impl IfStatement {
         max_depth: usize,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
         if max_depth == 0 {
@@ -146,7 +148,7 @@ impl IfStatement {
             max_depth - 1,
             typed_context,
             expected_return_type,
-            None, // defined_classes
+            defined_classes, // Pass defined classes to block generation
             rng,
         )?;
 
@@ -169,7 +171,7 @@ impl IfStatement {
                 max_depth - 1,
                 typed_context,
                 expected_return_type,
-                None, // defined_classes
+                defined_classes, // Pass defined classes to block generation
                 rng,
             ) {
                 elseif_blocks.push((elseif_condition, elseif_block));
@@ -186,7 +188,7 @@ impl IfStatement {
                 max_depth - 1,
                 typed_context,
                 expected_return_type,
-                None, // defined_classes
+                defined_classes, // Pass defined classes to block generation
                 rng,
             )?)
         } else {

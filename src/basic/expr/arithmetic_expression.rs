@@ -205,9 +205,9 @@ impl ArithmeticExpression {
                     .filter(|var| {
                         var.is_numeric()
                             && if target_is_int {
-                                var.get_class().map_or(false, |t| t.is_integer_type())
+                                var.get_class().is_some_and(|t| t.is_integer_type())
                             } else {
-                                var.get_class().map_or(false, |t| t.is_float_type())
+                                var.get_class().is_some_and(|t| t.is_float_type())
                             }
                     })
                     .collect();
@@ -246,9 +246,9 @@ impl ArithmeticExpression {
                         .filter(|var| {
                             var.is_numeric()
                                 && if target_is_int {
-                                    var.get_class().map_or(false, |t| t.is_integer_type())
+                                    var.get_class().is_some_and(|t| t.is_integer_type())
                                 } else {
-                                    var.get_class().map_or(false, |t| t.is_float_type())
+                                    var.get_class().is_some_and(|t| t.is_float_type())
                                 }
                         })
                         .collect();
@@ -290,9 +290,9 @@ impl ArithmeticExpression {
                             .filter(|var| {
                                 var.is_numeric()
                                     && if target_is_int {
-                                        var.get_class().map_or(false, |t| t.is_integer_type())
+                                        var.get_class().is_some_and(|t| t.is_integer_type())
                                     } else {
-                                        var.get_class().map_or(false, |t| t.is_float_type())
+                                        var.get_class().is_some_and(|t| t.is_float_type())
                                     }
                             })
                             .collect();
@@ -333,9 +333,9 @@ impl ArithmeticExpression {
                             .filter(|v| {
                                 v.is_numeric()
                                     && if target_is_int {
-                                        v.get_class().map_or(false, |t| t.is_integer_type())
+                                        v.get_class().is_some_and(|t| t.is_integer_type())
                                     } else {
-                                        v.get_class().map_or(false, |t| t.is_float_type())
+                                        v.get_class().is_some_and(|t| t.is_float_type())
                                     }
                             })
                             .collect();

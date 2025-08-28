@@ -162,6 +162,7 @@ impl Statement {
                 max_depth - 1,
                 typed_context,
                 expected_return_type,
+                defined_classes, // Pass defined classes to if statement generation
                 rng,
             )?),
             9 => Statement::For(ForStatement::generate_type_safe_for_statement(
@@ -171,6 +172,7 @@ impl Statement {
                 max_depth - 1,
                 typed_context,
                 expected_return_type,
+                defined_classes, // Pass defined classes to for statement generation
                 rng,
             )?),
             _ => Statement::While(WhileStatement::generate_type_safe_while_statement(
@@ -180,6 +182,7 @@ impl Statement {
                 max_depth - 1,
                 typed_context,
                 expected_return_type,
+                defined_classes, // Pass defined classes to while statement generation
                 rng,
             )?),
         })

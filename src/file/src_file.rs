@@ -5,8 +5,13 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
+use crate::basic::cls::class::Class;
 use crate::basic::cls::custom_class::CustomClass;
 use crate::basic::utils::generate_random_identifier;
+use crate::basic::var::prefix::init::VariableInit;
+use crate::basic::var::prefix::mutability::VariableMutability;
+use crate::basic::var::prefix::var_prefix::VariablePrefix;
+use crate::basic::var::prefix::visibility::Visibility;
 use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
 
@@ -55,6 +60,7 @@ impl File {
                 false,
                 &mut typed_context,
                 rng,
+                None, // existing_names - use default
             ) {
                 functions.push(function);
             }
@@ -65,7 +71,7 @@ impl File {
         let mut classes = Vec::with_capacity(num_classes);
 
         for _ in 0..num_classes {
-            let class = CustomClass::generate_random_custom_class(rng, None, None);
+            let class = CustomClass::generate_random_custom_class(rng, None, None, None);
             classes.push(class);
         }
 
@@ -98,10 +104,12 @@ impl File {
         // Generate type-safe classes FIRST
         let num_classes = rng.random_range(1..=Self::MAX_CLASSES); // 确保至少生成一个类
         let mut classes = Vec::with_capacity(num_classes);
+        let mut existing_names = Vec::new();
 
         for _ in 0..num_classes {
             let mut typed_context = TypedGenerationContext::new(Rc::new(RefCell::new(Vec::new())));
-            let class = CustomClass::generate_type_safe_custom_class(rng, &mut typed_context, None);
+            let class = CustomClass::generate_type_safe_custom_class(rng, &mut typed_context, None, Some(&existing_names));
+            existing_names.push(class.get_name());
             classes.push(class);
         }
 
@@ -119,8 +127,32 @@ impl File {
         for _ in 0..num_functions {
             // Create a new typed context for each function to avoid variable scope pollution
             let mut typed_context = TypedGenerationContext::new(external_functions.clone());
+            // Set the defined classes for variable generation
+            typed_context.set_defined_classes(defined_classes.clone());
+
+            // Convert existing functions to variables for external access
+            let external_variables: Vec<Variable> = functions
+                .iter()
+                .map(|func: &Function| {
+                    // Create a variable representing this function
+                    Variable::new(
+                        VariablePrefix::new(
+                            Visibility::Default,
+                            VariableInit::Default,
+                            VariableMutability::Var,
+                        ),
+                        func.get_name().to_string(),
+                        None, // No initial value
+                        Some(Class::Custom(CustomClass::new(
+                            func.get_name().to_string(),
+                            0, // current_indentation_layer
+                        ))),
+                    )
+                })
+                .collect();
+
             if let Some(function) = Function::generate_type_safe_function(
-                &Vec::new(),
+                &Vec::new(), // Keep empty external variables for now
                 external_functions.clone(),
                 Some(&defined_classes), // Pass defined classes to function generation
                 None,
@@ -128,7 +160,9 @@ impl File {
                 false,
                 &mut typed_context,
                 rng,
+                Some(&existing_names), // Pass existing names to avoid duplicates
             ) {
+                existing_names.push(function.get_name().to_string());
                 functions.push(function);
             }
         }

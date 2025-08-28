@@ -57,6 +57,10 @@ impl VariablePrefix {
     pub fn is_var(&self) -> bool {
         matches!(self.mutability, VariableMutability::Var)
     }
+
+    pub fn get_visibility(&self) -> &Visibility {
+        &self.visibility
+    }
 }
 
 impl Display for VariablePrefix {

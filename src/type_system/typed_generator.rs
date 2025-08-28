@@ -43,6 +43,8 @@ pub struct TypedGenerationContext {
     external_functions: Rc<RefCell<Vec<Function>>>,
     /// Current class methods (if we're inside a class method)
     current_class_methods: Option<Vec<Function>>,
+    /// Defined custom classes for expression generation
+    defined_classes: Vec<crate::basic::cls::class::Class>,
 }
 
 impl TypedGenerationContext {
@@ -53,6 +55,7 @@ impl TypedGenerationContext {
             function_signatures: HashMap::new(),
             external_functions,
             current_class_methods: None,
+            defined_classes: Vec::new(),
         }
     }
 
@@ -65,6 +68,7 @@ impl TypedGenerationContext {
             function_signatures: self.function_signatures.clone(),
             external_functions: self.external_functions.clone(),
             current_class_methods: self.current_class_methods.clone(),
+            defined_classes: self.defined_classes.clone(),
         }
     }
 
@@ -95,6 +99,11 @@ impl TypedGenerationContext {
 
     pub fn get_external_functions(&self) -> Rc<RefCell<Vec<Function>>> {
         self.external_functions.clone()
+    }
+
+    /// Set the defined classes for expression generation
+    pub fn set_defined_classes(&mut self, classes: Vec<crate::basic::cls::class::Class>) {
+        self.defined_classes = classes;
     }
 
     /// Set the current class methods (used when generating code inside a class method)
@@ -356,8 +365,18 @@ impl TypedGenerationContext {
         is_member: bool,
         rng: &mut T,
     ) -> Variable {
-        // Generate a variable with a common numeric type for compatibility
-        let target_type = Some(FLOAT);
+        // Randomly choose between basic types and custom types
+        let target_type = if rng.random_bool(0.3) && !self.defined_classes.is_empty() {
+            // 30% chance to generate a custom type variable
+            let custom_class = self.defined_classes.choose(rng).unwrap();
+            match custom_class {
+                Class::Custom(custom_class) => Some(Class::Custom(custom_class.clone())),
+                _ => Some(FLOAT), // Fallback to FLOAT for non-custom classes
+            }
+        } else {
+            // 70% chance to generate a basic type variable
+            Some(FLOAT)
+        };
 
         let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
         Variable::generate_random_variable_with_type(
@@ -586,7 +605,34 @@ impl TypedGenerationContext {
             }
             Expression::Boolean(_) => Some(Type::Basic(BOOLEAN)),
             Expression::StringLiteral(_) => Some(Type::Basic(STRING)),
-            Expression::ClassInstantiation(_) => None, // TODO: Handle class instantiation properly
+            Expression::ClassInstantiation(class_name) => {
+                // Look up the class type from defined classes
+                // For now, return the class type as Custom
+                Some(Type::Basic(Class::Custom(
+                    crate::basic::cls::custom_class::CustomClass::new(class_name.clone(), 0),
+                )))
+            }
+            Expression::PropertyAccess(object_name, property_name) => {
+                // Look up the property type from the class definition
+                // First, find the object variable to get its class type
+                for (var, var_type) in &self.variable_types {
+                    if var.get_name() == object_name {
+                        if let Type::Basic(Class::Custom(custom_class)) = var_type {
+                            // Find the property in the custom class
+                            for property in &custom_class.properties {
+                                if property.get_name() == property_name {
+                                    // Return the property's type
+                                    if let Some(prop_type) = property.get_class() {
+                                        return Some(Type::Basic(prop_type.clone()));
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+                Some(Type::Unknown) // Fallback if property not found
+            }
             Expression::FunctionCall(func_name, _) => {
                 // Look up function return type
                 if let Some(Type::Function(_, return_type)) =
@@ -855,59 +901,23 @@ impl TypedGenerationContext {
                     Some(Expression::generate_random_expression(
                         1,
                         external_functions,
-                        Some(&variables), // Pass available variables
-                        None,
+                        Some(&variables),            // Pass available variables
+                        Some(&self.defined_classes), // Pass defined classes
                         rng,
                     ))
                 }
             }
             Type::Basic(Class::Custom(custom_class)) => {
-                // Generate custom class expression
-                // 40% chance for variable reference, 40% chance for new instantiation, 20% chance for function call
-                match rng.random_range(0..10) {
-                    0..=3 => {
-                        // Try to find existing variables of the same custom type
-                        let matching_vars: Vec<_> = self
-                            .variable_types
-                            .keys()
-                            .filter(|var| {
-                                if let Some(var_type) = var.get_class() {
-                                    matches!(var_type, Class::Custom(name) if name.name == custom_class.name)
-                                } else {
-                                    false
-                                }
-                            })
-                            .collect();
-
-                        if !matching_vars.is_empty() {
-                            let var = matching_vars.choose(rng).unwrap();
-                            Some(Expression::VariableReference(var.get_name().to_string()))
-                        } else {
-                            // Fallback to new instantiation if no matching variables found
-                            Some(Expression::ClassInstantiation(custom_class.get_name()))
-                        }
-                    }
-                    4..=7 => {
-                        // Generate new instantiation
-                        Some(Expression::ClassInstantiation(custom_class.get_name()))
-                    }
-                    8..=9 => {
-                        // Try to generate function call that returns the same custom type
-                        if let Some(expr) = self
-                            .generate_type_safe_function_call_expression_with_depth(
-                                &Type::Basic(Class::Custom(custom_class.clone())),
-                                depth + 1,
-                                rng,
-                            )
-                        {
-                            Some(expr)
-                        } else {
-                            // Fallback to new instantiation if no suitable function found
-                            Some(Expression::ClassInstantiation(custom_class.get_name()))
-                        }
-                    }
-                    _ => unreachable!(),
-                }
+                // Use generic expression generation for custom types to enable property access
+                // Convert variable_types keys to Vec<Variable> for external_variables
+                let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
+                Some(Expression::generate_random_expression(
+                    2,
+                    external_functions,
+                    Some(&variables),            // Pass available variables
+                    Some(&self.defined_classes), // Pass defined classes
+                    rng,
+                ))
             }
             _ => {
                 // Default to simple arithmetic expression
@@ -916,8 +926,8 @@ impl TypedGenerationContext {
                 Some(Expression::generate_random_expression(
                     2,
                     external_functions,
-                    Some(&variables), // Pass available variables
-                    None,
+                    Some(&variables),            // Pass available variables
+                    Some(&self.defined_classes), // Pass defined classes
                     rng,
                 ))
             }

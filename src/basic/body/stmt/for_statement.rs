@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
-use crate::basic::cls::class::INT;
+use crate::basic::cls::class::{Class, INT};
 use crate::basic::utils::generate_random_identifier;
 use crate::basic::var::prefix::var_prefix::VariablePrefix;
 use crate::basic::var::variable::Variable;
@@ -106,6 +106,7 @@ impl ForStatement {
         max_depth: usize,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
         if max_depth == 0 {
@@ -149,7 +150,7 @@ impl ForStatement {
             max_depth - 1,
             &mut loop_context, // Use the child context
             expected_return_type,
-            None, // defined_classes
+            defined_classes, // Pass defined classes to block generation
             rng,
         )?;
 

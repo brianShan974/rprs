@@ -12,7 +12,7 @@ use crate::basic::{
     },
     cls::class::{BOOLEAN, Class, FLOAT, INT},
     expr::expression::Expression,
-    utils::generate_random_identifier,
+    utils::generate_unique_identifier,
     var::{prefix::visibility::Visibility, variable::Variable},
 };
 use crate::type_system::{Type, TypedGenerationContext};
@@ -41,6 +41,7 @@ impl Function {
         max_depth: Option<usize>,
         is_method: bool,
         rng: &mut T,
+        existing_names: Option<&[String]>,
     ) -> Option<Self> {
         if matches!(max_depth, Some(0)) {
             return None;
@@ -55,8 +56,9 @@ impl Function {
             .chain(parameters.iter().map(|p| p.to_owned().into()))
             .collect();
 
+        let existing_names = existing_names.unwrap_or(&[]);
         let function = Self {
-            name: generate_random_identifier(rng),
+            name: generate_unique_identifier(rng, existing_names),
             parameters,
             return_type: None,
             body: Block::generate_random_block(
@@ -114,6 +116,7 @@ impl Function {
         is_method: bool,
         typed_context: &mut TypedGenerationContext,
         rng: &mut T,
+        existing_names: Option<&[String]>,
     ) -> Option<Self> {
         if matches!(max_depth, Some(0)) {
             return None;
@@ -175,8 +178,9 @@ impl Function {
             return_type
         };
 
+        let existing_names = existing_names.unwrap_or(&[]);
         let function = Self {
-            name: generate_random_identifier(rng),
+            name: generate_unique_identifier(rng, existing_names),
             parameters,
             return_type: final_return_type,
             body: body_with_returns,

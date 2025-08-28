@@ -22,16 +22,20 @@ impl Visibility {
             return Self::Default;
         }
 
-        match rng.random_range(1..=4) {
-            1 => Self::Internal,
-            2 => Self::Public,
-            3 => Self::Private,
-            4 => Self::Protected,
+        match rng.random_range(1..=10) {
+            1..=6 => Self::Public,     // 60% chance for public
+            7 => Self::Internal,       // 10% chance for internal
+            8 => Self::Private,        // 10% chance for private
+            9..=10 => Self::Protected, // 20% chance for protected
             _ => unreachable!(),
         }
     }
 
     pub fn is_default(&self) -> bool {
         matches!(self, Self::Default)
+    }
+
+    pub fn is_public(&self) -> bool {
+        matches!(self, Self::Public)
     }
 }

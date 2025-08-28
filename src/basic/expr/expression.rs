@@ -28,7 +28,8 @@ pub enum Expression {
     StringLiteral(String),
     FunctionCall(String, Vec<Expression>),
     VariableReference(String),
-    ClassInstantiation(String), // 类实例化，如 A()
+    ClassInstantiation(String),     // 类实例化，如 A()
+    PropertyAccess(String, String), // 属性访问，如 obj.property
 }
 
 impl Display for Expression {
@@ -51,6 +52,7 @@ impl Display for Expression {
             }
             Self::VariableReference(var_name) => write!(f, "{}", var_name),
             Self::ClassInstantiation(class_name) => write!(f, "{}()", class_name),
+            Self::PropertyAccess(object, property) => write!(f, "{}.{}", object, property),
         }
     }
 }
@@ -63,7 +65,7 @@ impl Expression {
         defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
-        // 5% arithmetic, 5% boolean, 3% string literal, 15% function call, 45% variable reference, 17% class instantiation
+        // 3% arithmetic, 3% boolean, 2% string literal, 7% function call, 2% variable reference, 8% class instantiation, 75% property access
         match rng.random_range(0..20) {
             0 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
                 max_depth,
@@ -72,13 +74,13 @@ impl Expression {
                 rng,
             )),
             1 => Self::generate_random_string_literal(rng),
-            2..=3 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
+            2 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
                 max_depth,
                 external_functions.clone(),
                 external_variables,
                 rng,
             )),
-            4..=7 => {
+            3 => {
                 // Generate function call if external_functions is provided and not empty
                 if let Some(functions) = external_functions {
                     let functions_borrowed = functions.borrow();
@@ -143,7 +145,7 @@ impl Expression {
                     rng,
                 ))
             }
-            8..=11 => {
+            4 => {
                 // Generate class instantiation if defined_classes is provided and not empty
                 if let Some(classes) = defined_classes
                     && !classes.is_empty()
@@ -169,7 +171,7 @@ impl Expression {
                     rng,
                 ))
             }
-            12..=16 => {
+            6..=7 => {
                 // Generate variable reference if external_variables is provided and not empty
                 if let Some(variables) = external_variables
                     && !variables.is_empty()
@@ -178,6 +180,72 @@ impl Expression {
                     return Self::VariableReference(variable.get_name().to_string());
                 }
                 // Fallback to arithmetic expression if no variables available
+                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
+                    max_depth,
+                    None,
+                    external_variables,
+                    rng,
+                ))
+            }
+            5..=19 => {
+                // Generate property access if we have custom classes and variables
+                if let (Some(classes), Some(variables)) = (defined_classes, external_variables)
+                    && !classes.is_empty()
+                    && !variables.is_empty()
+                {
+                    // Find custom classes
+                    let custom_classes: Vec<_> = classes
+                        .iter()
+                        .filter(|class| matches!(class, Class::Custom(_)))
+                        .collect();
+
+                    if !custom_classes.is_empty() {
+                        // Find variables that are custom class instances
+                        let custom_vars: Vec<_> = variables
+                            .iter()
+                            .filter(|var| {
+                                if let Some(var_type) = var.get_class() {
+                                    matches!(var_type, Class::Custom(_))
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if !custom_vars.is_empty() {
+                            let object_var = custom_vars.choose(rng).unwrap();
+                            let object_type = object_var.get_class().unwrap();
+
+                            if let Class::Custom(custom_class) = object_type {
+                                // Find public properties of this class only
+                                let public_properties: Vec<_> = custom_class
+                                    .properties
+                                    .iter()
+                                    .filter(|prop| {
+                                        // Check if property is public
+                                        prop.get_prefix().get_visibility().is_public()
+                                    })
+                                    .collect();
+
+                                if !public_properties.is_empty() {
+                                    let property = public_properties.choose(rng).unwrap();
+                                    return Self::PropertyAccess(
+                                        object_var.get_name().to_string(),
+                                        property.get_name().to_string(),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                // Fallback to variable reference if no property access possible
+                if let Some(variables) = external_variables
+                    && !variables.is_empty()
+                {
+                    let variable = variables.choose(rng).unwrap();
+                    return Self::VariableReference(variable.get_name().to_string());
+                }
+                // Final fallback to arithmetic expression
                 Self::Arithmetic(ArithmeticExpression::generate_random_expression(
                     max_depth,
                     None,
@@ -235,6 +303,7 @@ impl Expression {
             Self::Boolean(_) => false,
             Self::StringLiteral(_) => false,
             Self::ClassInstantiation(_) => false, // 类实例化不是整数类型
+            Self::PropertyAccess(_, _) => false,  // 属性访问需要根据属性类型判断
             Self::FunctionCall(func_name, _) => {
                 // For function calls, look up the actual function return type
                 if let Some(functions) = external_functions
@@ -272,6 +341,7 @@ impl Expression {
             Self::Boolean(_) => false,
             Self::StringLiteral(_) => false,
             Self::ClassInstantiation(_) => false, // 类实例化不是浮点类型
+            Self::PropertyAccess(_, _) => false,  // 属性访问需要根据属性类型判断
             Self::FunctionCall(func_name, _) => {
                 // For function calls, look up the actual function return type
                 if let Some(functions) = external_functions
