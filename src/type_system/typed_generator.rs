@@ -13,7 +13,7 @@ use crate::{
         },
         cls::{
             basic_type::BasicType,
-            class::{BOOLEAN, Class, FLOAT, INT, STRING},
+            class::{BOOLEAN, Class, DOUBLE, FLOAT, INT, STRING},
             number_types::{
                 floating_point::FloatingPointType, number::NumberType,
                 signed_integer::SignedIntegerType, unsigned_integer::UnsignedIntegerType,
@@ -561,6 +561,7 @@ impl TypedGenerationContext {
                 match arith {
                     ArithmeticExpression::Int(_) => Some(Type::Basic(INT)),
                     ArithmeticExpression::Float(_) => Some(Type::Basic(FLOAT)),
+                    ArithmeticExpression::Double(_) => Some(Type::Basic(DOUBLE)),
                     ArithmeticExpression::BinaryOp { left, right, .. } => {
                         // For binary operations, if both operands are int, result is int
                         // Otherwise, result is float
@@ -660,6 +661,7 @@ impl TypedGenerationContext {
         match arith {
             ArithmeticExpression::Int(_) => Some(Type::Basic(INT)),
             ArithmeticExpression::Float(_) => Some(Type::Basic(FLOAT)),
+            ArithmeticExpression::Double(_) => Some(Type::Basic(DOUBLE)),
             ArithmeticExpression::BinaryOp { left, right, .. } => {
                 // For binary operations, if both operands are int, result is int
                 // Otherwise, result is float
@@ -994,12 +996,12 @@ impl TypedGenerationContext {
     /// Generate a double expression specifically
     fn generate_double_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
         if rng.random_bool(PROBABILITY_DOUBLE_LITERAL) {
-            // Generate double literal (using float for now, but with decimal)
-            Expression::generate_random_float_literal(rng)
+            // Generate double literal (no f suffix)
+            Expression::generate_random_double_literal(rng)
         } else {
             // Generate double arithmetic expression
-            let left = ArithmeticExpression::generate_random_float_literal(rng);
-            let right = ArithmeticExpression::generate_random_float_literal(rng);
+            let left = ArithmeticExpression::generate_random_double_literal(rng);
+            let right = ArithmeticExpression::generate_random_double_literal(rng);
             let op = Operator::generate_random_operator(rng);
             Expression::Arithmetic(ArithmeticExpression::BinaryOp {
                 left: Box::new(left),

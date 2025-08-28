@@ -440,6 +440,10 @@ impl Expression {
         Self::Arithmetic(ArithmeticExpression::generate_random_float_literal(rng))
     }
 
+    pub fn generate_random_double_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        Self::Arithmetic(ArithmeticExpression::generate_random_double_literal(rng))
+    }
+
     pub fn generate_random_boolean_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
         Self::Boolean(BooleanExpression::generate_random_boolean_literal(rng))
     }

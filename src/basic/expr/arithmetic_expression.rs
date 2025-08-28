@@ -31,6 +31,7 @@ const MAX_COMPILE_TIME_CONST_RANGE: usize = 3;
 pub enum ArithmeticExpression {
     Int(i32),
     Float(OrderedFloat<f32>),
+    Double(OrderedFloat<f64>),
     BinaryOp {
         left: Box<ArithmeticExpression>,
         op: Operator,
@@ -46,6 +47,7 @@ impl ArithmeticExpression {
         match self {
             ArithmeticExpression::Int(_) => true,
             ArithmeticExpression::Float(_) => false,
+            ArithmeticExpression::Double(_) => false,
             ArithmeticExpression::BinaryOp { left, right, .. } => {
                 // For binary operations, if both operands are int, result is int
                 // Otherwise, result is float
@@ -912,6 +914,12 @@ impl ArithmeticExpression {
             rng.random::<f32>() * FLOAT_LITERAL_RANGE,
         ))
     }
+
+    pub fn generate_random_double_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+        Self::Double(OrderedFloat::from(
+            rng.random::<f64>() * FLOAT_LITERAL_RANGE as f64,
+        ))
+    }
 }
 
 impl Display for ArithmeticExpression {
@@ -925,10 +933,19 @@ impl Display for ArithmeticExpression {
                 }
             }
             ArithmeticExpression::Float(x) => {
-                if x.into_inner() < 0.0 {
-                    write!(f, "({})", x)
+                let value = x.into_inner();
+                if value < 0.0 {
+                    write!(f, "({}f)", value)
                 } else {
-                    write!(f, "{}", x)
+                    write!(f, "{}f", value)
+                }
+            }
+            ArithmeticExpression::Double(x) => {
+                let value = x.into_inner();
+                if value < 0.0 {
+                    write!(f, "({})", value)
+                } else {
+                    write!(f, "{}", value)
                 }
             }
             ArithmeticExpression::BinaryOp { left, op, right } => {
