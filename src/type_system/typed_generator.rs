@@ -653,6 +653,30 @@ impl TypedGenerationContext {
                 }
                 Some(Type::Unknown) // Fallback
             }
+            Expression::MethodCall(object_name, method_name, _) => {
+                // Look up the method return type from external functions
+                // First, find the object variable to get its class type
+                for (var, var_type) in &self.variable_types {
+                    if var.get_name() == object_name {
+                        if let Type::Basic(Class::Custom(_)) = var_type {
+                            // Find the method in external functions
+                            let functions_borrowed = self.external_functions.borrow();
+                            for func in functions_borrowed.iter() {
+                                if func.get_name() == method_name
+                                    && func.get_visibility().is_public()
+                                {
+                                    // Return the method's return type
+                                    if let Some(return_type) = func.get_return_type() {
+                                        return Some(Type::Basic(return_type.clone()));
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+                Some(Type::Unknown) // Fallback if method not found
+            }
         }
     }
 
@@ -909,7 +933,7 @@ impl TypedGenerationContext {
                     ))
                 }
             }
-            Type::Basic(Class::Custom(custom_class)) => {
+            Type::Basic(Class::Custom(_custom_class)) => {
                 // Use generic expression generation for custom types to enable property access
                 // Convert variable_types keys to Vec<Variable> for external_variables
                 let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();

@@ -98,6 +98,10 @@ impl Function {
         self.return_type.as_ref()
     }
 
+    pub fn get_visibility(&self) -> &Visibility {
+        &self.visibility
+    }
+
     pub fn get_current_indentation_layer(&self) -> usize {
         self.current_indentation_layer
     }
