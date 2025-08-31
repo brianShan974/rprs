@@ -1,5 +1,6 @@
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
 
@@ -7,7 +8,7 @@ use crate::basic::body::block::{INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
 use crate::basic::body::fun::parameter::Parameter;
 use crate::basic::cls::class::{Class, FLOAT};
-use crate::basic::utils::generate_unique_identifier;
+use crate::basic::utils::{GenerationConfig, generate_unique_identifier};
 use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
 
@@ -44,14 +45,18 @@ impl CustomClass {
         self.methods.push(method);
     }
 
+    pub fn get_methods(&self) -> &[Function] {
+        &self.methods
+    }
+
     pub fn generate_random_custom_class<T: Rng + SeedableRng>(
         rng: &mut T,
         defined_classes: Option<&mut Vec<Class>>,
         current_indentation_layer: Option<usize>,
-        existing_names: Option<&[String]>,
+        existing_names: Option<&mut HashSet<String>>,
     ) -> Self {
-        let existing_names = existing_names.unwrap_or(&[]);
-        let name = generate_unique_identifier(rng, existing_names);
+        let mut existing_names = existing_names.unwrap_or(&mut HashSet::new()).clone();
+        let name = generate_unique_identifier(rng, &mut existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let mut custom_class = Self::new(name, current_indentation_layer);
 
@@ -83,16 +88,23 @@ impl CustomClass {
             let mut typed_context = TypedGenerationContext::new(external_functions);
 
             // Generate a type-safe method
-            if let Some(method) = Function::generate_type_safe_function(
-                &external_variables,
+            let mut method_config = GenerationConfig::new(
+                external_variables
+                    .iter()
+                    .map(|p| p.clone().into())
+                    .collect(),
                 typed_context.get_external_functions(),
-                defined_classes.as_ref().map(|classes| classes.as_slice()),
-                Some(custom_class.current_indentation_layer + 1), // Indentation level for class methods
-                None,                                             // Max depth for class methods
-                true,                                             // Is method
+                defined_classes.as_ref().map(|classes| classes.to_vec()),
+                custom_class.current_indentation_layer + 1,
+                5, // Max depth for class methods
+            );
+
+            if let Some(method) = Function::generate_type_safe_function(
+                &mut method_config,
+                &external_variables,
+                true, // Is method
                 &mut typed_context,
                 rng,
-                None, // existing_names - use default for methods
             ) {
                 custom_class.add_method(method);
             }
@@ -110,10 +122,10 @@ impl CustomClass {
         rng: &mut T,
         typed_context: &mut TypedGenerationContext,
         current_indentation_layer: Option<usize>,
-        existing_names: Option<&[String]>,
+        existing_names: Option<&mut HashSet<String>>,
     ) -> Self {
-        let existing_names = existing_names.unwrap_or(&[]);
-        let name = generate_unique_identifier(rng, existing_names);
+        let mut existing_names = existing_names.unwrap_or(&mut HashSet::new()).clone();
+        let name = generate_unique_identifier(rng, &mut existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let mut custom_class = Self::new(name, current_indentation_layer);
 
@@ -169,16 +181,23 @@ impl CustomClass {
     ) -> Option<Function> {
         // Generate a type-safe method
         // Function::generate_type_safe_function will decide the return type internally
-        Function::generate_type_safe_function(
-            external_variables,
+        let mut method_config = GenerationConfig::new(
+            external_variables
+                .iter()
+                .map(|p| p.clone().into())
+                .collect(),
             typed_context.get_external_functions(),
-            None,                                // defined_classes - use default basic types
-            Some(current_indentation_layer + 1), // Indentation level for class methods
-            None,
+            Some(typed_context.get_defined_classes().to_vec()), // Pass defined classes for method generation
+            current_indentation_layer + 1,
+            5, // Max depth for class methods
+        );
+
+        Function::generate_type_safe_function(
+            &mut method_config,
+            external_variables,
             true, // Is method
             typed_context,
             rng,
-            None, // existing_names - use default for methods
         )
     }
 }

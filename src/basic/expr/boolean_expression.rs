@@ -1,5 +1,7 @@
 use rand::seq::IndexedRandom;
 use rand::{Rng, SeedableRng};
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 use std::fmt::Display;
 
@@ -11,9 +13,11 @@ use crate::basic::var::variable::Variable;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const PROBABILITY_OPERATOR_AND: f64 = 1.0 / 2.0;
 const PROBABILITY_SIMPLE_BINARY_EXPRESSION: f64 = 1.0 / 3.0;
-const PROBABILITY_INT_LITERAL: f64 = 1.0 / 2.0;
+use crate::basic::utils::{
+    PROBABILITY_INT_LITERAL, filter_boolean_functions, filter_collect, format_function_call,
+    select_enum_variant_with_probability,
+};
 const PROBABILITY_LEFT_IS_VAR: f64 = 9.0 / 10.0;
 const PROBABILITY_RIGHT_IS_VAR: f64 = 3.0 / 4.0;
 const PROBABILITY_USE_ANOTHER_VAR: f64 = 2.0 / 3.0;
@@ -37,7 +41,7 @@ pub enum BooleanExpression {
     VariableReference(String), // Direct boolean variable reference
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum ComparisonOperator {
     Equal,        // ==
     NotEqual,     // !=
@@ -47,7 +51,7 @@ pub enum ComparisonOperator {
     GreaterEqual, // >=
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
 pub enum LogicalOperator {
     And, // &&
     Or,  // ||
@@ -65,8 +69,7 @@ impl BooleanExpression {
         if max_depth == 0 {
             // At max depth, FORCE boolean variable reference if available
             if let Some(variables) = external_variables {
-                let boolean_variables: Vec<_> =
-                    variables.iter().filter(|var| var.is_boolean()).collect();
+                let boolean_variables = filter_collect(variables, |var| var.is_boolean());
 
                 if !boolean_variables.is_empty() {
                     let variable = boolean_variables.choose(rng).unwrap();
@@ -82,8 +85,7 @@ impl BooleanExpression {
             0..=3 => {
                 // Generate direct boolean variable reference (40% probability - MAXIMIZED)
                 if let Some(variables) = external_variables {
-                    let boolean_variables: Vec<_> =
-                        variables.iter().filter(|var| var.is_boolean()).collect();
+                    let boolean_variables = filter_collect(variables, |var| var.is_boolean());
 
                     if !boolean_variables.is_empty() {
                         let bool_var = boolean_variables.choose(rng).unwrap();
@@ -92,8 +94,7 @@ impl BooleanExpression {
                 }
                 // Fallback to simple variable comparison if no boolean variables
                 if let Some(variables) = external_variables {
-                    let numeric_variables: Vec<_> =
-                        variables.iter().filter(|var| var.is_numeric()).collect();
+                    let numeric_variables = filter_collect(variables, |var| var.is_numeric());
 
                     if numeric_variables.len() >= 2 {
                         // Generate variable vs variable comparison
@@ -117,8 +118,7 @@ impl BooleanExpression {
             4..=8 => {
                 // Generate variable-based comparison (50% probability)
                 if let Some(variables) = external_variables {
-                    let numeric_variables: Vec<_> =
-                        variables.iter().filter(|var| var.is_numeric()).collect();
+                    let numeric_variables = filter_collect(variables, |var| var.is_numeric());
 
                     if !numeric_variables.is_empty() {
                         // At least one operand MUST be a variable
@@ -157,10 +157,8 @@ impl BooleanExpression {
                     let functions_borrowed = functions.borrow();
                     if !functions_borrowed.is_empty() {
                         // Filter functions that return boolean types and are NOT class methods
-                        let boolean_functions: Vec<_> = functions_borrowed
-                            .iter()
-                            .filter(|func| func.is_boolean_function() && !func.is_method())
-                            .collect();
+                        let boolean_functions: Vec<_> =
+                            filter_boolean_functions(&functions_borrowed);
 
                         if !boolean_functions.is_empty() {
                             let function = boolean_functions.choose(rng).unwrap();
@@ -232,8 +230,7 @@ impl BooleanExpression {
         if max_depth == 0 {
             // At max depth, try to generate boolean variable reference first if available (high probability)
             if let Some(variables) = external_variables {
-                let boolean_variables: Vec<_> =
-                    variables.iter().filter(|var| var.is_boolean()).collect();
+                let boolean_variables = filter_collect(variables, |var| var.is_boolean());
 
                 if !boolean_variables.is_empty() && rng.random_bool(PROBABILITY_GEN_BOOLEAN_REF) {
                     // 75% chance to generate boolean variable reference (increased)
@@ -259,8 +256,7 @@ impl BooleanExpression {
                 let left = if left_is_variable {
                     // FORCE variable reference first - prioritize direct variable usage
                     if let Some(variables) = external_variables {
-                        let numeric_variables: Vec<_> =
-                            variables.iter().filter(|var| var.is_numeric()).collect();
+                        let numeric_variables = filter_collect(variables, |var| var.is_numeric());
 
                         if !numeric_variables.is_empty() {
                             let variable = numeric_variables.choose(rng).unwrap();
@@ -312,8 +308,7 @@ impl BooleanExpression {
 
                 let right = if right_is_variable {
                     if let Some(variables) = external_variables {
-                        let numeric_variables: Vec<_> =
-                            variables.iter().filter(|var| var.is_numeric()).collect();
+                        let numeric_variables = filter_collect(variables, |var| var.is_numeric());
 
                         if !numeric_variables.is_empty() {
                             let variable = numeric_variables.choose(rng).unwrap();
@@ -381,8 +376,7 @@ impl BooleanExpression {
             }
             7 => {
                 if let Some(variables) = external_variables {
-                    let boolean_variables: Vec<_> =
-                        variables.iter().filter(|var| var.is_boolean()).collect();
+                    let boolean_variables = filter_collect(variables, |var| var.is_boolean());
 
                     if !boolean_variables.is_empty() {
                         // Create a direct boolean variable reference
@@ -401,10 +395,8 @@ impl BooleanExpression {
                 if let Some(functions) = external_functions {
                     let functions_borrowed = functions.borrow();
                     if !functions_borrowed.is_empty() {
-                        let boolean_functions: Vec<_> = functions_borrowed
-                            .iter()
-                            .filter(|func| func.is_boolean_function() && !func.is_method())
-                            .collect();
+                        let boolean_functions: Vec<_> =
+                            filter_boolean_functions(&functions_borrowed);
 
                         if !boolean_functions.is_empty() {
                             let function = boolean_functions.choose(rng).unwrap();
@@ -473,24 +465,23 @@ impl BooleanExpression {
 
 impl ComparisonOperator {
     pub fn generate_random_comparison_operator<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        match rng.random_range(0..6) {
-            0 => ComparisonOperator::Equal,
-            1 => ComparisonOperator::NotEqual,
-            2 => ComparisonOperator::LessThan,
-            3 => ComparisonOperator::LessEqual,
-            4 => ComparisonOperator::GreaterThan,
-            _ => ComparisonOperator::GreaterEqual,
-        }
+        let operators: Vec<_> = ComparisonOperator::iter().collect();
+        // Probability distribution: Equal and NotEqual more common than others
+        let probabilities = [0.25, 0.25, 0.15, 0.15, 0.10, 0.10]; // Equal, NotEqual, LessThan, LessEqual, GreaterThan, GreaterEqual
+        select_enum_variant_with_probability(&operators, &probabilities, rng)
+            .unwrap_or(&ComparisonOperator::Equal)
+            .clone()
     }
 }
 
 impl LogicalOperator {
     pub fn generate_random_logical_operator<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        if rng.random_bool(PROBABILITY_OPERATOR_AND) {
-            LogicalOperator::And
-        } else {
-            LogicalOperator::Or
-        }
+        let operators: Vec<_> = LogicalOperator::iter().collect();
+        // Probability distribution: And more common than Or
+        let probabilities = [0.6, 0.4]; // And, Or
+        select_enum_variant_with_probability(&operators, &probabilities, rng)
+            .unwrap_or(&LogicalOperator::And)
+            .clone()
     }
 }
 
@@ -507,12 +498,7 @@ impl Display for BooleanExpression {
                 write!(f, "{} {} {}", left, op, right)
             }
             Self::FunctionCall(name, args) => {
-                let args_str = args
-                    .iter()
-                    .map(|arg| format!("{}", arg))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                write!(f, "{}({})", name, args_str)
+                write!(f, "{}", format_function_call(name, args))
             }
             Self::VariableReference(var_name) => {
                 write!(f, "{}", var_name)

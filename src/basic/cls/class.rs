@@ -46,14 +46,15 @@ impl Class {
         current_indentation_layer: Option<usize>,
     ) -> Self {
         // 70% chance for basic types, 30% chance for custom types
-        match rng.random_range(0..10) {
-            0..=6 => Self::Basic(BasicType::generate_random_basic_type(rng)),
-            _ => Self::Custom(CustomClass::generate_random_custom_class(
+        if rng.random_range(0..10) <= 6 {
+            Self::Basic(BasicType::generate_random_basic_type(rng))
+        } else {
+            Self::Custom(CustomClass::generate_random_custom_class(
                 rng,
                 defined_classes,
                 current_indentation_layer,
                 None, // existing_names - use default
-            )),
+            ))
         }
     }
 

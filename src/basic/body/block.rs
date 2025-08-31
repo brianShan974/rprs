@@ -3,7 +3,7 @@ use crate::basic::{
         fun::function::Function,
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
-    cls::class::Class,
+    utils::GenerationConfig,
     var::variable::Variable,
 };
 use crate::type_system::{Type, TypedGenerationContext};
@@ -25,7 +25,7 @@ pub struct Block {
 impl Block {
     pub const MAX_DEPTH: usize = 5;
 
-    pub const MAX_NUM_STATEMENTS: usize = 8; // Increased from 3 to 8 for more statements
+    pub const MAX_NUM_STATEMENTS: usize = 6; // Reduced from 8 to 6 for fewer statements
     pub const MAX_NUM_NEW_VARS: usize = Self::MAX_NUM_STATEMENTS / 2; // Increased from 1 to 3 for more variables
 
     /// Create a new block with statements
@@ -35,71 +35,6 @@ impl Block {
             statements,
             current_indentation_layer,
         }
-    }
-
-    pub fn generate_random_block<T: Rng + SeedableRng>(
-        external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
-        is_independent: bool,
-        max_depth: usize,
-        rng: &mut T,
-    ) -> Option<Self> {
-        if max_depth == 0 {
-            return None;
-        }
-
-        let num_new_vars = rng.random_range(0..=Self::MAX_NUM_NEW_VARS);
-        let mut new_variables = Vec::with_capacity(num_new_vars);
-
-        // Generate new variables (but don't add them to external_variables)
-        for _ in 0..num_new_vars {
-            let new_var = Variable::generate_random_variable_with_const_control(
-                true,
-                true,
-                Some(external_variables),
-                false,
-                rng,
-            );
-            new_variables.push(new_var);
-        }
-
-        // Create combined external variables for child blocks
-        // This includes both external variables and newly declared variables in this block
-        let combined_external_variables: Vec<Variable> = external_variables
-            .iter()
-            .map(|v| v.to_owned())
-            .chain(new_variables.iter().map(|v| v.to_owned()))
-            .collect();
-
-        let num_statements = rng.random_range(1..=Self::MAX_NUM_STATEMENTS);
-        let mut statements = Vec::with_capacity(num_statements + new_variables.len());
-
-        // Add variable declaration statements for new variables
-        for new_var in &new_variables {
-            statements.push(Statement::Single(SingleStatement::VariableDeclaration(
-                new_var.clone(),
-            )));
-        }
-
-        // Generate random statements with depth limit
-        for _ in 0..num_statements {
-            if let Some(statement) = Statement::generate_random_statement(
-                &combined_external_variables,
-                external_functions.clone(),
-                current_indentation_layer + 1,
-                Some(max_depth - 1),
-                rng,
-            ) {
-                statements.push(statement);
-            }
-        }
-
-        Some(Block {
-            is_independent,
-            statements,
-            current_indentation_layer,
-        })
     }
 
     pub fn get_statements(&self) -> &Vec<Statement> {
@@ -128,32 +63,32 @@ impl Block {
         typed_context: &mut TypedGenerationContext,
         rng: &mut T,
     ) -> Option<Self> {
-        Self::generate_type_safe_block_with_return_type(
+        Self::generate_type_safe_block_with_config(
+            &mut GenerationConfig::new(
+                external_variables.to_vec(),
+                external_functions,
+                Some(typed_context.get_defined_classes().to_vec()), // Pass defined classes from typed context
+                current_indentation_layer,
+                max_depth,
+            ),
             external_variables,
-            external_functions,
-            current_indentation_layer,
             is_independent,
-            max_depth,
             typed_context,
             None,
-            None, // defined_classes
             rng,
         )
     }
 
-    /// Generate a type-safe block with expected return type
-    pub fn generate_type_safe_block_with_return_type<T: Rng + SeedableRng>(
+    /// Generate a type-safe block with expected return type (using GenerationConfig)
+    pub fn generate_type_safe_block_with_config<T: Rng + SeedableRng>(
+        config: &mut GenerationConfig,
         external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
         is_independent: bool,
-        max_depth: usize,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
-        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
-        if max_depth == 0 {
+        if config.max_depth == 0 {
             return None;
         }
 
@@ -191,13 +126,20 @@ impl Block {
         // Generate type-safe statements with return type awareness using the block context
         for _ in 0..num_statements {
             statements.push(Statement::generate_type_safe_statement_with_return_type(
+                &mut GenerationConfig::new(
+                    combined_external_variables.clone(),
+                    config.external_functions.clone(),
+                    config
+                        .defined_classes
+                        .as_ref()
+                        .map(|classes| classes.to_vec()),
+                    config.current_indentation_layer + 1,
+                    config.max_depth - 1,
+                ),
                 &combined_external_variables,
-                external_functions.clone(),
-                current_indentation_layer + 1,
-                Some(max_depth - 1),
+                Some(config.max_depth - 1),
                 &mut block_context, // Use the block-specific context
                 expected_return_type,
-                defined_classes, // Pass defined classes to statement generation
                 rng,
             )?);
         }
@@ -205,7 +147,7 @@ impl Block {
         Some(Block {
             is_independent,
             statements,
-            current_indentation_layer,
+            current_indentation_layer: config.current_indentation_layer,
         })
     }
 }

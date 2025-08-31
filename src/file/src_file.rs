@@ -1,12 +1,14 @@
 use rand::{Rng, SeedableRng};
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
+use crate::basic::cls::class::Class;
 use crate::basic::cls::custom_class::CustomClass;
-use crate::basic::utils::generate_random_identifier;
+use crate::basic::utils::{GenerationConfig, generate_random_identifier};
 use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
 
@@ -38,7 +40,22 @@ impl File {
             top_level_constants.push(constant);
         }
 
-        // Generate type-safe functions (using the same method as type-safe file)
+        // Generate classes FIRST
+        let num_classes = rng.random_range(0..=Self::MAX_CLASSES);
+        let mut classes = Vec::with_capacity(num_classes);
+
+        for _ in 0..num_classes {
+            let class = CustomClass::generate_random_custom_class(rng, None, None, None);
+            classes.push(class);
+        }
+
+        // Convert classes to Class enum for expression generation
+        let defined_classes: Vec<Class> = classes
+            .iter()
+            .map(|class| Class::Custom(class.clone()))
+            .collect();
+
+        // Generate type-safe functions with access to defined classes
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
@@ -46,28 +63,23 @@ impl File {
         for _ in 0..num_functions {
             // Create a new typed context for each function to avoid variable scope pollution
             let mut typed_context = TypedGenerationContext::new(external_functions.clone());
-            if let Some(function) = Function::generate_type_safe_function(
-                &Vec::new(),
+            let mut function_config = GenerationConfig::new(
+                Vec::new(),
                 external_functions.clone(),
-                None,
-                None,
-                None,
+                Some(defined_classes.clone()),
+                0,
+                5,
+            );
+
+            if let Some(function) = Function::generate_type_safe_function(
+                &mut function_config,
+                &Vec::new(),
                 false,
                 &mut typed_context,
                 rng,
-                None, // existing_names - use default
             ) {
                 functions.push(function);
             }
-        }
-
-        // Generate classes
-        let num_classes = rng.random_range(0..=Self::MAX_CLASSES);
-        let mut classes = Vec::with_capacity(num_classes);
-
-        for _ in 0..num_classes {
-            let class = CustomClass::generate_random_custom_class(rng, None, None, None);
-            classes.push(class);
         }
 
         Self {
@@ -99,7 +111,7 @@ impl File {
         // Generate type-safe classes FIRST
         let num_classes = rng.random_range(1..=Self::MAX_CLASSES); // 确保至少生成一个类
         let mut classes = Vec::with_capacity(num_classes);
-        let mut existing_names = Vec::new();
+        let mut existing_names = HashSet::new();
 
         for _ in 0..num_classes {
             let mut typed_context = TypedGenerationContext::new(Rc::new(RefCell::new(Vec::new())));
@@ -107,22 +119,23 @@ impl File {
                 rng,
                 &mut typed_context,
                 None,
-                Some(&existing_names),
+                Some(&mut existing_names),
             );
-            existing_names.push(class.get_name());
+            existing_names.insert(class.get_name().to_string());
             classes.push(class);
         }
 
         // Convert classes to Class enum for expression generation
-        let defined_classes: Vec<crate::basic::cls::class::Class> = classes
+        let defined_classes: Vec<Class> = classes
             .iter()
-            .map(|class| crate::basic::cls::class::Class::Custom(class.clone()))
+            .map(|class| Class::Custom(class.clone()))
             .collect();
 
         // Generate type-safe functions with access to defined classes
         let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
+        let mut all_variables = Vec::new(); // Collect variables from all functions
 
         for _ in 0..num_functions {
             // Create a new typed context for each function to avoid variable scope pollution
@@ -130,19 +143,29 @@ impl File {
             // Set the defined classes for variable generation
             typed_context.set_defined_classes(defined_classes.clone());
 
-            if let Some(function) = Function::generate_type_safe_function(
-                &Vec::new(), // Keep empty external variables for now
+            let mut function_config = GenerationConfig::new(
+                all_variables.clone(), // Pass variables from previous functions for proper scope
                 external_functions.clone(),
-                Some(&defined_classes), // Pass defined classes to function generation
-                None,
-                None,
+                Some(defined_classes.clone()), // Pass defined classes to function generation
+                0,
+                5,
+            )
+            .with_existing_names(existing_names.clone());
+
+            if let Some(function) = Function::generate_type_safe_function(
+                &mut function_config,
+                &Vec::new(),
                 false,
                 &mut typed_context,
                 rng,
-                Some(&existing_names), // Pass existing names to avoid duplicates
             ) {
-                existing_names.push(function.get_name().to_string());
+                existing_names.insert(function.get_name().to_string());
                 functions.push(function);
+
+                // Extract variables from the generated function and add them to all_variables
+                // This allows subsequent functions to access variables from previous functions
+                let function_variables = typed_context.get_mutable_variables();
+                all_variables.extend(function_variables);
             }
         }
 

@@ -1,6 +1,13 @@
 use std::fmt::Display;
 
-use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE};
+use crate::basic::{
+    cls::{
+        basic_type::BasicType,
+        class::{BOOLEAN, Class, DOUBLE},
+        number_types::{floating_point::FloatingPointType, number::NumberType},
+    },
+    utils::map_collect_join,
+};
 
 /// Represents a type in the type system
 #[derive(Clone, Debug, PartialEq)]
@@ -70,7 +77,32 @@ impl Type {
             (inner, Type::Nullable(target_inner)) => inner.is_assignable_to(target_inner),
 
             // Numeric types can be assigned to wider numeric types
-            (Type::Basic(_), Type::Basic(_)) => true, // Simplified for now
+            (Type::Basic(class1), Type::Basic(class2)) => {
+                class1 == class2
+                    || class1.is_numeric_type() && class2.is_numeric_type() &&
+                    // Numeric type promotion: Int -> Float -> Double
+                    matches!(
+                        (class1, class2),
+                        (
+                            Class::Basic(BasicType::Number(NumberType::SignedInteger(_))),
+                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                                FloatingPointType::Float,
+                            ))),
+                        ) | (
+                            Class::Basic(BasicType::Number(NumberType::SignedInteger(_))),
+                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                                FloatingPointType::Double,
+                            ))),
+                        ) | (
+                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                                FloatingPointType::Float,
+                            ))),
+                            Class::Basic(BasicType::Number(NumberType::FloatingPoint(
+                                FloatingPointType::Double,
+                            ))),
+                        )
+                    )
+            }
 
             // Function types must match exactly
             (Type::Function(params1, ret1), Type::Function(params2, ret2)) => {
@@ -120,31 +152,19 @@ impl Display for Type {
         match self {
             Type::Basic(class) => write!(f, "{}", class),
             Type::Function(params, ret) => {
-                let params_str = params
-                    .iter()
-                    .map(|t| t.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                let params_str = map_collect_join(params, |t| t.to_string(), ", ");
                 write!(f, "({}) -> {}", params_str, ret)
             }
             Type::Generic(name, params) => {
                 if params.is_empty() {
                     write!(f, "{}", name)
                 } else {
-                    let params_str = params
-                        .iter()
-                        .map(|t| t.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ");
+                    let params_str = map_collect_join(params, |t| t.to_string(), ", ");
                     write!(f, "{}<{}>", name, params_str)
                 }
             }
             Type::Union(types) => {
-                let types_str = types
-                    .iter()
-                    .map(|t| t.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" | ");
+                let types_str = map_collect_join(types, |t| t.to_string(), " | ");
                 write!(f, "{}", types_str)
             }
             Type::Nullable(inner) => write!(f, "{}?", inner),

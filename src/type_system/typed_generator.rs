@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::basic::cls::custom_class::CustomClass;
 use crate::type_system::{Type, TypeChecker};
 use crate::{
     basic::{
@@ -23,6 +24,7 @@ use crate::{
             arithmetic_expression::ArithmeticExpression, boolean_expression::BooleanExpression,
             expression::Expression, operator::Operator,
         },
+        utils::generate_random_expression_with_functions,
         var::variable::Variable,
     },
     type_system::type_result::TypeResult,
@@ -44,7 +46,7 @@ pub struct TypedGenerationContext {
     /// Current class methods (if we're inside a class method)
     current_class_methods: Option<Vec<Function>>,
     /// Defined custom classes for expression generation
-    defined_classes: Vec<crate::basic::cls::class::Class>,
+    defined_classes: Vec<Class>,
 }
 
 impl TypedGenerationContext {
@@ -101,9 +103,19 @@ impl TypedGenerationContext {
         self.external_functions.clone()
     }
 
+    /// Get the type of a variable
+    pub fn get_variable_type(&self, var: &Variable) -> Option<&Type> {
+        self.variable_types.get(var)
+    }
+
     /// Set the defined classes for expression generation
-    pub fn set_defined_classes(&mut self, classes: Vec<crate::basic::cls::class::Class>) {
+    pub fn set_defined_classes(&mut self, classes: Vec<Class>) {
         self.defined_classes = classes;
+    }
+
+    /// Get the defined classes for expression generation
+    pub fn get_defined_classes(&self) -> &[Class] {
+        &self.defined_classes
     }
 
     /// Set the current class methods (used when generating code inside a class method)
@@ -424,7 +436,8 @@ impl TypedGenerationContext {
     pub fn validate_statement(&mut self, statement: &Statement) -> TypeResult<()> {
         match statement {
             Statement::Single(single) => self.validate_single_statement(single),
-            // For now, just validate single statements
+            // For complex statements, we'll implement full validation later
+            // For now, accept them as valid
             _ => Some(()),
         }
     }
@@ -473,7 +486,23 @@ impl TypedGenerationContext {
                 }
             }
             SingleStatement::Return(_) => Some(()),
-            SingleStatement::ObjectCreation(_) => Some(()), // For now, just accept object creation
+            SingleStatement::ObjectCreation(object_instance) => {
+                // Validate that the class exists in our context
+                let class_name = object_instance.get_class_name();
+                if let Some(_class) = self
+                    .defined_classes
+                    .iter()
+                    .find(|c| c.get_name() == class_name)
+                {
+                    // Validate that all required properties are initialized
+                    // This is a simplified validation - in a full implementation,
+                    // we would check that all non-nullable properties are provided
+                    Some(())
+                } else {
+                    // Class not found in context
+                    None
+                }
+            }
             SingleStatement::CompoundAssignment(var_name, _, expr) => {
                 // Find the variable in our context by name
                 let var = self
@@ -491,6 +520,23 @@ impl TypedGenerationContext {
                     }
                 } else {
                     None
+                }
+            }
+            SingleStatement::MethodCall(object_name, _method_name, _args) => {
+                // For method calls, we need to validate that the object exists and the method exists
+                // This is a simplified validation - in a full implementation, we would check
+                // that the object is of the correct type and the method signature matches
+                let object_exists = self
+                    .variable_types
+                    .keys()
+                    .any(|v| v.get_name() == object_name);
+                if object_exists {
+                    // Validate arguments if we have method signature information
+                    // For now, just accept the method call as valid
+                    Some(())
+                } else {
+                    // Object not found in context, but might be external - allow for now
+                    Some(())
                 }
             }
         }
@@ -562,6 +608,9 @@ impl TypedGenerationContext {
                     ArithmeticExpression::Int(_) => Some(Type::Basic(INT)),
                     ArithmeticExpression::Float(_) => Some(Type::Basic(FLOAT)),
                     ArithmeticExpression::Double(_) => Some(Type::Basic(DOUBLE)),
+                    ArithmeticExpression::Char(_) => {
+                        Some(Type::Basic(Class::Basic(BasicType::Char)))
+                    }
                     ArithmeticExpression::BinaryOp { left, right, .. } => {
                         // For binary operations, if both operands are int, result is int
                         // Otherwise, result is float
@@ -609,9 +658,10 @@ impl TypedGenerationContext {
             Expression::ClassInstantiation(class_name) => {
                 // Look up the class type from defined classes
                 // For now, return the class type as Custom
-                Some(Type::Basic(Class::Custom(
-                    crate::basic::cls::custom_class::CustomClass::new(class_name.clone(), 0),
-                )))
+                Some(Type::Basic(Class::Custom(CustomClass::new(
+                    class_name.clone(),
+                    0,
+                ))))
             }
             Expression::PropertyAccess(object_name, property_name) => {
                 // Look up the property type from the class definition
@@ -686,6 +736,7 @@ impl TypedGenerationContext {
             ArithmeticExpression::Int(_) => Some(Type::Basic(INT)),
             ArithmeticExpression::Float(_) => Some(Type::Basic(FLOAT)),
             ArithmeticExpression::Double(_) => Some(Type::Basic(DOUBLE)),
+            ArithmeticExpression::Char(_) => Some(Type::Basic(Class::Basic(BasicType::Char))),
             ArithmeticExpression::BinaryOp { left, right, .. } => {
                 // For binary operations, if both operands are int, result is int
                 // Otherwise, result is float
@@ -860,6 +911,13 @@ impl TypedGenerationContext {
                 }
                 Type::Basic(BOOLEAN) => Some(Expression::generate_random_boolean_literal(rng)),
                 Type::Basic(STRING) => Some(Expression::generate_random_string_literal(rng)),
+                Type::Basic(Class::Basic(BasicType::Char)) => {
+                    // Generate char literal
+                    let char_value = rng.random_range(32..127) as u8 as char;
+                    Some(Expression::Arithmetic(ArithmeticExpression::Char(
+                        char_value,
+                    )))
+                }
                 Type::Basic(Class::Custom(custom_class)) => {
                     // For custom types, generate object instantiation
                     Some(Expression::ClassInstantiation(custom_class.get_name()))
@@ -924,36 +982,60 @@ impl TypedGenerationContext {
                 if rng.random_bool(PROBABILITY_STRING_LITERAL) {
                     Some(Expression::generate_random_string_literal(rng))
                 } else {
-                    Some(Expression::generate_random_expression(
+                    Some(generate_random_expression_with_functions(
                         1,
-                        external_functions,
-                        Some(&variables),            // Pass available variables
-                        Some(&self.defined_classes), // Pass defined classes
+                        external_functions.unwrap(),
+                        Some(&variables),
+                        Some(&self.defined_classes), // Pass defined classes for method calls
                         rng,
                     ))
                 }
             }
-            Type::Basic(Class::Custom(_custom_class)) => {
-                // Use generic expression generation for custom types to enable property access
+            Type::Basic(Class::Basic(BasicType::Char)) => {
+                // Generate char expression as arithmetic expression with char literal
+                let char_value = rng.random_range(32..127) as u8 as char;
+                Some(Expression::Arithmetic(ArithmeticExpression::Char(
+                    char_value,
+                )))
+            }
+            Type::Basic(Class::Custom(custom_class)) => {
+                // For custom types, generate object instantiation or property access
                 // Convert variable_types keys to Vec<Variable> for external_variables
                 let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
-                Some(Expression::generate_random_expression(
-                    2,
-                    external_functions,
-                    Some(&variables),            // Pass available variables
-                    Some(&self.defined_classes), // Pass defined classes
-                    rng,
-                ))
+
+                // 70% chance for object instantiation, 30% chance for property access
+                if rng.random_bool(0.7) {
+                    Some(Expression::ClassInstantiation(custom_class.get_name()))
+                } else {
+                    // Try to find a variable of the correct type for property access
+                    let compatible_vars: Vec<&Variable> = variables
+                        .iter()
+                        .filter(|v| {
+                            if let Some(var_type) = v.get_class() {
+                                var_type == &Class::Custom(custom_class.clone())
+                            } else {
+                                false
+                            }
+                        })
+                        .collect();
+
+                    if let Some(var) = compatible_vars.choose(rng) {
+                        Some(Expression::VariableReference(var.get_name().to_string()))
+                    } else {
+                        // Fallback to object instantiation
+                        Some(Expression::ClassInstantiation(custom_class.get_name()))
+                    }
+                }
             }
             _ => {
                 // Default to simple arithmetic expression
                 // Convert variable_types keys to Vec<Variable> for external_variables
                 let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
-                Some(Expression::generate_random_expression(
+                Some(generate_random_expression_with_functions(
                     2,
-                    external_functions,
-                    Some(&variables),            // Pass available variables
-                    Some(&self.defined_classes), // Pass defined classes
+                    external_functions.unwrap(),
+                    Some(&variables),
+                    Some(&self.defined_classes), // Pass defined classes for method calls
                     rng,
                 ))
             }
@@ -1095,8 +1177,12 @@ impl TypedGenerationContext {
     /// Generate a boolean expression specifically
     fn generate_boolean_expression<T: Rng + SeedableRng>(&self, rng: &mut T) -> Expression {
         // Generate boolean expression with depth 2
+        let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
         Expression::Boolean(BooleanExpression::generate_random_boolean_expression(
-            2, None, None, rng,
+            2,
+            Some(self.external_functions.clone()),
+            Some(&variables),
+            rng,
         ))
     }
 }

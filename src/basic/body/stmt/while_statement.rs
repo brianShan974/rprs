@@ -1,13 +1,11 @@
 use rand::{Rng, SeedableRng};
 
-use std::cell::RefCell;
 use std::fmt::Display;
-use std::rc::Rc;
 
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
-use crate::basic::body::fun::function::Function;
-use crate::basic::cls::class::Class;
+use crate::basic::expr::boolean_expression::BooleanExpression;
 use crate::basic::expr::expression::Expression;
+use crate::basic::utils::GenerationConfig;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
@@ -32,35 +30,6 @@ impl Display for WhileStatement {
 }
 
 impl WhileStatement {
-    pub fn generate_random_while_statement<T: Rng + SeedableRng>(
-        external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
-        max_depth: usize,
-        rng: &mut T,
-    ) -> Option<Self> {
-        if max_depth == 0 {
-            return None;
-        }
-
-        let condition =
-            Expression::generate_random_expression(3, None, Some(external_variables), None, rng);
-        let block = Block::generate_random_block(
-            external_variables,
-            external_functions,
-            current_indentation_layer,
-            false,
-            max_depth - 1,
-            rng,
-        );
-
-        Some(Self {
-            current_indentation_layer,
-            condition,
-            block: block?,
-        })
-    }
-
     pub fn get_condition(&self) -> &Expression {
         &self.condition
     }
@@ -71,38 +40,36 @@ impl WhileStatement {
 
     /// Generate a type-safe while statement with expected return type
     pub fn generate_type_safe_while_statement<T: Rng + SeedableRng>(
+        config: &mut GenerationConfig,
         external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
-        max_depth: usize,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
-        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
-        if max_depth == 0 {
+        if config.max_depth == 0 {
             return None;
         }
 
-        // Generate condition
-        let condition =
-            Expression::generate_random_expression(3, None, Some(external_variables), None, rng);
+        // Generate condition - must be Boolean type for while loop
+        let condition = Expression::Boolean(BooleanExpression::generate_random_boolean_expression(
+            3,
+            None, // No external functions for condition
+            Some(external_variables),
+            rng,
+        ));
 
         // Generate block with return type awareness
-        let block = Block::generate_type_safe_block_with_return_type(
+        let block = Block::generate_type_safe_block_with_config(
+            config,
             external_variables,
-            external_functions,
-            current_indentation_layer,
             false,
-            max_depth - 1,
             typed_context,
             expected_return_type,
-            defined_classes, // Pass defined classes to block generation
             rng,
         )?;
 
         Some(Self {
-            current_indentation_layer,
+            current_indentation_layer: config.current_indentation_layer,
             condition,
             block,
         })

@@ -86,10 +86,7 @@ impl ObjectInstance {
                 NumberType::FloatingPoint(_) => Expression::generate_random_float_literal(rng),
             },
             Some(&BOOLEAN) => Expression::generate_random_boolean_literal(rng),
-            Some(&STRING) => {
-                // For now, generate a simple int literal
-                Expression::generate_random_int_literal(rng)
-            }
+            Some(&STRING) => Expression::generate_random_string_literal(rng),
             Some(&CHAR) => Expression::generate_random_int_literal(rng),
             _ => Expression::generate_random_int_literal(rng),
         }

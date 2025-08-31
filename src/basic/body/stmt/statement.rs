@@ -9,7 +9,8 @@ use crate::basic::body::stmt::{
     for_statement::ForStatement, if_statement::IfStatement, single_statement::SingleStatement,
     when_statement::WhenStatement, while_statement::WhileStatement,
 };
-use crate::basic::cls::class::Class;
+
+use crate::basic::utils::GenerationConfig;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
@@ -26,69 +27,7 @@ pub enum Statement {
 impl Statement {
     pub const MAX_DEPTH: usize = 5;
 
-    pub fn generate_random_statement<T: Rng + SeedableRng>(
-        external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
-        max_depth: Option<usize>,
-        rng: &mut T,
-    ) -> Option<Self> {
-        if matches!(max_depth, Some(0)) {
-            return None;
-        }
 
-        let max_depth = max_depth.unwrap_or(Self::MAX_DEPTH);
-
-        // If depth is 1, only generate simple statements
-        if max_depth == 1 {
-            return Some(Statement::Single(
-                SingleStatement::generate_random_single_statement(
-                    external_variables,
-                    external_functions,
-                    None, // defined_classes
-                    rng,
-                ),
-            ));
-        }
-
-        // Randomly select statement type, prefer simple statements at shallow depth
-        Some(match rng.random_range(0..10) {
-            0..=5 => Statement::Single(SingleStatement::generate_random_single_statement(
-                external_variables,
-                external_functions.clone(),
-                None, // defined_classes
-                rng,
-            )),
-            6..=7 => Statement::If(IfStatement::generate_random_if_statement(
-                external_variables,
-                external_functions,
-                current_indentation_layer,
-                max_depth - 1,
-                rng,
-            )?),
-            8 => Statement::For(ForStatement::generate_random_for_statement(
-                external_variables,
-                external_functions,
-                current_indentation_layer,
-                max_depth - 1,
-                rng,
-            )?),
-            9 => Statement::While(WhileStatement::generate_random_while_statement(
-                external_variables,
-                external_functions,
-                current_indentation_layer,
-                max_depth - 1,
-                rng,
-            )?),
-            _ => Statement::When(WhenStatement::generate_random_when_statement(
-                external_variables,
-                external_functions,
-                current_indentation_layer,
-                max_depth - 1,
-                rng,
-            )?),
-        })
-    }
 
     /// Generate a type-safe statement using typed generation context
     pub fn generate_type_safe_statement<T: Rng + SeedableRng>(
@@ -100,26 +39,28 @@ impl Statement {
         rng: &mut T,
     ) -> Option<Self> {
         Self::generate_type_safe_statement_with_return_type(
+            &mut GenerationConfig::new(
+                external_variables.to_vec(),
+                external_functions,
+                Some(typed_context.get_defined_classes().to_vec()), // Pass defined classes from typed context
+                current_indentation_layer,
+                max_depth.unwrap_or(Self::MAX_DEPTH),
+            ),
             external_variables,
-            external_functions,
-            current_indentation_layer,
             max_depth,
             typed_context,
             None,
-            None, // defined_classes
             rng,
         )
     }
 
     /// Generate a type-safe statement with expected return type
     pub fn generate_type_safe_statement_with_return_type<T: Rng + SeedableRng>(
+        config: &mut GenerationConfig,
         external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
         max_depth: Option<usize>,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
-        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
         if matches!(max_depth, Some(0)) {
@@ -133,58 +74,59 @@ impl Statement {
             return Some(Statement::Single(
                 SingleStatement::generate_type_safe_single_statement_with_return_type(
                     external_variables,
-                    external_functions,
+                    config.external_functions.clone(),
                     typed_context,
                     expected_return_type,
-                    defined_classes, // Pass defined classes to single statement generation
+                    config.defined_classes.as_deref(), // Pass defined classes to single statement generation
                     rng,
                 ),
             ));
         }
 
-        // For now, prefer simple statements to avoid complex nested type checking
-        // This can be enhanced later with type-safe compound statements
+        // Generate statements with balanced distribution for better code variety
         Some(match rng.random_range(0..10) {
-            0..=7 => Statement::Single(
+            0..=4 => Statement::Single(
                 SingleStatement::generate_type_safe_single_statement_with_return_type(
                     external_variables,
-                    external_functions.clone(),
+                    config.external_functions.clone(),
                     typed_context,
                     expected_return_type,
-                    defined_classes, // Pass defined classes to single statement generation
+                    config.defined_classes.as_deref(), // Pass defined classes to single statement generation
                     rng,
                 ),
             ),
-            8 => Statement::If(IfStatement::generate_type_safe_if_statement(
+            5 => Statement::If(IfStatement::generate_type_safe_if_statement(
+                config,
                 external_variables,
-                external_functions,
-                current_indentation_layer,
-                max_depth - 1,
                 typed_context,
                 expected_return_type,
-                defined_classes, // Pass defined classes to if statement generation
                 rng,
             )?),
-            9 => Statement::For(ForStatement::generate_type_safe_for_statement(
+            6 => Statement::For(ForStatement::generate_type_safe_for_statement(
+                config,
                 external_variables,
-                external_functions,
-                current_indentation_layer,
-                max_depth - 1,
                 typed_context,
                 expected_return_type,
-                defined_classes, // Pass defined classes to for statement generation
                 rng,
             )?),
-            _ => Statement::While(WhileStatement::generate_type_safe_while_statement(
+            7 => Statement::While(WhileStatement::generate_type_safe_while_statement(
+                config,
                 external_variables,
-                external_functions,
-                current_indentation_layer,
-                max_depth - 1,
                 typed_context,
                 expected_return_type,
-                defined_classes, // Pass defined classes to while statement generation
                 rng,
             )?),
+            8..=9 => Statement::Single(
+                SingleStatement::generate_type_safe_single_statement_with_return_type(
+                    external_variables,
+                    config.external_functions.clone(),
+                    typed_context,
+                    expected_return_type,
+                    config.defined_classes.as_deref(), // Fallback to single statement for when statements
+                    rng,
+                ),
+            ),
+            _ => unreachable!(),
         })
     }
 }

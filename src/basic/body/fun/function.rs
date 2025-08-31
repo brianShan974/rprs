@@ -12,7 +12,7 @@ use crate::basic::{
     },
     cls::class::{BOOLEAN, Class, FLOAT, INT},
     expr::expression::Expression,
-    utils::generate_unique_identifier,
+    utils::{GenerationConfig, generate_unique_identifier, map_collect_join},
     var::{prefix::visibility::Visibility, variable::Variable},
 };
 use crate::type_system::{Type, TypedGenerationContext};
@@ -32,55 +32,6 @@ pub struct Function {
 
 impl Function {
     pub const MAX_DEPTH: usize = 5;
-
-    pub fn generate_random_function<T: Rng + SeedableRng>(
-        external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        defined_classes: Option<&[Class]>,
-        current_indentation_layer: Option<usize>,
-        max_depth: Option<usize>,
-        is_method: bool,
-        rng: &mut T,
-        existing_names: Option<&[String]>,
-    ) -> Option<Self> {
-        if matches!(max_depth, Some(0)) {
-            return None;
-        }
-
-        let max_depth = max_depth.unwrap_or(Self::MAX_DEPTH);
-        let current_indentation_layer = current_indentation_layer.unwrap_or(0);
-        let parameters = Parameter::generate_random_parameters(rng, defined_classes);
-        let all_identifiers: Vec<Variable> = external_variables
-            .iter()
-            .map(|v| v.to_owned())
-            .chain(parameters.iter().map(|p| p.to_owned().into()))
-            .collect();
-
-        let existing_names = existing_names.unwrap_or(&[]);
-        let function = Self {
-            name: generate_unique_identifier(rng, existing_names),
-            parameters,
-            return_type: None,
-            body: Block::generate_random_block(
-                &all_identifiers,
-                external_functions.clone(),
-                current_indentation_layer,
-                false,
-                max_depth,
-                rng,
-            )?,
-            visibility: Visibility::generate_random_visibility(is_method, rng),
-            current_indentation_layer,
-            is_method,
-        };
-
-        if !is_method {
-            // Add the generated function to external_functions
-            external_functions.borrow_mut().push(function.clone());
-        }
-
-        Some(function)
-    }
 
     pub fn get_name(&self) -> &str {
         &self.name
@@ -112,23 +63,18 @@ impl Function {
 
     /// Generate a type-safe function using typed generation context
     pub fn generate_type_safe_function<T: Rng + SeedableRng>(
+        config: &mut GenerationConfig,
         external_variables: &[Parameter],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        defined_classes: Option<&[Class]>,
-        current_indentation_layer: Option<usize>,
-        max_depth: Option<usize>,
         is_method: bool,
         typed_context: &mut TypedGenerationContext,
         rng: &mut T,
-        existing_names: Option<&[String]>,
     ) -> Option<Self> {
-        if matches!(max_depth, Some(0)) {
+        if matches!(config.max_depth, 0) {
             return None;
         }
 
-        let max_depth = max_depth.unwrap_or(Self::MAX_DEPTH);
-        let current_indentation_layer = current_indentation_layer.unwrap_or(0);
-        let parameters = Parameter::generate_random_parameters(rng, defined_classes);
+        let parameters =
+            Parameter::generate_random_parameters(rng, config.defined_classes.as_deref());
         let all_identifiers: Vec<Variable> = external_variables
             .iter()
             .chain(parameters.iter())
@@ -137,24 +83,24 @@ impl Function {
 
         // Decide on return type first (before generating body)
         let return_type = if is_method {
-            Self::decide_method_return_type_with_custom_types(rng, defined_classes)
+            Self::decide_method_return_type_with_custom_types(
+                rng,
+                config.defined_classes.as_deref(),
+            )
         } else {
-            Self::decide_return_type_with_custom_types(rng, defined_classes)
+            Self::decide_return_type_with_custom_types(rng, config.defined_classes.as_deref())
         };
 
         // Convert return type to Type system type for context
         let return_type_system = return_type.as_ref().map(|ty| Type::Basic(ty.clone()));
 
         // Generate function body with expected return type
-        let body = Block::generate_type_safe_block_with_return_type(
+        let body = Block::generate_type_safe_block_with_config(
+            config,
             &all_identifiers,
-            external_functions.clone(),
-            current_indentation_layer,
             false,
-            max_depth,
             typed_context,
             return_type_system.as_ref(),
-            defined_classes, // Pass defined classes to block generation
             rng,
         )?;
 
@@ -177,24 +123,29 @@ impl Function {
             && Self::all_paths_have_return(&body_with_returns)
         {
             // If function has no return type but body has return statement AND all paths have return, infer return type
-            Self::infer_return_type_from_body(&body_with_returns, &external_functions)
+            Self::infer_return_type_from_body(&body_with_returns, &config.external_functions)
         } else {
             return_type
         };
 
-        let existing_names = existing_names.unwrap_or(&[]);
         let function = Self {
-            name: generate_unique_identifier(rng, existing_names),
+            name: generate_unique_identifier(rng, &mut config.existing_names),
             parameters,
             return_type: final_return_type,
             body: body_with_returns,
-            current_indentation_layer,
+            current_indentation_layer: config.current_indentation_layer,
             visibility: Visibility::generate_random_visibility(is_method, rng),
             is_method,
         };
 
         // Add the generated function to external_functions
-        external_functions.borrow_mut().push(function.clone());
+        config
+            .external_functions
+            .borrow_mut()
+            .push(function.clone());
+
+        // Add the function to the typed context for type checking
+        let _ = typed_context.add_function(&function);
 
         Some(function)
     }
@@ -506,11 +457,12 @@ impl Function {
                                             // Function has no return type (Unit), so this return statement should be empty
                                             // This indicates a type mismatch - function call returns Unit but we're trying to return it
                                             // We should avoid this case by better generation logic
-                                            FLOAT // Default fallback
+                                            // Return None to indicate this is an invalid return statement
+                                            return None;
                                         }
                                     } else {
-                                        // Function not found, default to Float
-                                        FLOAT
+                                        // Function not found, return None to indicate invalid return
+                                        return None;
                                     }
                                 } else {
                                     // Default to Float for unknown expressions
@@ -636,8 +588,29 @@ impl Function {
             if has_boolean && (has_int || has_float) {
                 // Mixed Boolean and Number types - this is problematic
                 // We should avoid this case by better generation logic
-                // For now, we'll choose the first type found
-                Some(first_type.clone())
+                // For now, we'll choose the most common type by counting occurrences
+                let mut boolean_count = 0;
+                let mut int_count = 0;
+                let mut float_count = 0;
+
+                for ty in &return_types {
+                    if ty == &BOOLEAN {
+                        boolean_count += 1;
+                    } else if ty.is_signed_integer_type() {
+                        int_count += 1;
+                    } else if ty.is_float_type() {
+                        float_count += 1;
+                    }
+                }
+
+                // Return the most common type
+                if boolean_count >= int_count && boolean_count >= float_count {
+                    Some(BOOLEAN)
+                } else if int_count >= float_count {
+                    Some(INT)
+                } else {
+                    Some(FLOAT)
+                }
             } else if has_int && has_float {
                 // Mixed Int and Float - promote to Float (common type promotion)
                 Some(FLOAT)
@@ -694,16 +667,11 @@ impl Display for Function {
             Some(ty) => format!(": {}", ty),
             None => "".to_string(),
         };
+        let params_str = map_collect_join(&self.parameters, |p| p.to_string(), ", ");
         write!(
             f,
             "{indentation}{visibility}fun {}({}){return_type} {}",
-            self.name,
-            self.parameters
-                .iter()
-                .map(|p| p.to_string())
-                .collect::<Vec<_>>()
-                .join(", "),
-            self.body,
+            self.name, params_str, self.body,
         )?;
 
         Ok(())

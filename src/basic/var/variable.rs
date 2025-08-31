@@ -1,9 +1,11 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use derive_more::Constructor;
 use rand::{Rng, SeedableRng};
 
 use super::prefix::var_prefix::VariablePrefix;
+use crate::basic::body::fun::function::Function;
 use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE, FLOAT, INT, STRING};
 use crate::basic::cls::number_types::number::NumberType;
@@ -91,23 +93,53 @@ impl Variable {
         allow_const: bool,
         rng: &mut T,
     ) -> Self {
+        Self::generate_random_variable_with_const_control_and_functions(
+            is_member,
+            with_initial_value,
+            external_variables,
+            None, // No external functions for backward compatibility
+            allow_const,
+            rng,
+        )
+    }
+
+    pub fn generate_random_variable_with_const_control_and_functions<T: Rng + SeedableRng>(
+        is_member: bool,
+        with_initial_value: bool,
+        external_variables: Option<&[Variable]>,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
+        allow_const: bool,
+        rng: &mut T,
+    ) -> Self {
         let prefix =
             VariablePrefix::generate_random_prefix_with_const_control(is_member, allow_const, rng);
         let name = generate_random_identifier(rng);
         // First determine the type, then generate matching expression
         let ty = if with_initial_value {
             // Choose type with adjusted probabilities
-            match rng.random_range(0..20) {
-                0..=6 => Some(INT),    // 35% probability for Int
-                7..=13 => Some(FLOAT), // 35% probability for Float
-                14 => Some(BOOLEAN),   // 5% probability for Boolean
-                15 => Some(STRING),    // 5% probability for String
-                16..=19 => {
-                    // 20% probability for custom class
-                    Some(INT) // We'll handle custom class in value generation
-                }
-                _ => unreachable!(),
-            }
+            let types = [
+                Some(INT.clone()),
+                Some(INT.clone()),
+                Some(INT.clone()),
+                Some(INT.clone()),
+                Some(INT.clone()),
+                Some(INT.clone()),
+                Some(INT.clone()), // 35% Int
+                Some(FLOAT.clone()),
+                Some(FLOAT.clone()),
+                Some(FLOAT.clone()),
+                Some(FLOAT.clone()),
+                Some(FLOAT.clone()),
+                Some(FLOAT.clone()),
+                Some(FLOAT.clone()),   // 35% Float
+                Some(BOOLEAN.clone()), // 5% Boolean
+                Some(STRING.clone()),  // 5% String
+                Some(INT.clone()),
+                Some(INT.clone()),
+                Some(INT.clone()),
+                Some(INT.clone()), // 20% custom class (fallback to Int)
+            ];
+            types[rng.random_range(0..20)].clone()
         } else {
             None
         };
@@ -119,9 +151,9 @@ impl Variable {
                     // Generate integer arithmetic expression
                     Some(Expression::Arithmetic(
                         ArithmeticExpression::generate_typed_expression(
-                            2,    // Allow some complexity
-                            true, // target_is_int = true
-                            None, // No external functions for variable initialization
+                            2,                          // Allow some complexity
+                            true,                       // target_is_int = true
+                            external_functions.clone(), // Use external functions if available
                             external_variables,
                             rng,
                         ),
@@ -131,9 +163,9 @@ impl Variable {
                     // Generate float arithmetic expression
                     Some(Expression::Arithmetic(
                         ArithmeticExpression::generate_typed_expression(
-                            2,     // Allow some complexity
-                            false, // target_is_int = false
-                            None,  // No external functions for variable initialization
+                            2,                          // Allow some complexity
+                            false,                      // target_is_int = false
+                            external_functions.clone(), // Use external functions if available
                             external_variables,
                             rng,
                         ),
@@ -157,9 +189,9 @@ impl Variable {
                         // For now, fallback to integer expression
                         Some(Expression::Arithmetic(
                             ArithmeticExpression::generate_typed_expression(
-                                2,    // Allow some complexity
-                                true, // target_is_int = true
-                                None, // No external functions for variable initialization
+                                2,                          // Allow some complexity
+                                true,                       // target_is_int = true
+                                external_functions.clone(), // Use external functions if available
                                 external_variables,
                                 rng,
                             ),
@@ -168,9 +200,9 @@ impl Variable {
                         // Fallback to integer expression
                         Some(Expression::Arithmetic(
                             ArithmeticExpression::generate_typed_expression(
-                                2,    // Allow some complexity
-                                true, // target_is_int = true
-                                None, // No external functions for variable initialization
+                                2,                          // Allow some complexity
+                                true,                       // target_is_int = true
+                                external_functions.clone(), // Use external functions if available
                                 external_variables,
                                 rng,
                             ),
@@ -263,16 +295,9 @@ impl Variable {
                     (Some(expr), target_type.clone())
                 }
                 Some(STRING) => {
-                    // For now, generate integer arithmetic expression (string literals not implemented)
-                    let expr =
-                        Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
-                            2,    // Allow some complexity
-                            true, // target_is_int = true (fallback to INT)
-                            None, // No external functions for variable initialization
-                            external_variables,
-                            rng,
-                        ));
-                    (Some(expr), Some(INT))
+                    // Generate string literal
+                    let expr = Expression::generate_random_string_literal(rng);
+                    (Some(expr), target_type.clone())
                 }
                 Some(Class::Custom(custom_class)) => {
                     // Generate custom class instantiation

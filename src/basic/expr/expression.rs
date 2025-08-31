@@ -8,9 +8,11 @@ use std::rc::Rc;
 use super::arithmetic_expression::ArithmeticExpression;
 use super::boolean_expression::BooleanExpression;
 use crate::basic::body::fun::function::Function;
+use crate::basic::body::fun::parameter::Parameter;
 use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::class::Class;
 use crate::basic::cls::number_types::number::NumberType;
+use crate::basic::utils::{format_function_call, format_method_call, format_property_access};
 use crate::basic::var::variable::Variable;
 
 pub const SAFE_CHARS: &[char] = &[
@@ -40,31 +42,15 @@ impl Display for Expression {
             Self::Boolean(boolean) => write!(f, "{}", boolean),
             Self::StringLiteral(s) => write!(f, "\"{}\"", s),
             Self::FunctionCall(name, args) => {
-                if args.is_empty() {
-                    write!(f, "{}()", name)
-                } else {
-                    let args_str = args
-                        .iter()
-                        .map(|arg| arg.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    write!(f, "{}({})", name, args_str)
-                }
+                write!(f, "{}", format_function_call(name, args))
             }
             Self::VariableReference(var_name) => write!(f, "{}", var_name),
             Self::ClassInstantiation(class_name) => write!(f, "{}()", class_name),
-            Self::PropertyAccess(object, property) => write!(f, "{}.{}", object, property),
+            Self::PropertyAccess(object, property) => {
+                write!(f, "{}", format_property_access(object, property))
+            }
             Self::MethodCall(object, method, args) => {
-                if args.is_empty() {
-                    write!(f, "{}.{}()", object, method)
-                } else {
-                    let args_str = args
-                        .iter()
-                        .map(|arg| arg.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    write!(f, "{}.{}({})", object, method, args_str)
-                }
+                write!(f, "{}", format_method_call(object, method, args))
             }
         }
     }
@@ -78,345 +64,118 @@ impl Expression {
         defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
-        // 15% arithmetic, 10% boolean, 5% string literal, 15% function call, 10% variable reference, 10% class instantiation, 15% property access, 20% method call
-        match rng.random_range(0..100) {
-            0..=14 => Self::Arithmetic(ArithmeticExpression::generate_random_expression(
-                max_depth,
-                external_functions.clone(),
-                external_variables,
-                rng,
-            )),
-            15..=19 => Self::generate_random_string_literal(rng),
-            20..=29 => Self::Boolean(BooleanExpression::generate_random_boolean_expression(
-                max_depth,
-                external_functions.clone(),
-                external_variables,
-                rng,
-            )),
-            30..=44 => {
-                // Generate function call if external_functions is provided and not empty
-                if let Some(functions) = external_functions {
-                    let functions_borrowed = functions.borrow();
-                    if !functions_borrowed.is_empty() {
-                        // Only allow top-level functions to avoid cross-class method calls
-                        let available_functions: Vec<_> = functions_borrowed
-                            .iter()
-                            .filter(|func| !func.is_class_method())
-                            .collect();
-
-                        if !available_functions.is_empty() {
-                            let function = available_functions.choose(rng).unwrap();
-                            let function_name = function.get_name().to_string();
-
-                            // Generate arguments that match function parameter types
-                            let mut args = Vec::with_capacity(function.get_parameters().len());
-                            for param in function.get_parameters() {
-                                let param_type = param.get_type();
-                                let arg = if let Some(variables) = external_variables {
-                                    // Try to find a variable of matching type first
-                                    let matching_vars: Vec<_> = variables
-                                        .iter()
-                                        .filter(|var| var.get_class() == Some(param_type))
-                                        .collect();
-
-                                    if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
-                                        // 67% chance to use matching variable
-                                        let variable = matching_vars.choose(rng).unwrap();
-                                        Self::VariableReference(variable.get_name().to_string())
-                                    } else {
-                                        // Generate expression of matching type
-                                        Self::generate_expression_for_type(
-                                            param_type,
-                                            max_depth.saturating_sub(1),
-                                            Some(functions.clone()),
-                                            external_variables,
-                                            rng,
-                                        )
-                                    }
-                                } else {
-                                    // Generate expression of matching type
-                                    Self::generate_expression_for_type(
-                                        param_type,
-                                        max_depth.saturating_sub(1),
-                                        Some(functions.clone()),
-                                        external_variables,
-                                        rng,
-                                    )
-                                };
-                                args.push(arg);
-                            }
-
-                            return Self::FunctionCall(function_name, args);
-                        }
-                    }
-                }
-                // Fallback to arithmetic expression if no functions available
-                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
+        // Generate different types of expressions based on probability
+        match rng.random_range(0..=9) {
+            0..=2 => {
+                // Arithmetic expressions (30% probability)
+                Self::Arithmetic(ArithmeticExpression::generate_random_expression_untyped(
                     max_depth,
-                    None,
+                    external_functions,
                     external_variables,
                     rng,
                 ))
             }
-            45..=54 => {
-                // Generate class instantiation if defined_classes is provided and not empty
-                if let Some(classes) = defined_classes
-                    && !classes.is_empty()
-                {
-                    // Filter for custom classes only
-                    let custom_classes: Vec<_> = classes
+            3 => {
+                // Boolean expressions (10% probability)
+                Self::Boolean(BooleanExpression::generate_random_boolean_expression(
+                    max_depth,
+                    external_functions,
+                    external_variables,
+                    rng,
+                ))
+            }
+            4 => {
+                // String expressions (10% probability)
+                Self::generate_random_string_literal(rng)
+            }
+            5 => {
+                // Function calls (10% probability)
+                if let Some(functions) = &external_functions {
+                    let functions = functions.borrow();
+                    if !functions.is_empty() {
+                        let function = functions.choose(rng).unwrap();
+                        let args = Self::generate_function_call_args(
+                            function.get_parameters(),
+                            max_depth.saturating_sub(1),
+                            external_functions.clone(),
+                            external_variables,
+                            rng,
+                        );
+                        Self::FunctionCall(function.get_name().to_string(), args)
+                    } else {
+                        Self::generate_random_string_literal(rng)
+                    }
+                } else {
+                    Self::generate_random_string_literal(rng)
+                }
+            }
+            6..=8 => {
+                // Method calls (10% probability) - if we have classes and methods
+                if let Some(classes) = defined_classes {
+                    let class_methods: Vec<_> = classes
                         .iter()
-                        .filter(|class| matches!(class, Class::Custom(_)))
+                        .filter_map(|class| {
+                            if let Class::Custom(custom_class) = class {
+                                Some(custom_class.get_methods())
+                            } else {
+                                None
+                            }
+                        })
+                        .flatten()
                         .collect();
 
-                    if !custom_classes.is_empty() {
-                        let class = custom_classes.choose(rng).unwrap();
-                        if let Class::Custom(custom_class) = class {
-                            return Self::ClassInstantiation(custom_class.get_name());
-                        }
+                    if !class_methods.is_empty() {
+                        let method = class_methods.choose(rng).unwrap();
+                        let args = Self::generate_function_call_args(
+                            method.get_parameters(),
+                            max_depth.saturating_sub(1),
+                            external_functions.clone(),
+                            external_variables,
+                            rng,
+                        );
+                        // Use a simple object name for method calls
+                        let object_name = if let Some(variables) = external_variables {
+                            let objects: Vec<_> = variables
+                                .iter()
+                                .filter(|v| {
+                                    v.get_class().is_some_and(|c| matches!(c, Class::Custom(_)))
+                                })
+                                .collect();
+                            if !objects.is_empty() {
+                                objects.choose(rng).unwrap().get_name().to_string()
+                            } else {
+                                "obj".to_string()
+                            }
+                        } else {
+                            "obj".to_string()
+                        };
+                        Self::MethodCall(object_name, method.get_name().to_string(), args)
+                    } else {
+                        Self::generate_random_string_literal(rng)
                     }
+                } else {
+                    Self::generate_random_string_literal(rng)
                 }
-                // Fallback to arithmetic expression if no custom classes available
-                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
-                    max_depth,
-                    None,
-                    external_variables,
-                    rng,
-                ))
             }
-            55..=64 => {
-                // Generate variable reference if external_variables is provided and not empty
-                if let Some(variables) = external_variables
-                    && !variables.is_empty()
-                {
-                    let variable = variables.choose(rng).unwrap();
-                    return Self::VariableReference(variable.get_name().to_string());
-                }
-                // Fallback to arithmetic expression if no variables available
-                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
-                    max_depth,
-                    None,
-                    external_variables,
-                    rng,
-                ))
-            }
-            65..=79 => {
-                // Generate property access if we have custom classes and variables
-                if let (Some(classes), Some(variables)) = (defined_classes, external_variables)
-                    && !classes.is_empty()
-                    && !variables.is_empty()
-                {
-                    // Find custom classes
-                    let custom_classes: Vec<_> = classes
+            9 => {
+                // Property access (10% probability)
+                if let Some(variables) = external_variables {
+                    let objects: Vec<_> = variables
                         .iter()
-                        .filter(|class| matches!(class, Class::Custom(_)))
+                        .filter(|v| v.get_class().is_some_and(|c| matches!(c, Class::Custom(_))))
                         .collect();
-
-                    if !custom_classes.is_empty() {
-                        // Find variables that are custom class instances
-                        let custom_vars: Vec<_> = variables
-                            .iter()
-                            .filter(|var| {
-                                if let Some(var_type) = var.get_class() {
-                                    matches!(var_type, Class::Custom(_))
-                                } else {
-                                    false
-                                }
-                            })
-                            .collect();
-
-                        if !custom_vars.is_empty() {
-                            let object_var = custom_vars.choose(rng).unwrap();
-                            let object_type = object_var.get_class().unwrap();
-
-                            if let Class::Custom(custom_class) = object_type {
-                                // Find public properties of this class only
-                                let public_properties: Vec<_> = custom_class
-                                    .properties
-                                    .iter()
-                                    .filter(|prop| {
-                                        // Check if property is public
-                                        prop.get_prefix().get_visibility().is_public()
-                                    })
-                                    .collect();
-
-                                if !public_properties.is_empty() {
-                                    let property = public_properties.choose(rng).unwrap();
-                                    return Self::PropertyAccess(
-                                        object_var.get_name().to_string(),
-                                        property.get_name().to_string(),
-                                    );
-                                }
-                            }
-                        }
+                    if !objects.is_empty() {
+                        let object = objects.choose(rng).unwrap();
+                        let property_name = format!("prop_{}", rng.random_range(0..100));
+                        Self::PropertyAccess(object.get_name().to_string(), property_name)
+                    } else {
+                        Self::generate_random_string_literal(rng)
                     }
+                } else {
+                    Self::generate_random_string_literal(rng)
                 }
-                // Fallback to variable reference if no property access possible
-                if let Some(variables) = external_variables
-                    && !variables.is_empty()
-                {
-                    let variable = variables.choose(rng).unwrap();
-                    return Self::VariableReference(variable.get_name().to_string());
-                }
-                // Final fallback to arithmetic expression
-                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
-                    max_depth,
-                    None,
-                    external_variables,
-                    rng,
-                ))
             }
-            80..=99 => {
-                // Generate method call if we have functions (simplified condition)
-                if let Some(functions) = external_functions {
-                    let functions_borrowed = functions.borrow();
-                    if !functions_borrowed.is_empty() {
-                        // Find public methods (any public function can be called as a method)
-                        let public_methods: Vec<_> = functions_borrowed
-                            .iter()
-                            .filter(|func| func.get_visibility().is_public())
-                            .collect();
-
-                        if !public_methods.is_empty() {
-                            // Try to find variables that are custom class instances
-                            let custom_vars: Vec<_> = if let Some(variables) = external_variables {
-                                variables
-                                    .iter()
-                                    .filter(|var| {
-                                        if let Some(var_type) = var.get_class() {
-                                            matches!(var_type, Class::Custom(_))
-                                        } else {
-                                            false
-                                        }
-                                    })
-                                    .collect()
-                            } else {
-                                Vec::new()
-                            };
-
-                            // If we have custom class instances, use them; otherwise, create a simple method call
-                            if !custom_vars.is_empty() {
-                                // Use custom class instance as object
-                                let object_var = custom_vars.choose(rng).unwrap();
-                                let method = public_methods.choose(rng).unwrap();
-                                let method_name = method.get_name().to_string();
-
-                                // Generate arguments that match method parameter types
-                                let mut args = Vec::with_capacity(method.get_parameters().len());
-                                for param in method.get_parameters() {
-                                    let param_type = param.get_type();
-                                    let arg = if let Some(variables) = external_variables {
-                                        // Try to find a variable of matching type first
-                                        let matching_vars: Vec<_> = variables
-                                            .iter()
-                                            .filter(|var| var.get_class() == Some(param_type))
-                                            .collect();
-
-                                        if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
-                                            // 67% chance to use matching variable
-                                            let variable = matching_vars.choose(rng).unwrap();
-                                            Self::VariableReference(variable.get_name().to_string())
-                                        } else {
-                                            // Generate expression of matching type
-                                            Self::generate_expression_for_type(
-                                                param_type,
-                                                max_depth.saturating_sub(1),
-                                                Some(functions.clone()),
-                                                external_variables,
-                                                rng,
-                                            )
-                                        }
-                                    } else {
-                                        // Generate expression of matching type
-                                        Self::generate_expression_for_type(
-                                            param_type,
-                                            max_depth.saturating_sub(1),
-                                            Some(functions.clone()),
-                                            external_variables,
-                                            rng,
-                                        )
-                                    };
-                                    args.push(arg);
-                                }
-
-                                return Self::MethodCall(
-                                    object_var.get_name().to_string(),
-                                    method_name,
-                                    args,
-                                );
-                            } else {
-                                // Fallback: create a simple method call with a generated object name
-                                let method = public_methods.choose(rng).unwrap();
-                                let method_name = method.get_name().to_string();
-                                let object_name = format!("obj_{}", rng.random_range(0..1000));
-
-                                // Generate arguments that match method parameter types
-                                let mut args = Vec::with_capacity(method.get_parameters().len());
-                                for param in method.get_parameters() {
-                                    let param_type = param.get_type();
-                                    let arg = if let Some(variables) = external_variables {
-                                        // Try to find a variable of matching type first
-                                        let matching_vars: Vec<_> = variables
-                                            .iter()
-                                            .filter(|var| var.get_class() == Some(param_type))
-                                            .collect();
-
-                                        if !matching_vars.is_empty() && rng.random_bool(2.0 / 3.0) {
-                                            // 67% chance to use matching variable
-                                            let variable = matching_vars.choose(rng).unwrap();
-                                            Self::VariableReference(variable.get_name().to_string())
-                                        } else {
-                                            // Generate expression of matching type
-                                            Self::generate_expression_for_type(
-                                                param_type,
-                                                max_depth.saturating_sub(1),
-                                                Some(functions.clone()),
-                                                external_variables,
-                                                rng,
-                                            )
-                                        }
-                                    } else {
-                                        // Generate expression of matching type
-                                        Self::generate_expression_for_type(
-                                            param_type,
-                                            max_depth.saturating_sub(1),
-                                            Some(functions.clone()),
-                                            external_variables,
-                                            rng,
-                                        )
-                                    };
-                                    args.push(arg);
-                                }
-
-                                return Self::MethodCall(object_name, method_name, args);
-                            }
-                        }
-                    }
-                }
-                // Fallback to variable reference if no method call possible
-                if let Some(variables) = external_variables
-                    && !variables.is_empty()
-                {
-                    let variable = variables.choose(rng).unwrap();
-                    return Self::VariableReference(variable.get_name().to_string());
-                }
-                // Final fallback to arithmetic expression
-                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
-                    max_depth,
-                    None,
-                    external_variables,
-                    rng,
-                ))
-            }
-            _ => {
-                // Fallback to arithmetic expression
-                Self::Arithmetic(ArithmeticExpression::generate_random_expression(
-                    max_depth,
-                    None,
-                    external_variables,
-                    rng,
-                ))
-            }
+            _ => unreachable!(),
         }
     }
 
@@ -434,17 +193,34 @@ impl Expression {
 
     /// Generate a random string literal
     pub fn generate_random_string_literal<T: Rng + SeedableRng>(rng: &mut T) -> Self {
-        // Generate a random string with 3-10 characters
         let length = rng.random_range(3..=10);
         let mut chars = Vec::with_capacity(length);
-
-        // Generate random characters from the safe set
         for _ in 0..length {
             chars.push(SAFE_CHARS.choose(rng).unwrap());
         }
+        Self::StringLiteral(chars.into_iter().collect::<String>())
+    }
 
-        let string = chars.into_iter().collect::<String>();
-        Self::StringLiteral(string)
+    /// Generate function call arguments based on parameter types
+    pub fn generate_function_call_args<T: Rng + SeedableRng>(
+        parameters: &[Parameter],
+        max_depth: usize,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
+        external_variables: Option<&[Variable]>,
+        rng: &mut T,
+    ) -> Vec<Self> {
+        parameters
+            .iter()
+            .map(|param| {
+                Self::generate_expression_for_type(
+                    param.get_type(),
+                    max_depth,
+                    external_functions.clone(),
+                    external_variables,
+                    rng,
+                )
+            })
+            .collect()
     }
 
     /// Check if this expression is primarily an integer type
@@ -569,8 +345,9 @@ impl Expression {
                 Self::generate_random_string_literal(rng)
             }
             Class::Basic(BasicType::Char) => {
-                // Generate char expression (for now, generate a random char)
-                Self::StringLiteral(format!("'{}'", (rng.random_range(32..127) as u8) as char))
+                // Generate char expression as arithmetic expression with char literal
+                let char_value = rng.random_range(32..127) as u8 as char;
+                Self::Arithmetic(ArithmeticExpression::Char(char_value))
             }
             Class::Custom(custom_class) => {
                 // Generate class instantiation for custom classes

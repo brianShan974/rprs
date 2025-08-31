@@ -1,13 +1,10 @@
 use rand::{Rng, SeedableRng};
 
-use std::cell::RefCell;
 use std::fmt::Display;
-use std::rc::Rc;
 
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
-use crate::basic::body::fun::function::Function;
-use crate::basic::cls::class::{Class, INT};
-use crate::basic::utils::generate_random_identifier;
+use crate::basic::cls::class::INT;
+use crate::basic::utils::{GenerationConfig, generate_random_identifier};
 use crate::basic::var::prefix::var_prefix::VariablePrefix;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
@@ -32,64 +29,6 @@ pub struct ForStatement {
 impl ForStatement {
     pub const MAX_DEPTH: usize = 5;
 
-    pub fn generate_random_for_statement<T: Rng + SeedableRng>(
-        external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
-        max_depth: usize,
-        rng: &mut T,
-    ) -> Option<Self> {
-        if max_depth == 0 {
-            return None;
-        }
-
-        // Generate loop variable name
-        let loop_variable_name = generate_random_identifier(rng);
-
-        // Create loop variable (but don't add it to external variables)
-        let loop_variable = Variable::new(
-            VariablePrefix::default(),
-            loop_variable_name.clone(),
-            None,
-            Some(INT),
-        );
-
-        // Only generate range loop
-        let loop_type = ForLoopType::RangeLoop {
-            start: rng.random_range(0..10),
-            end: rng.random_range(10..50),
-            step: if rng.random_bool(1.0 / 2.0) {
-                Some(rng.random_range(1..5))
-            } else {
-                None
-            },
-        };
-
-        // Generate loop body with smaller depth limit
-        // Create a combined list that includes the loop variable for the loop body scope
-        let loop_body_variables: Vec<Variable> = external_variables
-            .iter()
-            .map(|v| v.to_owned())
-            .chain(std::iter::once(loop_variable.clone()))
-            .collect();
-
-        let loop_block = Block::generate_random_block(
-            &loop_body_variables, // Include loop variable in loop body scope
-            external_functions,
-            current_indentation_layer,
-            false,
-            max_depth - 1,
-            rng,
-        )?;
-
-        Some(Self {
-            current_indentation_layer,
-            loop_variable_name,
-            loop_block,
-            loop_type,
-        })
-    }
-
     pub fn get_loop_block(&self) -> &Block {
         &self.loop_block
     }
@@ -100,16 +39,13 @@ impl ForStatement {
 
     /// Generate a type-safe for statement with expected return type
     pub fn generate_type_safe_for_statement<T: Rng + SeedableRng>(
+        config: &mut GenerationConfig,
         external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
-        max_depth: usize,
         typed_context: &mut TypedGenerationContext,
         expected_return_type: Option<&Type>,
-        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Option<Self> {
-        if max_depth == 0 {
+        if config.max_depth == 0 {
             return None;
         }
 
@@ -142,20 +78,26 @@ impl ForStatement {
         };
 
         // Generate loop body with return type awareness using child context
-        let loop_block = Block::generate_type_safe_block_with_return_type(
+        let loop_block = Block::generate_type_safe_block_with_config(
+            &mut GenerationConfig::new(
+                external_variables.to_vec(),
+                config.external_functions.clone(),
+                config
+                    .defined_classes
+                    .as_ref()
+                    .map(|classes| classes.to_vec()),
+                config.current_indentation_layer,
+                config.max_depth - 1,
+            ),
             external_variables, // Use original external variables, not including loop variable
-            external_functions,
-            current_indentation_layer,
             false,
-            max_depth - 1,
             &mut loop_context, // Use the child context
             expected_return_type,
-            defined_classes, // Pass defined classes to block generation
             rng,
         )?;
 
         Some(Self {
-            current_indentation_layer,
+            current_indentation_layer: config.current_indentation_layer,
             loop_variable_name,
             loop_block,
             loop_type,
