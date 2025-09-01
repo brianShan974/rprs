@@ -1,7 +1,7 @@
 use rand::seq::IteratorRandom;
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
-use std::collections::HashSet;
+
 use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
@@ -44,7 +44,7 @@ pub fn generate_random_identifier<T: Rng + SeedableRng>(rng: &mut T) -> String {
 /// Generate a unique identifier that doesn't exist in the given set
 pub fn generate_unique_identifier<T: Rng + SeedableRng>(
     rng: &mut T,
-    existing_names: &mut HashSet<String>,
+    existing_names: &mut Vec<String>,
 ) -> String {
     let base_identifier = generate_random_identifier(rng);
     let mut identifier = base_identifier.clone();
@@ -56,8 +56,8 @@ pub fn generate_unique_identifier<T: Rng + SeedableRng>(
         counter += 1;
     }
 
-    // Add the unique identifier to the set
-    existing_names.insert(identifier.clone());
+    // Add the unique identifier to the vector
+    existing_names.push(identifier.clone());
     identifier
 }
 
@@ -109,7 +109,13 @@ pub fn generate_random_expression_default<T: Rng + SeedableRng>(
     defined_classes: Option<&[Class]>,
     rng: &mut T,
 ) -> Expression {
-    Expression::generate_random_expression(max_depth, external_functions, external_variables, defined_classes, rng)
+    Expression::generate_random_expression(
+        max_depth,
+        external_functions,
+        external_variables,
+        defined_classes,
+        rng,
+    )
 }
 
 /// Generate a random expression with functions
@@ -247,7 +253,7 @@ pub struct GenerationConfig {
     pub current_indentation_layer: usize,
     pub max_depth: usize,
     pub typed_context: Option<Rc<RefCell<TypedGenerationContext>>>,
-    pub existing_names: HashSet<String>,
+    pub existing_names: Vec<String>,
 }
 
 impl GenerationConfig {
@@ -265,7 +271,7 @@ impl GenerationConfig {
             current_indentation_layer,
             max_depth,
             typed_context: None,
-            existing_names: HashSet::new(),
+            existing_names: Vec::new(),
         }
     }
 
@@ -277,7 +283,7 @@ impl GenerationConfig {
         self
     }
 
-    pub fn with_existing_names(mut self, existing_names: HashSet<String>) -> Self {
+    pub fn with_existing_names(mut self, existing_names: Vec<String>) -> Self {
         self.existing_names = existing_names;
         self
     }

@@ -1,7 +1,8 @@
 use rand::{Rng, SeedableRng};
 
+use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::HashSet;
+
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -66,7 +67,7 @@ impl File {
             let mut function_config = GenerationConfig::new(
                 Vec::new(),
                 external_functions.clone(),
-                Some(defined_classes.clone()),
+                Some(defined_classes.clone()), // TODO: optimize to use Cow
                 0,
                 5,
             );
@@ -111,7 +112,7 @@ impl File {
         // Generate type-safe classes FIRST
         let num_classes = rng.random_range(1..=Self::MAX_CLASSES); // 确保至少生成一个类
         let mut classes = Vec::with_capacity(num_classes);
-        let mut existing_names = HashSet::new();
+        let mut existing_names = Vec::new();
 
         for _ in 0..num_classes {
             let mut typed_context = TypedGenerationContext::new(Rc::new(RefCell::new(Vec::new())));
@@ -121,7 +122,7 @@ impl File {
                 None,
                 Some(&mut existing_names),
             );
-            existing_names.insert(class.get_name().to_string());
+            existing_names.push(class.get_name().to_string());
             classes.push(class);
         }
 
@@ -143,10 +144,17 @@ impl File {
             // Set the defined classes for variable generation
             typed_context.set_defined_classes(defined_classes.clone());
 
+            // Use Cow to avoid unnecessary cloning
+            let all_vars_cow: Cow<[Variable]> = if all_variables.is_empty() {
+                Cow::Borrowed(&[])
+            } else {
+                Cow::Borrowed(&all_variables)
+            };
+            
             let mut function_config = GenerationConfig::new(
-                all_variables.clone(), // Pass variables from previous functions for proper scope
+                all_vars_cow.to_vec(), // Only clone when necessary
                 external_functions.clone(),
-                Some(defined_classes.clone()), // Pass defined classes to function generation
+                Some(defined_classes.clone()), // TODO: optimize to use Cow
                 0,
                 5,
             )
@@ -159,13 +167,13 @@ impl File {
                 &mut typed_context,
                 rng,
             ) {
-                existing_names.insert(function.get_name().to_string());
+                existing_names.push(function.get_name().to_string());
                 functions.push(function);
 
                 // Extract variables from the generated function and add them to all_variables
                 // This allows subsequent functions to access variables from previous functions
                 let function_variables = typed_context.get_mutable_variables();
-                all_variables.extend(function_variables);
+                all_variables.extend(function_variables.iter().map(|v| (*v).clone()));
             }
         }
 

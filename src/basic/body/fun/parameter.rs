@@ -1,6 +1,7 @@
 use rand::{Rng, SeedableRng, seq::IndexedRandom};
 
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::basic::{
     cls::class::{BASIC_TYPES, Class},
@@ -11,13 +12,13 @@ use crate::basic::{
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Parameter {
     name: String,
-    ty: Class,
+    ty: Rc<Class>,
 }
 
 impl Parameter {
     pub const MAX_COUNT: usize = 4;
 
-    pub fn new(name: String, ty: Class) -> Self {
+    pub fn new(name: String, ty: Rc<Class>) -> Self {
         Self { name, ty }
     }
 
@@ -30,12 +31,12 @@ impl Parameter {
             // Fallback to a basic type if no classes are available
             Self {
                 name: generate_random_identifier(rng),
-                ty: BASIC_TYPES.choose(rng).unwrap().clone(),
+                ty: Rc::new(BASIC_TYPES.choose(rng).unwrap().clone()),
             }
         } else {
             Self {
                 name: generate_random_identifier(rng),
-                ty: defined_classes.choose(rng).unwrap().clone(),
+                ty: Rc::new(defined_classes.choose(rng).unwrap().clone()),
             }
         }
     }
@@ -59,7 +60,7 @@ impl Parameter {
     }
 
     pub fn get_type(&self) -> &Class {
-        &self.ty
+        self.ty.as_ref()
     }
 }
 
@@ -75,7 +76,7 @@ impl From<Parameter> for Variable {
             VariablePrefix::default(),
             parameter.name,
             None,
-            Some(parameter.ty.clone()),
+            Some(parameter.ty),
         )
     }
 }

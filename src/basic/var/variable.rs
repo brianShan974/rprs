@@ -22,13 +22,13 @@ pub struct Variable {
     prefix: VariablePrefix,
     name: String,
     value: Option<Expression>,
-    ty: Option<Class>,
+    ty: Option<Rc<Class>>,
 }
 
 impl Variable {
     pub fn output_declaration(&self) -> String {
-        match self.ty {
-            Some(ref ty) => format!("{} {}: {}", self.prefix, self.name, ty.get_name()),
+        match &self.ty {
+            Some(ty) => format!("{} {}: {}", self.prefix, self.name, ty.get_name()),
             _ => format!("{} {}", self.prefix, self.name),
         }
     }
@@ -40,8 +40,8 @@ impl Variable {
     }
 
     pub fn output_init(&self) -> Option<String> {
-        self.value.as_ref().map(|value| match self.ty {
-            Some(ref ty) => format!(
+        self.value.as_ref().map(|value| match &self.ty {
+            Some(ty) => format!(
                 "{} {}: {} = {}",
                 self.prefix,
                 self.name,
@@ -65,7 +65,7 @@ impl Variable {
     }
 
     pub fn get_class(&self) -> Option<&Class> {
-        self.ty.as_ref()
+        self.ty.as_ref().map(|rc| rc.as_ref())
     }
 
     pub fn get_value(&self) -> Option<&Expression> {
@@ -278,7 +278,7 @@ impl Variable {
             prefix,
             name,
             value,
-            ty,
+            ty: ty.map(|t| Rc::new(t)),
         }
     }
 
@@ -317,7 +317,7 @@ impl Variable {
                             rng,
                         ))
                     };
-                    (Some(expr), target_type.clone())
+                    (Some(expr), target_type.clone().map(|t| Rc::new(t)))
                 }
                 Some(FLOAT) | Some(DOUBLE) => {
                     // Generate float arithmetic expression that can include variable references
@@ -341,7 +341,7 @@ impl Variable {
                             rng,
                         ))
                     };
-                    (Some(expr), target_type.clone())
+                    (Some(expr), target_type.clone().map(|t| Rc::new(t)))
                 }
                 Some(BOOLEAN) => {
                     // Generate boolean expression
@@ -352,17 +352,17 @@ impl Variable {
                         // For var/val, can generate any boolean expression
                         Expression::Boolean(BooleanExpression::Literal(rng.random()))
                     };
-                    (Some(expr), target_type.clone())
+                    (Some(expr), target_type.clone().map(|t| Rc::new(t)))
                 }
                 Some(STRING) => {
                     // Generate string literal
                     let expr = Expression::generate_random_string_literal(rng);
-                    (Some(expr), target_type.clone())
+                    (Some(expr), target_type.clone().map(|t| Rc::new(t)))
                 }
                 Some(Class::Custom(custom_class)) => {
                     // Generate custom class instantiation
                     let expr = Expression::ClassInstantiation(custom_class.get_name());
-                    (Some(expr), target_type.clone())
+                    (Some(expr), target_type.clone().map(|t| Rc::new(t)))
                 }
                 _ => {
                     // Default to integer arithmetic expression with possible variable references
@@ -374,12 +374,12 @@ impl Variable {
                             external_variables,
                             rng,
                         ));
-                    let inferred_type = Some(INT);
+                    let inferred_type = Some(Rc::new(INT));
                     (Some(expr), inferred_type)
                 }
             }
         } else {
-            (None, target_type)
+            (None, target_type.map(|t| Rc::new(t)))
         };
 
         Self {

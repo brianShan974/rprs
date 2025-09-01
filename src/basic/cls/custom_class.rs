@@ -1,6 +1,6 @@
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
-use std::collections::HashSet;
+
 use std::fmt;
 use std::rc::Rc;
 
@@ -15,7 +15,7 @@ use crate::type_system::TypedGenerationContext;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CustomClass {
     pub name: String,
-    pub properties: Vec<Variable>,
+    pub properties: Vec<Rc<Variable>>,
     pub methods: Vec<Function>,
     pub current_indentation_layer: usize,
 }
@@ -38,7 +38,7 @@ impl CustomClass {
     }
 
     pub fn add_property(&mut self, property: Variable) {
-        self.properties.push(property);
+        self.properties.push(Rc::new(property));
     }
 
     pub fn add_method(&mut self, method: Function) {
@@ -53,9 +53,9 @@ impl CustomClass {
         rng: &mut T,
         defined_classes: Option<&mut Vec<Class>>,
         current_indentation_layer: Option<usize>,
-        existing_names: Option<&mut HashSet<String>>,
+        existing_names: Option<&mut Vec<String>>,
     ) -> Self {
-        let mut existing_names = existing_names.unwrap_or(&mut HashSet::new()).clone();
+        let mut existing_names = existing_names.unwrap_or(&mut Vec::new()).clone();
         let name = generate_unique_identifier(rng, &mut existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let mut custom_class = Self::new(name, current_indentation_layer);
@@ -78,7 +78,9 @@ impl CustomClass {
                 .map(|var| {
                     Parameter::new(
                         var.get_name().to_string(),
-                        var.get_class().cloned().unwrap_or(FLOAT),
+                        var.get_class()
+                            .map(|c| Rc::new(c.clone()))
+                            .unwrap_or_else(|| Rc::new(FLOAT.clone())),
                     )
                 })
                 .collect();
@@ -122,9 +124,9 @@ impl CustomClass {
         rng: &mut T,
         typed_context: &mut TypedGenerationContext,
         current_indentation_layer: Option<usize>,
-        existing_names: Option<&mut HashSet<String>>,
+        existing_names: Option<&mut Vec<String>>,
     ) -> Self {
-        let mut existing_names = existing_names.unwrap_or(&mut HashSet::new()).clone();
+        let mut existing_names = existing_names.unwrap_or(&mut Vec::new()).clone();
         let name = generate_unique_identifier(rng, &mut existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let mut custom_class = Self::new(name, current_indentation_layer);
@@ -147,7 +149,9 @@ impl CustomClass {
                 .map(|var| {
                     Parameter::new(
                         var.get_name().to_string(),
-                        var.get_class().cloned().unwrap_or(FLOAT),
+                        var.get_class()
+                            .map(|c| Rc::new(c.clone()))
+                            .unwrap_or_else(|| Rc::new(FLOAT.clone())),
                     )
                 })
                 .collect();
@@ -156,7 +160,13 @@ impl CustomClass {
             let mut method_typed_context =
                 TypedGenerationContext::new(typed_context.get_external_functions());
             // Set defined classes in the method context so variables can use custom types
-            method_typed_context.set_defined_classes(typed_context.get_defined_classes().to_vec());
+            method_typed_context.set_defined_classes(
+                typed_context
+                    .get_defined_classes()
+                    .iter()
+                    .map(|rc| rc.as_ref().clone())
+                    .collect(),
+            );
 
             // Also add the current class to the defined classes if it's not already there
             let current_class = Class::Custom(custom_class.clone());
@@ -166,8 +176,10 @@ impl CustomClass {
                 .any(|c| c.get_name() == current_class.get_name())
             {
                 let mut all_classes = method_typed_context.get_defined_classes().to_vec();
-                all_classes.push(current_class);
-                method_typed_context.set_defined_classes(all_classes);
+                all_classes.push(Rc::new(current_class));
+                method_typed_context.set_defined_classes(
+                    all_classes.iter().map(|rc| rc.as_ref().clone()).collect(),
+                );
             }
 
             // Generate a type-safe method with explicit return type
@@ -201,7 +213,13 @@ impl CustomClass {
                 .map(|p| p.clone().into())
                 .collect(),
             typed_context.get_external_functions(),
-            Some(typed_context.get_defined_classes().to_vec()), // Pass defined classes for method generation
+            Some(
+                typed_context
+                    .get_defined_classes()
+                    .iter()
+                    .map(|rc| rc.as_ref().clone())
+                    .collect(),
+            ), // Pass defined classes for method generation
             current_indentation_layer + 1,
             5, // Max depth for class methods
         );

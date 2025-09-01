@@ -8,6 +8,7 @@ use crate::basic::{
 };
 use crate::type_system::{Type, TypedGenerationContext};
 use rand::{Rng, SeedableRng};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -67,7 +68,7 @@ impl Block {
             &mut GenerationConfig::new(
                 external_variables.to_vec(),
                 external_functions,
-                Some(typed_context.get_defined_classes().to_vec()), // Pass defined classes from typed context
+                Some(typed_context.get_defined_classes().iter().map(|rc| rc.as_ref().clone()).collect()), // Pass defined classes from typed context
                 current_indentation_layer,
                 max_depth,
             ),
@@ -106,12 +107,15 @@ impl Block {
             new_variables.push(new_var);
         }
 
-        // Create combined external variables for child blocks
-        let combined_external_variables: Vec<Variable> = external_variables
-            .iter()
-            .map(|v| v.to_owned())
-            .chain(new_variables.iter().map(|v| v.to_owned()))
-            .collect();
+        // Create combined external variables for child blocks - use Cow to avoid unnecessary cloning
+        let combined_external_variables: Cow<[Variable]> = if new_variables.is_empty() {
+            Cow::Borrowed(external_variables)
+        } else {
+            let mut combined = Vec::with_capacity(external_variables.len() + new_variables.len());
+            combined.extend_from_slice(external_variables);
+            combined.extend_from_slice(&new_variables);
+            Cow::Owned(combined)
+        };
 
         let num_statements = rng.random_range(1..=Self::MAX_NUM_STATEMENTS);
         let mut statements = Vec::with_capacity(num_statements + new_variables.len());
@@ -127,12 +131,12 @@ impl Block {
         for _ in 0..num_statements {
             statements.push(Statement::generate_type_safe_statement_with_return_type(
                 &mut GenerationConfig::new(
-                    combined_external_variables.clone(),
+                    combined_external_variables.to_vec(), // Only clone when necessary
                     config.external_functions.clone(),
                     config
                         .defined_classes
                         .as_ref()
-                        .map(|classes| classes.to_vec()),
+                        .map(|classes| classes.to_vec()), // TODO: optimize to avoid cloning
                     config.current_indentation_layer + 1,
                     config.max_depth - 1,
                 ),

@@ -1,6 +1,7 @@
 use rand::{Rng, SeedableRng};
 
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::basic::body::block::{Block, INDENT_SIZE, SPACE};
 use crate::basic::cls::class::INT;
@@ -57,7 +58,7 @@ impl ForStatement {
             VariablePrefix::default(),
             loop_variable_name.clone(),
             None,
-            Some(INT),
+            Some(Rc::new(INT)),
         );
 
         // Create a child context for the loop body to ensure proper variable scoping

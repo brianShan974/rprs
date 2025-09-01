@@ -9,6 +9,7 @@ use crate::basic::body::stmt::{
     for_statement::ForStatement, if_statement::IfStatement, single_statement::SingleStatement,
     when_statement::WhenStatement, while_statement::WhileStatement,
 };
+use std::borrow::Cow;
 
 use crate::basic::utils::GenerationConfig;
 use crate::basic::var::variable::Variable;
@@ -27,8 +28,6 @@ pub enum Statement {
 impl Statement {
     pub const MAX_DEPTH: usize = 5;
 
-
-
     /// Generate a type-safe statement using typed generation context
     pub fn generate_type_safe_statement<T: Rng + SeedableRng>(
         external_variables: &[Variable],
@@ -38,14 +37,19 @@ impl Statement {
         typed_context: &mut TypedGenerationContext,
         rng: &mut T,
     ) -> Option<Self> {
+        // Create a shared config to avoid cloning - use Cow for external variables
+        let external_vars_cow: Cow<[Variable]> = Cow::Borrowed(external_variables);
+
+        let mut shared_config = GenerationConfig::new(
+            external_vars_cow.to_vec(), // Only clone when necessary
+            external_functions,
+            Some(typed_context.get_defined_classes().iter().map(|rc| rc.as_ref().clone()).collect()), // TODO: optimize to avoid cloning
+            current_indentation_layer,
+            max_depth.unwrap_or(Self::MAX_DEPTH),
+        );
+
         Self::generate_type_safe_statement_with_return_type(
-            &mut GenerationConfig::new(
-                external_variables.to_vec(),
-                external_functions,
-                Some(typed_context.get_defined_classes().to_vec()), // Pass defined classes from typed context
-                current_indentation_layer,
-                max_depth.unwrap_or(Self::MAX_DEPTH),
-            ),
+            &mut shared_config,
             external_variables,
             max_depth,
             typed_context,

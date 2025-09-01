@@ -14,7 +14,7 @@ use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
 use crate::basic::utils::{
-    filter_numeric_variables, format_function_call, format_method_call, map_collect_join,
+    format_function_call, format_method_call, map_collect_join,
     select_enum_variant_with_probability,
 };
 use strum::IntoEnumIterator;
@@ -77,7 +77,12 @@ impl SingleStatement {
             external_functions,
             typed_context,
             None,
-            Some(&defined_classes), // Use defined classes from typed context
+            Some(
+                &defined_classes
+                    .iter()
+                    .map(|rc| rc.as_ref().clone())
+                    .collect::<Vec<_>>(),
+            ), // Use defined classes from typed context
             rng,
         )
     }
@@ -160,10 +165,13 @@ impl SingleStatement {
                 // Generate type-safe compound assignment (20% probability - increased)
                 // 70% chance for variable compound assignment, 30% chance for property compound assignment
                 if rng.random_bool(0.7) {
-                    // Generate variable compound assignment
+                    // Generate variable compound assignment - use efficient filtering without cloning
                     let all_mutable_vars = typed_context.get_mutable_variables();
-                    let numeric_mutable_vars: Vec<&Variable> =
-                        filter_numeric_variables(&all_mutable_vars);
+                    let numeric_mutable_vars: Vec<&Variable> = all_mutable_vars
+                        .iter()
+                        .filter(|v| v.is_numeric())
+                        .copied()
+                        .collect();
 
                     if !numeric_mutable_vars.is_empty() {
                         let var = numeric_mutable_vars.choose(rng).unwrap();

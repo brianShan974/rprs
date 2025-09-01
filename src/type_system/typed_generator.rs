@@ -46,7 +46,7 @@ pub struct TypedGenerationContext {
     /// Current class methods (if we're inside a class method)
     current_class_methods: Option<Vec<Function>>,
     /// Defined custom classes for expression generation
-    defined_classes: Vec<Class>,
+    defined_classes: Vec<Rc<Class>>,
 }
 
 impl TypedGenerationContext {
@@ -66,11 +66,11 @@ impl TypedGenerationContext {
     pub fn create_child_context(&self) -> Self {
         Self {
             type_checker: TypeChecker::default(),
-            variable_types: self.variable_types.clone(),
-            function_signatures: self.function_signatures.clone(),
+            variable_types: self.variable_types.clone(), // TODO: optimize to use Rc<HashMap>
+            function_signatures: self.function_signatures.clone(), // TODO: optimize to use Rc<HashMap>
             external_functions: self.external_functions.clone(),
-            current_class_methods: self.current_class_methods.clone(),
-            defined_classes: self.defined_classes.clone(),
+            current_class_methods: self.current_class_methods.clone(), // TODO: optimize to use Rc<Vec>
+            defined_classes: self.defined_classes.clone(), // TODO: optimize to use Rc<Vec>
         }
     }
 
@@ -110,11 +110,11 @@ impl TypedGenerationContext {
 
     /// Set the defined classes for expression generation
     pub fn set_defined_classes(&mut self, classes: Vec<Class>) {
-        self.defined_classes = classes;
+        self.defined_classes = classes.into_iter().map(|c| Rc::new(c)).collect();
     }
 
     /// Get the defined classes for expression generation
-    pub fn get_defined_classes(&self) -> &[Class] {
+    pub fn get_defined_classes(&self) -> &[Rc<Class>] {
         &self.defined_classes
     }
 
@@ -381,20 +381,20 @@ impl TypedGenerationContext {
         let target_type = if rng.random_bool(0.3) && !self.defined_classes.is_empty() {
             // 30% chance to generate a custom type variable
             let custom_class = self.defined_classes.choose(rng).unwrap();
-            match custom_class {
-                Class::Custom(custom_class) => Some(Class::Custom(custom_class.clone())),
-                _ => Some(FLOAT), // Fallback to FLOAT for non-custom classes
+            match &**custom_class {
+                Class::Custom(custom_class) => Some(Rc::new(Class::Custom(custom_class.clone()))),
+                _ => Some(Rc::new(FLOAT)), // Fallback to FLOAT for non-custom classes
             }
         } else {
             // 70% chance to generate a basic type variable
-            Some(FLOAT)
+            Some(Rc::new(FLOAT))
         };
 
         let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
         Variable::generate_random_variable_with_type(
             is_member,
             true,
-            target_type,
+            target_type.map(|rc| rc.as_ref().clone()),
             Some(&variables),
             rng,
         )
@@ -412,23 +412,28 @@ impl TypedGenerationContext {
             is_member,
             true,
             Some(&variables),
-            None,                        // No external functions
-            false,                       // Don't allow const
-            Some(&self.defined_classes), // Pass defined classes to increase custom type probability
+            None,  // No external functions
+            false, // Don't allow const
+            Some(
+                &self
+                    .defined_classes
+                    .iter()
+                    .map(|rc| rc.as_ref().clone())
+                    .collect::<Vec<_>>(),
+            ), // Pass defined classes to increase custom type probability
             rng,
         )
     }
 
-    /// Get available mutable variables for assignment
-    pub fn get_mutable_variables(&self) -> Vec<Variable> {
+    /// Get available mutable variables for assignment - return references to avoid cloning
+    pub fn get_mutable_variables(&self) -> Vec<&Variable> {
         self.variable_types
             .keys()
             .filter(|var| var.is_mutable())
-            .cloned()
             .collect()
     }
 
-    /// Get available functions for calling
+    /// Get available functions for calling - return owned strings to avoid borrowing issues
     pub fn get_available_functions(&self) -> Vec<String> {
         let functions = self.external_functions.borrow();
         functions.iter().map(|f| f.get_name().to_string()).collect()
@@ -1003,7 +1008,13 @@ impl TypedGenerationContext {
                         1,
                         external_functions.unwrap(),
                         Some(&variables),
-                        Some(&self.defined_classes), // Pass defined classes for method calls
+                        Some(
+                            &self
+                                .defined_classes
+                                .iter()
+                                .map(|rc| rc.as_ref().clone())
+                                .collect::<Vec<_>>(),
+                        ), // Pass defined classes for method calls
                         rng,
                     ))
                 }
@@ -1052,7 +1063,13 @@ impl TypedGenerationContext {
                     2,
                     external_functions.unwrap(),
                     Some(&variables),
-                    Some(&self.defined_classes), // Pass defined classes for method calls
+                    Some(
+                        &self
+                            .defined_classes
+                            .iter()
+                            .map(|rc| rc.as_ref().clone())
+                            .collect::<Vec<_>>(),
+                    ), // Pass defined classes for method calls
                     rng,
                 ))
             }
