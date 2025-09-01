@@ -155,6 +155,20 @@ impl CustomClass {
             // Create a separate typed context for each method to avoid recursion
             let mut method_typed_context =
                 TypedGenerationContext::new(typed_context.get_external_functions());
+            // Set defined classes in the method context so variables can use custom types
+            method_typed_context.set_defined_classes(typed_context.get_defined_classes().to_vec());
+
+            // Also add the current class to the defined classes if it's not already there
+            let current_class = Class::Custom(custom_class.clone());
+            if !method_typed_context
+                .get_defined_classes()
+                .iter()
+                .any(|c| c.get_name() == current_class.get_name())
+            {
+                let mut all_classes = method_typed_context.get_defined_classes().to_vec();
+                all_classes.push(current_class);
+                method_typed_context.set_defined_classes(all_classes);
+            }
 
             // Generate a type-safe method with explicit return type
             if let Some(method) = Self::generate_method_with_return_type(
@@ -191,6 +205,14 @@ impl CustomClass {
             current_indentation_layer + 1,
             5, // Max depth for class methods
         );
+
+        // Ensure the typed_context has the defined_classes set
+        if typed_context.get_defined_classes().is_empty() {
+            // If empty, we need to set it from the config
+            if let Some(classes) = &method_config.defined_classes {
+                typed_context.set_defined_classes(classes.clone());
+            }
+        }
 
         Function::generate_type_safe_function(
             &mut method_config,

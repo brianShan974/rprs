@@ -112,12 +112,16 @@ impl Display for ForStatement {
             ForLoopType::RangeLoop { start, end, step } => {
                 write!(
                     f,
-                    "{indentation}for ({} in {}..{}) ",
-                    self.loop_variable_name, start, end
+                    "{indentation}for ({} in {}..{}{}) ",
+                    self.loop_variable_name,
+                    start,
+                    end,
+                    if let Some(step) = step {
+                        format!(" step {}", step)
+                    } else {
+                        "".to_string()
+                    }
                 )?;
-                if let Some(step_val) = step {
-                    write!(f, "step {} ", step_val)?;
-                }
                 write!(f, "{}", self.loop_block)?;
             }
         }

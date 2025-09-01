@@ -408,11 +408,13 @@ impl TypedGenerationContext {
     ) -> Variable {
         // Generate a variable with a common numeric type for compatibility
         let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
-        Variable::generate_random_variable_with_const_control(
+        Variable::generate_random_variable_with_const_control_and_functions(
             is_member,
             true,
             Some(&variables),
-            false, // Don't allow const
+            None,                        // No external functions
+            false,                       // Don't allow const
+            Some(&self.defined_classes), // Pass defined classes to increase custom type probability
             rng,
         )
     }
@@ -520,6 +522,21 @@ impl TypedGenerationContext {
                     }
                 } else {
                     None
+                }
+            }
+            SingleStatement::PropertyCompoundAssignment(object_name, _property_name, _, _expr) => {
+                // For property compound assignment, we need to validate that the object exists
+                // and the property is accessible. This is a simplified validation.
+                let object_exists = self
+                    .variable_types
+                    .keys()
+                    .any(|v| v.get_name() == object_name);
+                if object_exists {
+                    // Validate expression type - for now, just accept as valid
+                    Some(())
+                } else {
+                    // Object not found in context, but might be external - allow for now
+                    Some(())
                 }
             }
             SingleStatement::MethodCall(object_name, _method_name, _args) => {

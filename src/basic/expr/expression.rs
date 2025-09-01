@@ -134,7 +134,7 @@ impl Expression {
                             rng,
                         );
                         // Use a simple object name for method calls
-                        let object_name = if let Some(variables) = external_variables {
+                        if let Some(variables) = external_variables {
                             let objects: Vec<_> = variables
                                 .iter()
                                 .filter(|v| {
@@ -142,14 +142,17 @@ impl Expression {
                                 })
                                 .collect();
                             if !objects.is_empty() {
-                                objects.choose(rng).unwrap().get_name().to_string()
+                                let object_name =
+                                    objects.choose(rng).unwrap().get_name().to_string();
+                                Self::MethodCall(object_name, method.get_name().to_string(), args)
                             } else {
-                                "obj".to_string()
+                                // No objects available, fallback to string literal
+                                Self::generate_random_string_literal(rng)
                             }
                         } else {
-                            "obj".to_string()
-                        };
-                        Self::MethodCall(object_name, method.get_name().to_string(), args)
+                            // No external variables, fallback to string literal
+                            Self::generate_random_string_literal(rng)
+                        }
                     } else {
                         Self::generate_random_string_literal(rng)
                     }
@@ -166,8 +169,26 @@ impl Expression {
                         .collect();
                     if !objects.is_empty() {
                         let object = objects.choose(rng).unwrap();
-                        let property_name = format!("prop_{}", rng.random_range(0..100));
-                        Self::PropertyAccess(object.get_name().to_string(), property_name)
+
+                        // Find the class of this object to get its real properties
+                        let object_class = object.get_class();
+                        if let Some(Class::Custom(custom_class)) = object_class {
+                            // Get real properties from the class - only public properties
+                            let public_properties: Vec<_> = custom_class
+                                .properties
+                                .iter()
+                                .filter(|prop| prop.get_prefix().get_visibility().is_public())
+                                .collect();
+                            if !public_properties.is_empty() {
+                                let property = public_properties.choose(rng).unwrap();
+                                let property_name = property.get_name().to_string();
+                                Self::PropertyAccess(object.get_name().to_string(), property_name)
+                            } else {
+                                Self::generate_random_string_literal(rng)
+                            }
+                        } else {
+                            Self::generate_random_string_literal(rng)
+                        }
                     } else {
                         Self::generate_random_string_literal(rng)
                     }

@@ -2,12 +2,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use derive_more::Constructor;
-use rand::{Rng, SeedableRng};
+use rand::{Rng, SeedableRng, seq::IndexedRandom};
 
 use super::prefix::var_prefix::VariablePrefix;
 use crate::basic::body::fun::function::Function;
 use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::class::{BOOLEAN, Class, DOUBLE, FLOAT, INT, STRING};
+use crate::basic::cls::custom_class::CustomClass;
 use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
 use crate::basic::expr::boolean_expression::BooleanExpression;
@@ -99,6 +100,7 @@ impl Variable {
             external_variables,
             None, // No external functions for backward compatibility
             allow_const,
+            None, // No defined classes for backward compatibility
             rng,
         )
     }
@@ -109,6 +111,7 @@ impl Variable {
         external_variables: Option<&[Variable]>,
         external_functions: Option<Rc<RefCell<Vec<Function>>>>,
         allow_const: bool,
+        defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
         let prefix =
@@ -116,30 +119,92 @@ impl Variable {
         let name = generate_random_identifier(rng);
         // First determine the type, then generate matching expression
         let ty = if with_initial_value {
-            // Choose type with adjusted probabilities
-            let types = [
-                Some(INT.clone()),
-                Some(INT.clone()),
-                Some(INT.clone()),
-                Some(INT.clone()),
-                Some(INT.clone()),
-                Some(INT.clone()),
-                Some(INT.clone()), // 35% Int
-                Some(FLOAT.clone()),
-                Some(FLOAT.clone()),
-                Some(FLOAT.clone()),
-                Some(FLOAT.clone()),
-                Some(FLOAT.clone()),
-                Some(FLOAT.clone()),
-                Some(FLOAT.clone()),   // 35% Float
-                Some(BOOLEAN.clone()), // 5% Boolean
-                Some(STRING.clone()),  // 5% String
-                Some(INT.clone()),
-                Some(INT.clone()),
-                Some(INT.clone()),
-                Some(INT.clone()), // 20% custom class (fallback to Int)
-            ];
-            types[rng.random_range(0..20)].clone()
+            // Choose type with adjusted probabilities, prioritizing custom classes
+            if let Some(classes) = defined_classes {
+                if !classes.is_empty() {
+                    // 60% chance for custom classes, 40% for basic types
+                    if rng.random_bool(0.6) {
+                        // Choose a random custom class
+                        let custom_class = classes.choose(rng).unwrap();
+                        Some(custom_class.clone())
+                    } else {
+                        // Choose from basic types
+                        let basic_types = [
+                            Some(INT.clone()),
+                            Some(INT.clone()),
+                            Some(INT.clone()),
+                            Some(INT.clone()),
+                            Some(INT.clone()),
+                            Some(INT.clone()),
+                            Some(INT.clone()), // 35% Int
+                            Some(FLOAT.clone()),
+                            Some(FLOAT.clone()),
+                            Some(FLOAT.clone()),
+                            Some(FLOAT.clone()),
+                            Some(FLOAT.clone()),
+                            Some(FLOAT.clone()),
+                            Some(FLOAT.clone()),   // 35% Float
+                            Some(BOOLEAN.clone()), // 10% Boolean
+                            Some(STRING.clone()),  // 10% String
+                            Some(INT.clone()),
+                            Some(INT.clone()),
+                            Some(INT.clone()),
+                            Some(INT.clone()), // 10% Int (fallback)
+                        ];
+                        basic_types[rng.random_range(0..20)].clone()
+                    }
+                } else {
+                    // No custom classes available, use basic types
+                    let basic_types = [
+                        Some(INT.clone()),
+                        Some(INT.clone()),
+                        Some(INT.clone()),
+                        Some(INT.clone()),
+                        Some(INT.clone()),
+                        Some(INT.clone()),
+                        Some(INT.clone()), // 35% Int
+                        Some(FLOAT.clone()),
+                        Some(FLOAT.clone()),
+                        Some(FLOAT.clone()),
+                        Some(FLOAT.clone()),
+                        Some(FLOAT.clone()),
+                        Some(FLOAT.clone()),
+                        Some(FLOAT.clone()),   // 35% Float
+                        Some(BOOLEAN.clone()), // 10% Boolean
+                        Some(STRING.clone()),  // 10% String
+                        Some(INT.clone()),
+                        Some(INT.clone()),
+                        Some(INT.clone()),
+                        Some(INT.clone()), // 10% Int (fallback)
+                    ];
+                    basic_types[rng.random_range(0..20)].clone()
+                }
+            } else {
+                // No defined classes provided, use basic types
+                let basic_types = [
+                    Some(INT.clone()),
+                    Some(INT.clone()),
+                    Some(INT.clone()),
+                    Some(INT.clone()),
+                    Some(INT.clone()),
+                    Some(INT.clone()),
+                    Some(INT.clone()), // 35% Int
+                    Some(FLOAT.clone()),
+                    Some(FLOAT.clone()),
+                    Some(FLOAT.clone()),
+                    Some(FLOAT.clone()),
+                    Some(FLOAT.clone()),
+                    Some(FLOAT.clone()),
+                    Some(FLOAT.clone()),   // 35% Float
+                    Some(BOOLEAN.clone()), // 10% Boolean
+                    Some(STRING.clone()),  // 10% String
+                    Some(INT.clone()),
+                    Some(INT.clone()),
+                    Some(INT.clone()),
+                    Some(INT.clone()), // 10% Int (fallback)
+                ];
+                basic_types[rng.random_range(0..20)].clone()
+            }
         } else {
             None
         };
@@ -182,22 +247,17 @@ impl Variable {
                     Some(Expression::generate_random_string_literal(rng))
                 }
                 _ => {
-                    // Check if we should generate a custom class instantiation
-                    if rng.random_bool(0.3) {
-                        // 30% chance to try to generate a custom class instantiation
-                        // We'll need to find a custom class from somewhere
-                        // For now, fallback to integer expression
-                        Some(Expression::Arithmetic(
-                            ArithmeticExpression::generate_typed_expression(
-                                2,                          // Allow some complexity
-                                true,                       // target_is_int = true
-                                external_functions.clone(), // Use external functions if available
-                                external_variables,
-                                rng,
-                            ),
+                    // Handle custom class types
+                    if let Some(Class::Custom(custom_class)) = &ty {
+                        // Generate various expressions for custom class types
+                        Some(Self::generate_custom_type_expression(
+                            custom_class,
+                            external_variables,
+                            external_functions.clone(),
+                            rng,
                         ))
                     } else {
-                        // Fallback to integer expression
+                        // Fallback to integer expression for unknown types
                         Some(Expression::Arithmetic(
                             ArithmeticExpression::generate_typed_expression(
                                 2,                          // Allow some complexity
@@ -352,5 +412,165 @@ impl Variable {
 
     pub fn is_const(&self) -> bool {
         self.prefix.get_init().is_const()
+    }
+
+    /// Generate various expressions for custom class types
+    fn generate_custom_type_expression<T: Rng + SeedableRng>(
+        custom_class: &CustomClass,
+        external_variables: Option<&[Variable]>,
+        external_functions: Option<Rc<RefCell<Vec<Function>>>>,
+        rng: &mut T,
+    ) -> Expression {
+        // Choose between different ways to generate custom type expressions
+        match rng.random_range(0..3) {
+            0 => {
+                // Constructor call (e.g., cn3())
+                Expression::ClassInstantiation(custom_class.get_name())
+            }
+            1 => {
+                // Function call that returns the same type
+                if let Some(functions) = external_functions {
+                    let functions = functions.borrow();
+                    // Find functions that return the same custom type
+                    let matching_functions: Vec<_> = functions
+                        .iter()
+                        .filter(|f| {
+                            f.get_return_type()
+                                .as_ref()
+                                .map(|rt| rt.get_name() == custom_class.get_name())
+                                .unwrap_or(false)
+                        })
+                        .collect();
+
+                    if !matching_functions.is_empty() {
+                        let chosen_function = matching_functions.choose(rng).unwrap();
+                        let args = Self::generate_function_call_args(
+                            chosen_function,
+                            external_variables,
+                            rng,
+                        );
+                        Expression::FunctionCall(chosen_function.get_name().to_string(), args)
+                    } else {
+                        // Fallback to constructor if no matching functions
+                        Expression::ClassInstantiation(custom_class.get_name())
+                    }
+                } else {
+                    // Fallback to constructor if no external functions
+                    Expression::ClassInstantiation(custom_class.get_name())
+                }
+            }
+            _ => {
+                // Variable reference of the same type
+                if let Some(variables) = external_variables {
+                    // Find variables of the same custom type
+                    let matching_variables: Vec<_> = variables
+                        .iter()
+                        .filter(|v| {
+                            v.get_class()
+                                .as_ref()
+                                .map(|c| c.get_name() == custom_class.get_name())
+                                .unwrap_or(false)
+                        })
+                        .collect();
+
+                    if !matching_variables.is_empty() {
+                        let chosen_variable = matching_variables.choose(rng).unwrap();
+                        Expression::VariableReference(chosen_variable.get_name().to_string())
+                    } else {
+                        // Fallback to constructor if no matching variables
+                        Expression::ClassInstantiation(custom_class.get_name())
+                    }
+                } else {
+                    // Fallback to constructor if no external variables
+                    Expression::ClassInstantiation(custom_class.get_name())
+                }
+            }
+        }
+    }
+
+    /// Generate function call arguments for a given function
+    fn generate_function_call_args<T: Rng + SeedableRng>(
+        function: &Function,
+        external_variables: Option<&[Variable]>,
+        rng: &mut T,
+    ) -> Vec<Expression> {
+        let parameters = function.get_parameters();
+        let mut args = Vec::new();
+
+        for parameter in parameters {
+            let param_type = parameter.get_type();
+            let arg =
+                Self::generate_expression_for_parameter_type(param_type, external_variables, rng);
+            args.push(arg);
+        }
+
+        args
+    }
+
+    /// Generate expression for a specific parameter type
+    fn generate_expression_for_parameter_type<T: Rng + SeedableRng>(
+        param_type: &Class,
+        external_variables: Option<&[Variable]>,
+        rng: &mut T,
+    ) -> Expression {
+        match param_type {
+            Class::Basic(BasicType::Number(NumberType::SignedInteger(_))) => {
+                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                    1,    // Simple expressions for function arguments
+                    true, // target_is_int = true
+                    None, // No external functions for arguments
+                    external_variables,
+                    rng,
+                ))
+            }
+            Class::Basic(BasicType::Number(NumberType::UnsignedInteger(_))) => {
+                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                    1,    // Simple expressions for function arguments
+                    true, // target_is_int = true
+                    None, // No external functions for arguments
+                    external_variables,
+                    rng,
+                ))
+            }
+            Class::Basic(BasicType::Number(NumberType::FloatingPoint(_))) => {
+                Expression::Arithmetic(ArithmeticExpression::generate_typed_expression(
+                    1,     // Simple expressions for function arguments
+                    false, // target_is_int = false
+                    None,  // No external functions for arguments
+                    external_variables,
+                    rng,
+                ))
+            }
+            Class::Basic(BasicType::Boolean) => {
+                Expression::Boolean(BooleanExpression::Literal(rng.random()))
+            }
+            Class::Basic(BasicType::String) => Expression::generate_random_string_literal(rng),
+            Class::Basic(BasicType::Char) => {
+                Expression::Arithmetic(ArithmeticExpression::Char(rng.random_range('a'..='z')))
+            }
+            Class::Custom(custom_class) => {
+                // For custom type parameters, try to find matching variables first
+                if let Some(variables) = external_variables {
+                    let matching_variables: Vec<_> = variables
+                        .iter()
+                        .filter(|v| {
+                            v.get_class()
+                                .as_ref()
+                                .map(|c| c.get_name() == custom_class.get_name())
+                                .unwrap_or(false)
+                        })
+                        .collect();
+
+                    if !matching_variables.is_empty() {
+                        let chosen_variable = matching_variables.choose(rng).unwrap();
+                        Expression::VariableReference(chosen_variable.get_name().to_string())
+                    } else {
+                        Expression::ClassInstantiation(custom_class.get_name())
+                    }
+                } else {
+                    Expression::ClassInstantiation(custom_class.get_name())
+                }
+            }
+        }
     }
 }
