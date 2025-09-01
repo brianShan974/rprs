@@ -8,6 +8,7 @@ default = []
 jemalloc = ["jemallocator"]
 
 [dependencies]
+clap = { version = "4.5.46", features = ["derive"] }
 derive_more = { version = "2.0.1", features = ["constructor", "display"] }
 jemallocator = { version = "0.5.4", optional = true }
 num_cpus = "1.17.0"

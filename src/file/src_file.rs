@@ -92,12 +92,17 @@ impl File {
     }
 
     /// Generate a type-safe file using typed generation context
-    pub fn generate_type_safe_file<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+    pub fn generate_type_safe_file<T: Rng + SeedableRng>(
+        rng: &mut T,
+        max_constants: usize,
+        max_classes: usize,
+        max_functions: usize,
+    ) -> Self {
         // Generate random file name
         let name = Self::generate_random_filename(rng);
 
         // Generate top-level constants
-        let num_constants = rng.random_range(0..=5);
+        let num_constants = rng.random_range(0..=max_constants);
         let mut top_level_constants = Vec::with_capacity(num_constants);
         for _ in 0..num_constants {
             let constant = Variable::generate_random_variable(
@@ -110,7 +115,7 @@ impl File {
         }
 
         // Generate type-safe classes FIRST
-        let num_classes = rng.random_range(1..=Self::MAX_CLASSES); // 确保至少生成一个类
+        let num_classes = rng.random_range(1..=max_classes);
         let mut classes = Vec::with_capacity(num_classes);
         let mut existing_names = Vec::new();
 
@@ -133,7 +138,7 @@ impl File {
             .collect();
 
         // Generate type-safe functions with access to defined classes
-        let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
+        let num_functions = rng.random_range(1..=max_functions);
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
         let mut all_variables = Vec::new(); // Collect variables from all functions
@@ -150,7 +155,7 @@ impl File {
             } else {
                 Cow::Borrowed(&all_variables)
             };
-            
+
             let mut function_config = GenerationConfig::new(
                 all_vars_cow.to_vec(), // Only clone when necessary
                 external_functions.clone(),
