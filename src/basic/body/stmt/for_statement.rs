@@ -64,6 +64,9 @@ impl ForStatement {
         // Create a child context for the loop body to ensure proper variable scoping
         let mut loop_context = typed_context.create_child_context();
 
+        // Enter loop context for break/continue support
+        loop_context.enter_loop(crate::type_system::typed_generator::LoopType::For);
+
         // Add the loop variable to the child context only
         let _ = loop_context.add_variable(&loop_variable);
 

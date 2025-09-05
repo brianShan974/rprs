@@ -60,6 +60,8 @@ pub enum SingleStatement {
     MethodCall(String, String, Vec<Expression>), // object_name, method_name, arguments
     ObjectCreation(ObjectInstance),
     Return(Option<Expression>),
+    Break,
+    Continue,
 }
 
 impl SingleStatement {
@@ -109,9 +111,12 @@ impl SingleStatement {
             }
         }
 
-        match rng.random_range(0..9) {
+        // Check if we're inside a loop for break/continue generation
+        let is_inside_loop = typed_context.is_inside_loop();
+
+        match rng.random_range(0..12) {
             0 => {
-                // Generate a type-compatible variable (10% probability - further reduced)
+                // Generate a type-compatible variable (8% probability - further reduced)
                 let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
                 // Add the new variable to context
                 let _ = typed_context.add_variable(&var);
@@ -424,12 +429,44 @@ impl SingleStatement {
                 }
             }
             8 => {
-                // Generate type-aware return statement with10% probability)
+                // Generate type-aware return statement (9% probability)
                 typed_context
                     .generate_type_safe_return_statement_with_type(expected_return_type, rng)
             }
+            9 => {
+                // Generate break/continue statements (8% probability, only inside loops)
+                if is_inside_loop {
+                    if rng.random_bool(0.6) {
+                        // 60% chance for break, 40% chance for continue
+                        SingleStatement::Break
+                    } else {
+                        SingleStatement::Continue
+                    }
+                } else {
+                    // Fallback to variable declaration if not in loop
+                    let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
+                    let _ = typed_context.add_variable(&var);
+                    SingleStatement::VariableDeclaration(var)
+                }
+            }
+            10 => {
+                // Additional break/continue generation opportunity (8% probability, only inside loops)
+                if is_inside_loop {
+                    if rng.random_bool(0.5) {
+                        // 50% chance for break, 50% chance for continue
+                        SingleStatement::Break
+                    } else {
+                        SingleStatement::Continue
+                    }
+                } else {
+                    // Fallback to variable declaration if not in loop
+                    let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
+                    let _ = typed_context.add_variable(&var);
+                    SingleStatement::VariableDeclaration(var)
+                }
+            }
             _ => {
-                // Fallback to variable declaration (10% probability)
+                // Fallback to variable declaration (8% probability)
                 let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
                 let _ = typed_context.add_variable(&var);
                 SingleStatement::VariableDeclaration(var)
@@ -484,6 +521,8 @@ impl Display for SingleStatement {
                     props_str
                 )
             }
+            SingleStatement::Break => write!(f, "break"),
+            SingleStatement::Continue => write!(f, "continue"),
         }
     }
 }

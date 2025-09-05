@@ -11,6 +11,7 @@ use crate::basic::body::fun::function::Function;
 use crate::basic::body::fun::parameter::Parameter;
 use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::class::Class;
+// use crate::basic::cls::custom_class::CustomClass; // temporarily unused, reserved for future functionality
 use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::utils::{format_function_call, format_method_call, format_property_access};
 use crate::basic::var::variable::Variable;
@@ -45,7 +46,7 @@ impl Display for Expression {
                 write!(f, "{}", format_function_call(name, args))
             }
             Self::VariableReference(var_name) => write!(f, "{}", var_name),
-            Self::ClassInstantiation(class_name) => write!(f, "{}()", class_name),
+            Self::ClassInstantiation(class_name) => write!(f, "{}", class_name),
             Self::PropertyAccess(object, property) => {
                 write!(f, "{}", format_property_access(object, property))
             }
@@ -57,11 +58,72 @@ impl Display for Expression {
 }
 
 impl Expression {
+    /// Generate a type-compatible expression based on expected return type
+    /// Returns None if we cannot safely generate a compatible expression
+    fn generate_type_compatible_expression<T: Rng + SeedableRng>(
+        rng: &mut T,
+        expected_return_type: Option<&Class>,
+    ) -> Option<Self> {
+        // If we have an expected return type, try to generate a compatible expression
+        if let Some(expected_type) = expected_return_type {
+            match expected_type {
+                Class::Basic(basic_type) => match basic_type {
+                    BasicType::Number(_) => {
+                        // Generate arithmetic expression for numeric types
+                        Some(Self::Arithmetic(
+                            ArithmeticExpression::generate_random_expression_untyped(
+                                2, // Small depth for fallback
+                                None, None, rng,
+                            ),
+                        ))
+                    }
+                    BasicType::Boolean => {
+                        // Generate boolean expression
+                        Some(Self::Boolean(
+                            BooleanExpression::generate_random_boolean_expression(
+                                2, // Small depth for fallback
+                                None, None, rng,
+                            ),
+                        ))
+                    }
+                    BasicType::String => {
+                        // Generate string literal for string types
+                        Some(Self::generate_random_string_literal(rng))
+                    }
+                    BasicType::Char => {
+                        // Generate char literal as string (since Expression doesn't have Char variant)
+                        Some(Self::StringLiteral(
+                            (rng.random_range(32..127) as u8 as char).to_string(),
+                        ))
+                    }
+                },
+                Class::Custom(_) => {
+                    // For custom types, we cannot safely generate a compatible expression
+                    // Return None to let the caller handle this case
+                    None
+                }
+                Class::Generic(_) => {
+                    // For generic types, we cannot safely generate a compatible expression
+                    // Return None to let the caller handle this case
+                    None
+                }
+                Class::FormalTypeParameter(_) => {
+                    // For formal type parameters, we cannot safely generate a compatible expression
+                    // Return None to let the caller handle this case
+                    None
+                }
+            }
+        } else {
+            // No expected return type, generate a random expression
+            Some(Self::generate_random_expression(2, None, None, None, rng))
+        }
+    }
+
     pub fn generate_random_expression<T: Rng + SeedableRng>(
         max_depth: usize,
         external_functions: Option<Rc<RefCell<Vec<Function>>>>,
         external_variables: Option<&[Variable]>,
-        defined_classes: Option<&[Class]>,
+        _defined_classes: Option<&[Class]>,
         rng: &mut T,
     ) -> Self {
         // Generate different types of expressions based on probability
@@ -110,48 +172,116 @@ impl Expression {
                 }
             }
             6..=8 => {
-                // Method calls (10% probability) - if we have classes and methods
-                if let Some(classes) = defined_classes {
-                    let class_methods: Vec<_> = classes
-                        .iter()
-                        .filter_map(|class| {
-                            if let Class::Custom(custom_class) = class {
-                                Some(custom_class.get_methods())
-                            } else {
-                                None
-                            }
-                        })
-                        .flatten()
-                        .collect();
-
-                    if !class_methods.is_empty() {
-                        let method = class_methods.choose(rng).unwrap();
+                // Method calls (10% probability) - use the same functions as function calls
+                if let Some(functions) = &external_functions {
+                    let functions = functions.borrow();
+                    if !functions.is_empty() {
+                        let function = functions.choose(rng).unwrap();
                         let args = Self::generate_function_call_args(
-                            method.get_parameters(),
+                            function.get_parameters(),
                             max_depth.saturating_sub(1),
                             external_functions.clone(),
                             external_variables,
                             rng,
                         );
-                        // Use a simple object name for method calls
+
+                        // Type-safe method call generation
                         if let Some(variables) = external_variables {
-                            let objects: Vec<_> = variables
+                            // Find objects that can actually call this method
+                            let compatible_objects: Vec<_> = variables
                                 .iter()
                                 .filter(|v| {
-                                    v.get_class().is_some_and(|c| matches!(c, Class::Custom(_)))
+                                    if let Some(Class::Custom(custom_class)) = v.get_class() {
+                                        // Check if the class has a method with this name
+                                        custom_class
+                                            .methods
+                                            .iter()
+                                            .any(|method| method.get_name() == function.get_name())
+                                    } else {
+                                        false
+                                    }
                                 })
                                 .collect();
-                            if !objects.is_empty() {
-                                let object_name =
-                                    objects.choose(rng).unwrap().get_name().to_string();
-                                Self::MethodCall(object_name, method.get_name().to_string(), args)
+
+                            if !compatible_objects.is_empty() {
+                                // Choose from compatible objects
+                                let object = compatible_objects.choose(rng).unwrap();
+                                let object_name = object.get_name().to_string();
+                                Self::MethodCall(object_name, function.get_name().to_string(), args)
                             } else {
-                                // No objects available, fallback to string literal
-                                Self::generate_random_string_literal(rng)
+                                // No compatible objects found, try to find any custom class object
+                                let any_objects: Vec<_> = variables
+                                    .iter()
+                                    .filter(|v| {
+                                        v.get_class().is_some_and(|c| matches!(c, Class::Custom(_)))
+                                    })
+                                    .collect();
+
+                                if !any_objects.is_empty() {
+                                    // Use any object but generate a method name that likely exists
+                                    let object = any_objects.choose(rng).unwrap();
+                                    let object_name = object.get_name().to_string();
+
+                                    // Try to find a method that actually exists on this object's class
+                                    if let Some(Class::Custom(custom_class)) = object.get_class() {
+                                        if !custom_class.methods.is_empty() {
+                                            let method = custom_class.methods.choose(rng).unwrap();
+                                            let method_name = method.get_name().to_string();
+                                            Self::MethodCall(object_name, method_name, args)
+                                        } else {
+                                            // No methods available, try to generate type-compatible expression
+                                            if let Some(compatible_expr) =
+                                                Self::generate_type_compatible_expression(
+                                                    rng,
+                                                    function.get_return_type(),
+                                                )
+                                            {
+                                                compatible_expr
+                                            } else {
+                                                // Cannot generate compatible expression, fallback to string literal
+                                                Self::generate_random_string_literal(rng)
+                                            }
+                                        }
+                                    } else {
+                                        // Not a custom class, try to generate type-compatible expression
+                                        if let Some(compatible_expr) =
+                                            Self::generate_type_compatible_expression(
+                                                rng,
+                                                function.get_return_type(),
+                                            )
+                                        {
+                                            compatible_expr
+                                        } else {
+                                            // Cannot generate compatible expression, fallback to string literal
+                                            Self::generate_random_string_literal(rng)
+                                        }
+                                    }
+                                } else {
+                                    // No objects available, try to generate type-compatible expression
+                                    if let Some(compatible_expr) =
+                                        Self::generate_type_compatible_expression(
+                                            rng,
+                                            function.get_return_type(),
+                                        )
+                                    {
+                                        compatible_expr
+                                    } else {
+                                        // Cannot generate compatible expression, fallback to string literal
+                                        Self::generate_random_string_literal(rng)
+                                    }
+                                }
                             }
                         } else {
-                            // No external variables, fallback to string literal
-                            Self::generate_random_string_literal(rng)
+                            // No external variables, try to generate type-compatible expression
+                            if let Some(compatible_expr) = Self::generate_type_compatible_expression(
+                                rng,
+                                function.get_return_type(),
+                            ) {
+                                compatible_expr
+                            } else {
+                                // Cannot generate compatible expression, fallback to string literal
+                                Self::generate_random_string_literal(rng)
+                            }
                         }
                     } else {
                         Self::generate_random_string_literal(rng)
@@ -372,7 +502,35 @@ impl Expression {
             }
             Class::Custom(custom_class) => {
                 // Generate class instantiation for custom classes
-                Self::ClassInstantiation(custom_class.get_name())
+                if custom_class.get_generic_parameters().is_empty() {
+                    // Non-generic class
+                    Self::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                } else {
+                    // Generic class - use concrete types for instantiation
+                    let type_args = custom_class
+                        .get_generic_parameters()
+                        .iter()
+                        .map(|_| {
+                            // Generate random basic types for type arguments
+                            let basic_types = ["String", "Int", "Float", "Boolean"];
+                            basic_types.choose(rng).unwrap().to_string()
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let instantiation =
+                        format!("{}<{}>()", custom_class.get_base_name(), type_args);
+                    Self::ClassInstantiation(instantiation)
+                }
+            }
+            Class::Generic(generic_type) => {
+                // For generic types, use the base type for expression generation
+                Self::generate_expression_for_type(
+                    generic_type.get_base_type(),
+                    max_depth,
+                    external_functions,
+                    external_variables,
+                    rng,
+                )
             }
             _ => {
                 // Fallback to integer expression for unknown types

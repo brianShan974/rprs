@@ -8,6 +8,8 @@ use crate::basic::body::block::{INDENT_SIZE, SPACE};
 use crate::basic::body::fun::function::Function;
 use crate::basic::body::fun::parameter::Parameter;
 use crate::basic::cls::class::{Class, FLOAT};
+use crate::basic::cls::generic_type::GenericParameterContext;
+use crate::basic::cls::generic_type::GenericTypeParameter;
 use crate::basic::utils::{GenerationConfig, generate_unique_identifier};
 use crate::basic::var::variable::Variable;
 use crate::type_system::TypedGenerationContext;
@@ -15,6 +17,7 @@ use crate::type_system::TypedGenerationContext;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CustomClass {
     pub name: String,
+    pub generic_parameters: Vec<GenericTypeParameter>,
     pub properties: Vec<Rc<Variable>>,
     pub methods: Vec<Function>,
     pub current_indentation_layer: usize,
@@ -27,6 +30,7 @@ impl CustomClass {
     pub fn new(name: String, current_indentation_layer: usize) -> Self {
         Self {
             name,
+            generic_parameters: Vec::new(),
             properties: Vec::new(),
             methods: Vec::new(),
             current_indentation_layer,
@@ -34,7 +38,17 @@ impl CustomClass {
     }
 
     pub fn get_name(&self) -> String {
-        self.name.clone()
+        if self.generic_parameters.is_empty() {
+            self.name.clone()
+        } else {
+            let params = self
+                .generic_parameters
+                .iter()
+                .map(|p| p.get_name())
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{}<{}>", self.name, params)
+        }
     }
 
     pub fn add_property(&mut self, property: Variable) {
@@ -49,6 +63,14 @@ impl CustomClass {
         &self.methods
     }
 
+    pub fn get_generic_parameters(&self) -> &[GenericTypeParameter] {
+        &self.generic_parameters
+    }
+
+    pub fn get_base_name(&self) -> String {
+        self.name.clone()
+    }
+
     pub fn generate_random_custom_class<T: Rng + SeedableRng>(
         rng: &mut T,
         defined_classes: Option<&mut Vec<Class>>,
@@ -58,13 +80,70 @@ impl CustomClass {
         let mut existing_names = existing_names.unwrap_or(&mut Vec::new()).clone();
         let name = generate_unique_identifier(rng, &mut existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
-        let mut custom_class = Self::new(name, current_indentation_layer);
+        let mut custom_class = Self::new(name.clone(), current_indentation_layer);
+
+        // Determine class purpose based on name and properties
+        let class_purpose = Self::infer_class_purpose(&name, rng);
+
+        // Create context for smart generic parameter generation
+        let available_types = defined_classes
+            .as_ref()
+            .map(|classes| classes.iter().cloned().collect())
+            .unwrap_or_default();
+
+        let context = GenericParameterContext::new(class_purpose.clone(), available_types);
+
+        // Generate 0-3 generic parameters with improved logic
+        let num_generic_params = if rng.random_bool(0.3) {
+            // 30% chance for generic class
+            rng.random_range(1..=3)
+        } else {
+            0
+        };
+
+        for _i in 0..num_generic_params {
+            // Use smart generation for better constraints
+            let param = if rng.random_bool(0.7) {
+                // 70% chance to use smart generation
+                GenericTypeParameter::generate_smart_generic_parameter(
+                    rng,
+                    Some(&mut existing_names),
+                    &context,
+                )
+            } else {
+                GenericTypeParameter::generate_random_generic_parameter(
+                    rng,
+                    Some(&mut existing_names),
+                )
+            };
+
+            custom_class.generic_parameters.push(param);
+        }
 
         // Generate 1-4 properties
         let num_properties = rng.random_range(1..=Self::MAX_PROPERTIES);
+
+        // Build external variables for property generation
+        let mut external_variables: Vec<Variable> = Vec::new();
+        if let Some(classes) = defined_classes.as_ref() {
+            for class in classes.iter() {
+                if let Class::Custom(custom_class_ref) = class {
+                    let var = Variable::new_with_type_only(
+                        format!("other_{}", custom_class_ref.get_base_name()),
+                        Class::Custom(custom_class_ref.clone()),
+                    );
+                    external_variables.push(var);
+                }
+            }
+        }
+
         for _ in 0..num_properties {
             custom_class.add_property(Variable::generate_random_variable_with_const_control(
-                true, true, None, false, rng,
+                true,
+                true,
+                Some(&external_variables),
+                false,
+                rng,
             ));
         }
 
@@ -96,7 +175,7 @@ impl CustomClass {
                     .map(|p| p.clone().into())
                     .collect(),
                 typed_context.get_external_functions(),
-                defined_classes.as_ref().map(|classes| classes.to_vec()),
+                None, // No defined classes for method generation in this context
                 custom_class.current_indentation_layer + 1,
                 5, // Max depth for class methods
             );
@@ -119,10 +198,126 @@ impl CustomClass {
         custom_class
     }
 
-    /// Generate a type-safe custom class using typed generation context
-    pub fn generate_type_safe_custom_class<T: Rng + SeedableRng>(
+    /// Infer the purpose of a class based on its name and characteristics
+    fn infer_class_purpose<T: Rng + SeedableRng>(name: &str, rng: &mut T) -> String {
+        let name_lower = name.to_lowercase();
+
+        // Check for common naming patterns
+        if name_lower.contains("list")
+            || name_lower.contains("array")
+            || name_lower.contains("collection")
+        {
+            "collection".to_string()
+        } else if name_lower.contains("map")
+            || name_lower.contains("dict")
+            || name_lower.contains("hash")
+        {
+            "map".to_string()
+        } else if name_lower.contains("set") || name_lower.contains("unique") {
+            "set".to_string()
+        } else if name_lower.contains("queue") || name_lower.contains("stack") {
+            "collection".to_string()
+        } else if name_lower.contains("calc")
+            || name_lower.contains("math")
+            || name_lower.contains("number")
+        {
+            "numeric".to_string()
+        } else if name_lower.contains("text")
+            || name_lower.contains("string")
+            || name_lower.contains("format")
+        {
+            "text".to_string()
+        } else if name_lower.contains("sort")
+            || name_lower.contains("compare")
+            || name_lower.contains("order")
+        {
+            "comparison".to_string()
+        } else if name_lower.contains("factory")
+            || name_lower.contains("builder")
+            || name_lower.contains("create")
+        {
+            "producer".to_string()
+        } else if name_lower.contains("processor")
+            || name_lower.contains("handler")
+            || name_lower.contains("consumer")
+        {
+            "consumer".to_string()
+        } else if name_lower.contains("mutable")
+            || name_lower.contains("state")
+            || name_lower.contains("var")
+        {
+            "mutable".to_string()
+        } else {
+            // Random purpose for generic classes
+            let purposes = vec![
+                "collection",
+                "numeric",
+                "text",
+                "comparison",
+                "producer",
+                "consumer",
+                "mutable",
+            ];
+            purposes[rng.random_range(0..purposes.len())].to_string()
+        }
+    }
+
+    /// Generate only the class name
+    pub fn generate_class_name_only(name: String) -> Self {
+        let current_indentation_layer = 0;
+        Self::new(name, current_indentation_layer)
+    }
+
+    /// Generate class skeleton (properties and method signatures) without full implementation
+    pub fn generate_class_skeleton_only<T: Rng + SeedableRng>(
+        rng: &mut T,
+        name: String,
+        existing_names: &mut Vec<String>,
+    ) -> Self {
+        let current_indentation_layer = 0;
+        let mut custom_class = Self::new(name, current_indentation_layer);
+
+        // Generate 0-3 generic parameters (20% chance for each)
+        let mut existing_generic_names = Vec::new();
+        for _ in 0..3 {
+            if rng.random_bool(0.2) {
+                let param = GenericTypeParameter::generate_random_generic_parameter(
+                    rng,
+                    Some(&mut existing_generic_names),
+                );
+                custom_class.generic_parameters.push(param);
+            }
+        }
+
+        // Generate 1-4 properties (only types, no initial values)
+        let num_properties = rng.random_range(1..=Self::MAX_PROPERTIES);
+        for _ in 0..num_properties {
+            let property_name = generate_unique_identifier(rng, existing_names);
+            // For skeleton generation, we don't have access to defined classes yet
+            // Use empty vector as placeholder
+            let mut empty_classes: Vec<Class> = Vec::new();
+            let property_type = Class::generate_random_class(rng, Some(&mut empty_classes), None);
+            let property = Variable::new_with_type_only(property_name, property_type);
+            custom_class.add_property(property);
+        }
+
+        // Generate method signatures only (without full implementation)
+        let num_methods = rng.random_range(1..=Self::MAX_METHODS);
+        for _ in 0..num_methods {
+            let method_name = generate_unique_identifier(rng, existing_names);
+            let method =
+                Function::generate_signature_only(rng, method_name, current_indentation_layer + 1);
+            custom_class.methods.push(method);
+        }
+
+        custom_class
+    }
+
+    /// Generate a type-safe custom class with access to all class signatures
+    pub fn generate_type_safe_custom_class_with_signatures<T: Rng + SeedableRng>(
         rng: &mut T,
         typed_context: &mut TypedGenerationContext,
+        class_signatures: &[Self],
         current_indentation_layer: Option<usize>,
         existing_names: Option<&mut Vec<String>>,
     ) -> Self {
@@ -130,6 +325,17 @@ impl CustomClass {
         let name = generate_unique_identifier(rng, &mut existing_names);
         let current_indentation_layer = current_indentation_layer.unwrap_or(0);
         let mut custom_class = Self::new(name, current_indentation_layer);
+
+        // Generate 0-3 generic parameters (20% chance for each)
+        for _ in 0..3 {
+            if rng.random_bool(0.2) {
+                let param = GenericTypeParameter::generate_random_generic_parameter(
+                    rng,
+                    Some(&mut existing_names),
+                );
+                custom_class.generic_parameters.push(param);
+            }
+        }
 
         // Generate 1-4 properties
         let num_properties = rng.random_range(1..=Self::MAX_PROPERTIES);
@@ -143,7 +349,7 @@ impl CustomClass {
         let num_methods = rng.random_range(1..=Self::MAX_METHODS);
         for _ in 0..num_methods {
             // Convert class properties to parameters for method generation
-            let external_variables: Vec<_> = custom_class
+            let mut external_variables: Vec<_> = custom_class
                 .properties
                 .iter()
                 .map(|var| {
@@ -155,6 +361,414 @@ impl CustomClass {
                     )
                 })
                 .collect();
+
+            // Add instances of other defined classes as external variables
+            // Use class_signatures instead of typed_context.get_defined_classes()
+            for class_signature in class_signatures {
+                if class_signature.get_name() != custom_class.get_name() {
+                    // Create a parameter for this other class
+                    let param = Parameter::new(
+                        format!("other_{}", class_signature.get_base_name()),
+                        Rc::new(Class::Custom(class_signature.clone())),
+                    );
+                    external_variables.push(param);
+                }
+            }
+
+            // Create a separate typed context for each method to avoid recursion
+            let mut method_typed_context =
+                TypedGenerationContext::new(typed_context.get_external_functions());
+
+            // Convert class signatures to Class enum for the method context
+            let defined_classes: Vec<Class> = class_signatures
+                .iter()
+                .map(|c| Class::Custom(c.clone()))
+                .collect();
+            method_typed_context.set_defined_classes(defined_classes);
+
+            // Also add the current class to the defined classes if it's not already there
+            let current_class = Class::Custom(custom_class.clone());
+            if !method_typed_context
+                .get_defined_classes()
+                .iter()
+                .any(|c| c.get_name() == current_class.get_name())
+            {
+                let mut all_classes = method_typed_context.get_defined_classes().to_vec();
+                all_classes.push(Rc::new(current_class));
+                method_typed_context.set_defined_classes(
+                    all_classes.iter().map(|rc| rc.as_ref().clone()).collect(),
+                );
+            }
+
+            // Generate a type-safe method with explicit return type
+            if let Some(method) = Self::generate_method_with_return_type(
+                &external_variables,
+                &mut method_typed_context,
+                custom_class.current_indentation_layer,
+                rng,
+                Some(&custom_class.generic_parameters),
+            ) {
+                // Add the method to the main typed context so other methods can call it
+                typed_context.add_function(&method);
+                custom_class.add_method(method);
+            }
+        }
+
+        custom_class
+    }
+
+    /// Generate a type-safe custom class with access to all class skeletons
+    pub fn generate_type_safe_custom_class_with_skeletons<T: Rng + SeedableRng>(
+        rng: &mut T,
+        typed_context: &mut TypedGenerationContext,
+        class_skeletons: &[Self],
+        current_skeleton: &Self,
+        current_indentation_layer: Option<usize>,
+        _existing_names: Option<&mut Vec<String>>,
+    ) -> Self {
+        let current_indentation_layer = current_indentation_layer.unwrap_or(0);
+
+        // Start with the current skeleton
+        let mut custom_class = current_skeleton.clone();
+        custom_class.current_indentation_layer = current_indentation_layer;
+
+        // Update properties with initial values while preserving original property information
+        let mut updated_properties = Vec::new();
+
+        // Build external variables for property generation (similar to method generation)
+        let mut external_variables: Vec<Variable> = custom_class
+            .properties
+            .iter()
+            .map(|var| {
+                Variable::new_with_type_only(
+                    var.get_name().to_string(),
+                    var.get_class().unwrap_or(&FLOAT).clone(),
+                )
+            })
+            .collect();
+
+        // Add instances of other defined classes as external variables
+        for class_skeleton in class_skeletons {
+            if class_skeleton.get_name() != custom_class.get_name() {
+                let var = Variable::new_with_type_only(
+                    format!("other_{}", class_skeleton.get_base_name()),
+                    Class::Custom(class_skeleton.clone()),
+                );
+                external_variables.push(var);
+            }
+        }
+
+        for _property in &custom_class.properties {
+            // Create a new variable with the same name and type but with an initial value
+            let updated_property = Variable::generate_random_variable_with_const_control(
+                true,                      // is_member
+                true,                      // with_initial_value
+                Some(&external_variables), // Use built external variables
+                false,                     // allow_const
+                rng,
+            );
+            updated_properties.push(Rc::new(updated_property));
+        }
+        custom_class.properties = updated_properties;
+
+        // Get the number of methods from the skeleton
+        let skeleton_method_count = custom_class.methods.len();
+
+        // Clear existing methods (which have empty bodies from skeleton generation)
+        custom_class.methods.clear();
+
+        // Generate methods with full implementation for all skeleton methods
+        let num_methods = skeleton_method_count.max(1); // At least 1 method
+        for _ in 0..num_methods {
+            // Convert class properties to parameters for method generation
+            let mut external_variables: Vec<_> = custom_class
+                .properties
+                .iter()
+                .map(|var| {
+                    Parameter::new(
+                        var.get_name().to_string(),
+                        var.get_class()
+                            .map(|c| Rc::new(c.clone()))
+                            .unwrap_or_else(|| Rc::new(FLOAT.clone())),
+                    )
+                })
+                .collect();
+
+            // Add instances of other defined classes as external variables
+            // Use class_skeletons instead of typed_context.get_defined_classes()
+            for class_skeleton in class_skeletons {
+                if class_skeleton.get_name() != custom_class.get_name() {
+                    // Create a parameter for this other class
+                    let param = Parameter::new(
+                        format!("other_{}", class_skeleton.get_base_name()),
+                        Rc::new(Class::Custom(class_skeleton.clone())),
+                    );
+                    external_variables.push(param);
+                }
+            }
+
+            // Create a separate typed context for each method to avoid recursion
+            let mut method_typed_context =
+                TypedGenerationContext::new(typed_context.get_external_functions());
+
+            // Convert class skeletons to Class enum for the method context
+            let defined_classes: Vec<Class> = class_skeletons
+                .iter()
+                .map(|c| Class::Custom(c.clone()))
+                .collect();
+            method_typed_context.set_defined_classes(defined_classes);
+
+            // Also add the current class to the defined classes if it's not already there
+            let current_class = Class::Custom(custom_class.clone());
+            if !method_typed_context
+                .get_defined_classes()
+                .iter()
+                .any(|c| c.get_name() == current_class.get_name())
+            {
+                let mut all_classes = method_typed_context.get_defined_classes().to_vec();
+                all_classes.push(Rc::new(current_class));
+                method_typed_context.set_defined_classes(
+                    all_classes.iter().map(|rc| rc.as_ref().clone()).collect(),
+                );
+            }
+
+            // Generate a type-safe method with explicit return type
+            if let Some(method) = Self::generate_method_with_return_type(
+                &external_variables,
+                &mut method_typed_context,
+                custom_class.current_indentation_layer,
+                rng,
+                Some(&custom_class.generic_parameters),
+            ) {
+                // Add the method to the main typed context so other methods can call it
+                typed_context.add_function(&method);
+                custom_class.add_method(method);
+            }
+        }
+
+        custom_class
+    }
+
+    /// Generate a type-safe custom class with access to all class skeletons and function signatures
+    pub fn generate_type_safe_custom_class_with_skeletons_and_functions<T: Rng + SeedableRng>(
+        rng: &mut T,
+        typed_context: &mut TypedGenerationContext,
+        class_skeletons: &[Self],
+        function_signatures: &[Function],
+        current_skeleton: &Self,
+        current_indentation_layer: Option<usize>,
+        _existing_names: Option<&mut Vec<String>>,
+    ) -> Self {
+        let current_indentation_layer = current_indentation_layer.unwrap_or(0);
+
+        // Start with the current skeleton
+        let mut custom_class = current_skeleton.clone();
+        custom_class.current_indentation_layer = current_indentation_layer;
+
+        // Update properties with initial values while preserving original property information
+        let mut updated_properties = Vec::new();
+
+        // Build external variables for property generation (similar to method generation)
+        let mut external_variables: Vec<Variable> = custom_class
+            .properties
+            .iter()
+            .map(|var| {
+                Variable::new_with_type_only(
+                    var.get_name().to_string(),
+                    var.get_class().unwrap_or(&FLOAT).clone(),
+                )
+            })
+            .collect();
+
+        // Add instances of other defined classes as external variables
+        for class_skeleton in class_skeletons {
+            if class_skeleton.get_name() != custom_class.get_name() {
+                let var = Variable::new_with_type_only(
+                    format!("other_{}", class_skeleton.get_base_name()),
+                    Class::Custom(class_skeleton.clone()),
+                );
+                external_variables.push(var);
+            }
+        }
+
+        for _property in &custom_class.properties {
+            // Create a new variable with the same name and type but with an initial value
+            let updated_property = Variable::generate_random_variable_with_const_control(
+                true,                      // is_member
+                true,                      // with_initial_value
+                Some(&external_variables), // Use built external variables
+                false,                     // allow_const
+                rng,
+            );
+            updated_properties.push(Rc::new(updated_property));
+        }
+        custom_class.properties = updated_properties;
+
+        // Get the number of methods from the skeleton
+        let skeleton_method_count = custom_class.methods.len();
+
+        // Clear existing methods (which have empty bodies from skeleton generation)
+        custom_class.methods.clear();
+
+        // Generate methods with full implementation for all skeleton methods
+        let num_methods = skeleton_method_count.max(1); // At least 1 method
+        for _ in 0..num_methods {
+            // Convert class properties to parameters for method generation
+            let mut external_variables: Vec<_> = custom_class
+                .properties
+                .iter()
+                .map(|var| {
+                    Parameter::new(
+                        var.get_name().to_string(),
+                        var.get_class()
+                            .map(|c| Rc::new(c.clone()))
+                            .unwrap_or_else(|| Rc::new(FLOAT.clone())),
+                    )
+                })
+                .collect();
+
+            // Add instances of other defined classes as external variables
+            for class_skeleton in class_skeletons {
+                if class_skeleton.get_name() != custom_class.get_name() {
+                    // Create a parameter for this other class
+                    let param = Parameter::new(
+                        format!("other_{}", class_skeleton.get_base_name()),
+                        Rc::new(Class::Custom(class_skeleton.clone())),
+                    );
+                    external_variables.push(param);
+                }
+            }
+
+            // Create a separate typed context for each method to avoid recursion
+            let mut method_typed_context =
+                TypedGenerationContext::new(typed_context.get_external_functions());
+
+            // Convert class skeletons to Class enum for the method context
+            let defined_classes: Vec<Class> = class_skeletons
+                .iter()
+                .map(|c| Class::Custom(c.clone()))
+                .collect();
+            method_typed_context.set_defined_classes(defined_classes);
+
+            // Add function signatures to the typed context so methods can call functions
+            for function_signature in function_signatures {
+                method_typed_context.add_function(function_signature);
+            }
+
+            // Also add the current class to the defined classes if it's not already there
+            let current_class = Class::Custom(custom_class.clone());
+            if !method_typed_context
+                .get_defined_classes()
+                .iter()
+                .any(|c| c.get_name() == current_class.get_name())
+            {
+                let mut all_classes = method_typed_context.get_defined_classes().to_vec();
+                all_classes.push(Rc::new(current_class));
+                method_typed_context.set_defined_classes(
+                    all_classes.iter().map(|rc| rc.as_ref().clone()).collect(),
+                );
+            }
+
+            // Generate a type-safe method with explicit return type
+            if let Some(method) = Self::generate_method_with_return_type(
+                &external_variables,
+                &mut method_typed_context,
+                custom_class.current_indentation_layer,
+                rng,
+                Some(&custom_class.generic_parameters),
+            ) {
+                // Add the method to the main typed context so other methods can call it
+                typed_context.add_function(&method);
+                custom_class.add_method(method);
+            }
+        }
+
+        custom_class
+    }
+
+    /// Generate a type-safe custom class using typed generation context
+    pub fn generate_type_safe_custom_class<T: Rng + SeedableRng>(
+        rng: &mut T,
+        typed_context: &mut TypedGenerationContext,
+        current_indentation_layer: Option<usize>,
+        existing_names: Option<&mut Vec<String>>,
+    ) -> Self {
+        let mut existing_names = existing_names.unwrap_or(&mut Vec::new()).clone();
+        let name = generate_unique_identifier(rng, &mut existing_names);
+        let current_indentation_layer = current_indentation_layer.unwrap_or(0);
+        let mut custom_class = Self::new(name, current_indentation_layer);
+
+        // Generate 0-3 generic parameters (20% chance for each)
+        for _ in 0..3 {
+            if rng.random_bool(0.2) {
+                let param = GenericTypeParameter::generate_random_generic_parameter(
+                    rng,
+                    Some(&mut existing_names),
+                );
+                custom_class.generic_parameters.push(param);
+            }
+        }
+
+        // Generate 1-4 properties
+        let num_properties = rng.random_range(1..=Self::MAX_PROPERTIES);
+
+        // Build external variables for property generation
+        let mut external_variables: Vec<Variable> = Vec::new();
+        let defined_classes = typed_context.get_defined_classes();
+        for class_rc in defined_classes {
+            let class = class_rc.as_ref();
+            if let Class::Custom(other_class) = class {
+                let var = Variable::new_with_type_only(
+                    format!("other_{}", other_class.get_base_name()),
+                    class.clone(),
+                );
+                external_variables.push(var);
+            }
+        }
+
+        for _ in 0..num_properties {
+            custom_class.add_property(Variable::generate_random_variable_with_const_control(
+                true,
+                true,
+                Some(&external_variables),
+                false,
+                rng,
+            ));
+        }
+
+        // Generate 1-3 methods using type-safe function generation
+        let num_methods = rng.random_range(1..=Self::MAX_METHODS);
+        for _ in 0..num_methods {
+            // Convert class properties to parameters for method generation
+            let mut external_variables: Vec<_> = custom_class
+                .properties
+                .iter()
+                .map(|var| {
+                    Parameter::new(
+                        var.get_name().to_string(),
+                        var.get_class()
+                            .map(|c| Rc::new(c.clone()))
+                            .unwrap_or_else(|| Rc::new(FLOAT.clone())),
+                    )
+                })
+                .collect();
+
+            // Add instances of other defined classes as external variables
+            let defined_classes = typed_context.get_defined_classes();
+            for class_rc in defined_classes {
+                let class = class_rc.as_ref();
+                // Don't add the current class itself to avoid infinite recursion
+                if let Class::Custom(other_class) = class
+                    && other_class.get_name() != custom_class.get_name()
+                {
+                    // Create a parameter for this other class
+                    let param = Parameter::new(
+                        format!("other_{}", other_class.get_base_name()),
+                        Rc::new(class.clone()),
+                    );
+                    external_variables.push(param);
+                }
+            }
 
             // Create a separate typed context for each method to avoid recursion
             let mut method_typed_context =
@@ -188,6 +802,7 @@ impl CustomClass {
                 &mut method_typed_context,
                 custom_class.current_indentation_layer,
                 rng,
+                Some(&custom_class.generic_parameters),
             ) {
                 // Add the method to the main typed context so other methods can call it
                 typed_context.add_function(&method);
@@ -204,6 +819,7 @@ impl CustomClass {
         typed_context: &mut TypedGenerationContext,
         current_indentation_layer: usize,
         rng: &mut T,
+        generic_parameters: Option<&[GenericTypeParameter]>,
     ) -> Option<Function> {
         // Generate a type-safe method
         // Function::generate_type_safe_function will decide the return type internally
@@ -222,6 +838,11 @@ impl CustomClass {
             ), // Pass defined classes for method generation
             current_indentation_layer + 1,
             5, // Max depth for class methods
+        )
+        .with_generic_parameters(
+            generic_parameters
+                .map(|params| params.to_vec())
+                .unwrap_or_default(),
         );
 
         // Ensure the typed_context has the defined_classes set
@@ -240,6 +861,99 @@ impl CustomClass {
             rng,
         )
     }
+
+    /// Generate a high-quality method with multiple attempts and validation
+    fn generate_quality_method<T: Rng + SeedableRng>(
+        external_variables: &[Parameter],
+        typed_context: &mut TypedGenerationContext,
+        current_indentation_layer: usize,
+        rng: &mut T,
+        generic_parameters: Option<&[GenericTypeParameter]>,
+    ) -> Option<Function> {
+        const MAX_ATTEMPTS: usize = 3;
+        let mut best_method: Option<Function> = None;
+        let mut best_score = 0;
+
+        for _attempt in 0..MAX_ATTEMPTS {
+            if let Some(method) = Self::generate_method_with_return_type(
+                external_variables,
+                typed_context,
+                current_indentation_layer,
+                rng,
+                generic_parameters,
+            ) {
+                let score = Self::evaluate_method_quality(&method, generic_parameters);
+
+                if score > best_score {
+                    best_score = score;
+                    best_method = Some(method);
+                }
+
+                // If we get a perfect score, return immediately
+                if score >= 90 {
+                    break;
+                }
+            }
+        }
+
+        best_method
+    }
+
+    /// Evaluate the quality of a generated method
+    fn evaluate_method_quality(
+        method: &Function,
+        generic_parameters: Option<&[GenericTypeParameter]>,
+    ) -> u32 {
+        let mut score = 0;
+
+        // Check method complexity (prefer simpler methods)
+        let statement_count = method.get_body().get_statements().len();
+        if statement_count <= 3 {
+            score += 30; // Simple methods get high score
+        } else if statement_count <= 6 {
+            score += 20; // Medium complexity
+        } else if statement_count <= 10 {
+            score += 10; // Complex but acceptable
+        }
+
+        // Check parameter count (prefer reasonable number of parameters)
+        let param_count = method.get_parameters().len();
+        if param_count <= 2 {
+            score += 25; // Few parameters
+        } else if param_count <= 4 {
+            score += 15; // Reasonable number
+        } else if param_count <= 6 {
+            score += 5; // Many parameters
+        }
+
+        // Check return type appropriateness
+        if let Some(return_type) = method.get_return_type() {
+            if return_type.get_name().contains("Void") || return_type.get_name().contains("Unit") {
+                score += 20; // Void methods are often appropriate
+            } else {
+                // Check if return type matches generic parameters
+                if let Some(generic_params) = generic_parameters {
+                    for param in generic_params {
+                        if return_type.get_name() == param.get_name() {
+                            score += 25; // Return type matches generic parameter
+                            break;
+                        }
+                    }
+                }
+                score += 15; // Has return type
+            }
+        } else {
+            score += 10; // No return type specified
+        }
+
+        // Check method name appropriateness
+        let method_name = method.get_name().to_lowercase();
+        if !method_name.contains("test") && !method_name.contains("debug") {
+            score += 10; // Avoid test/debug methods
+        }
+
+        score
+    }
 }
 
 impl fmt::Display for CustomClass {
@@ -248,8 +962,18 @@ impl fmt::Display for CustomClass {
         let outer_indentation = SPACE.repeat(self.current_indentation_layer * INDENT_SIZE);
         let inner_indentation = SPACE.repeat(INDENT_SIZE);
 
-        // Start class declaration
-        writeln!(f, "{}class {} {{", outer_indentation, self.name)?;
+        // Start class declaration with generic parameters
+        if self.generic_parameters.is_empty() {
+            writeln!(f, "{}class {} {{", outer_indentation, self.name)?;
+        } else {
+            let params = self
+                .generic_parameters
+                .iter()
+                .map(|p| p.get_name())
+                .collect::<Vec<_>>()
+                .join(", ");
+            writeln!(f, "{}class {}<{}> {{", outer_indentation, self.name, params)?;
+        }
 
         for property in &self.properties {
             writeln!(
@@ -264,7 +988,7 @@ impl fmt::Display for CustomClass {
                 property
                     .get_value()
                     .map(|v| v.to_string())
-                    .unwrap_or_else(|| "null".to_string())
+                    .unwrap_or_else(|| "TODO_INITIALIZE".to_string())
             )?;
         }
 

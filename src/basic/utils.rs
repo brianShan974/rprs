@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use crate::basic::body::fun::function::Function;
 use crate::basic::cls::class::Class;
+use crate::basic::cls::generic_type::GenericTypeParameter;
 use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
 use crate::basic::expr::expression::Expression;
 use crate::basic::var::variable::Variable;
@@ -254,6 +255,7 @@ pub struct GenerationConfig {
     pub max_depth: usize,
     pub typed_context: Option<Rc<RefCell<TypedGenerationContext>>>,
     pub existing_names: Vec<String>,
+    pub generic_parameters: Option<Vec<GenericTypeParameter>>,
 }
 
 impl GenerationConfig {
@@ -272,6 +274,7 @@ impl GenerationConfig {
             max_depth,
             typed_context: None,
             existing_names: Vec::new(),
+            generic_parameters: None,
         }
     }
 
@@ -285,6 +288,14 @@ impl GenerationConfig {
 
     pub fn with_existing_names(mut self, existing_names: Vec<String>) -> Self {
         self.existing_names = existing_names;
+        self
+    }
+
+    pub fn with_generic_parameters(
+        mut self,
+        generic_parameters: Vec<GenericTypeParameter>,
+    ) -> Self {
+        self.generic_parameters = Some(generic_parameters);
         self
     }
 }

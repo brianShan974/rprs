@@ -31,11 +31,15 @@ impl File {
         // Generate top-level constants
         let num_constants = rng.random_range(0..=5);
         let mut top_level_constants = Vec::with_capacity(num_constants);
+
+        // For top-level constants, we don't have external variables yet, so we'll use an empty vector
+        let external_variables: Vec<Variable> = Vec::new();
+
         for _ in 0..num_constants {
             let constant = Variable::generate_random_variable(
-                false, // not a member variable
-                true,  // with initial value
-                None,  // no external variables for top-level constants
+                false,                     // not a member variable
+                true,                      // with initial value
+                Some(&external_variables), // Use empty external variables for now
                 rng,
             );
             top_level_constants.push(constant);
@@ -44,9 +48,10 @@ impl File {
         // Generate classes FIRST
         let num_classes = rng.random_range(0..=Self::MAX_CLASSES);
         let mut classes = Vec::with_capacity(num_classes);
+        let mut existing_names = Vec::new();
 
         for _ in 0..num_classes {
-            let class = CustomClass::generate_random_custom_class(rng, None, None, None);
+            let class = CustomClass::generate_random_custom_class(rng, None, Some(0), Some(&mut existing_names));
             classes.push(class);
         }
 
@@ -104,31 +109,98 @@ impl File {
         // Generate top-level constants
         let num_constants = rng.random_range(0..=max_constants);
         let mut top_level_constants = Vec::with_capacity(num_constants);
+        
+        // For top-level constants, we don't have external variables yet, so we'll use an empty vector
+        let external_variables: Vec<Variable> = Vec::new();
+        
         for _ in 0..num_constants {
             let constant = Variable::generate_random_variable(
                 false, // not a member variable
                 true,  // with initial value
-                None,  // no external variables for top-level constants
+                Some(&external_variables), // Use empty external variables for now
                 rng,
             );
             top_level_constants.push(constant);
         }
 
-        // Generate type-safe classes FIRST
+        // Generate type-safe classes and functions
         let num_classes = rng.random_range(1..=max_classes);
+        let num_functions = rng.random_range(1..=max_functions);
         let mut classes = Vec::with_capacity(num_classes);
+        let mut functions = Vec::with_capacity(num_functions);
         let mut existing_names = Vec::new();
 
+        // Create a shared typed context for all classes
+        let shared_external_functions = Rc::new(RefCell::new(Vec::new()));
+        let mut shared_typed_context = TypedGenerationContext::new(shared_external_functions);
+
+        // First pass: Generate all class names only
+        let mut class_names = Vec::with_capacity(num_classes);
         for _ in 0..num_classes {
-            let mut typed_context = TypedGenerationContext::new(Rc::new(RefCell::new(Vec::new())));
-            let class = CustomClass::generate_type_safe_custom_class(
+            let class_name = generate_random_identifier(rng);
+            existing_names.push(class_name.clone());
+            class_names.push(class_name);
+        }
+
+        // Second pass: Generate all function names only
+        let mut function_names = Vec::with_capacity(num_functions);
+        for _ in 0..num_functions {
+            let function_name = generate_random_identifier(rng);
+            existing_names.push(function_name.clone());
+            function_names.push(function_name);
+        }
+
+        // Third pass: Generate class skeletons (properties and method signatures)
+        let mut class_skeletons = Vec::with_capacity(num_classes);
+        for class_name in &class_names {
+            let class_skeleton = CustomClass::generate_class_skeleton_only(
                 rng,
-                &mut typed_context,
+                class_name.clone(),
+                &mut existing_names,
+            );
+            class_skeletons.push(class_skeleton);
+        }
+
+        // Fourth pass: Generate function signatures only
+        let mut function_signatures = Vec::with_capacity(num_functions);
+        for function_name in &function_names {
+            let function_signature = Function::generate_signature_only_with_classes(
+                rng,
+                function_name.clone(),
+                0,
+                &class_skeletons,
+            );
+            function_signatures.push(function_signature);
+        }
+
+        // Fifth pass: Generate full class implementations with access to all skeletons and function signatures
+        for class_skeleton in &class_skeletons {
+            let class = CustomClass::generate_type_safe_custom_class_with_skeletons_and_functions(
+                rng,
+                &mut shared_typed_context,
+                &class_skeletons,
+                &function_signatures,
+                class_skeleton,
                 None,
                 Some(&mut existing_names),
             );
-            existing_names.push(class.get_name().to_string());
             classes.push(class);
+        }
+
+        // Sixth pass: Generate full function implementations with access to all classes and function signatures
+        for function_signature in &function_signatures {
+            let function = Function::generate_type_safe_function_with_signatures(
+                rng,
+                &mut shared_typed_context,
+                &classes,
+                &function_signatures,
+                function_signature,
+                None,
+                Some(&mut existing_names),
+            );
+            if let Some(func) = function {
+                functions.push(func);
+            }
         }
 
         // Convert classes to Class enum for expression generation
@@ -136,6 +208,9 @@ impl File {
             .iter()
             .map(|class| Class::Custom(class.clone()))
             .collect();
+
+        // Set the defined classes in the shared typed context so classes can access each other
+        shared_typed_context.set_defined_classes(defined_classes.clone());
 
         // Generate type-safe functions with access to defined classes
         let num_functions = rng.random_range(1..=max_functions);

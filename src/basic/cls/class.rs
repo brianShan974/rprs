@@ -1,8 +1,10 @@
 use derive_more::Display;
+use rand::prelude::IndexedRandom;
 use rand::{Rng, SeedableRng};
 
 use crate::basic::cls::basic_type::BasicType;
 use crate::basic::cls::custom_class::CustomClass;
+use crate::basic::cls::generic_type::{GenericType, GenericTypeParameter};
 use crate::basic::cls::number_types::floating_point::FloatingPointType;
 use crate::basic::cls::number_types::number::NumberType;
 use crate::basic::cls::number_types::signed_integer::SignedIntegerType;
@@ -37,6 +39,10 @@ pub enum Class {
     Basic(BasicType),
     #[display("{}", _0.get_name())]
     Custom(CustomClass),
+    #[display("{}", _0)]
+    Generic(Box<GenericType>),
+    #[display("{}", _0.get_name())]
+    FormalTypeParameter(GenericTypeParameter),
 }
 
 impl Class {
@@ -45,23 +51,49 @@ impl Class {
         defined_classes: Option<&mut Vec<Self>>,
         current_indentation_layer: Option<usize>,
     ) -> Self {
-        // 70% chance for basic types, 30% chance for custom types
-        if rng.random_range(0..10) <= 6 {
-            Self::Basic(BasicType::generate_random_basic_type(rng))
-        } else {
-            Self::Custom(CustomClass::generate_random_custom_class(
+        // 70% chance for basic types, 25% chance for custom types, 5% chance for generic types
+        match rng.random_range(0..20) {
+            0..=13 => Self::Basic(BasicType::generate_random_basic_type(rng)),
+            14..=18 => Self::Custom(CustomClass::generate_random_custom_class(
                 rng,
                 defined_classes,
                 current_indentation_layer,
                 None, // existing_names - use default
-            ))
+            )),
+            _ => Self::Generic(Box::new(GenericType::generate_random_generic_type(
+                rng,
+                defined_classes.as_ref().map(|classes| classes.as_slice()),
+            ))),
         }
+    }
+
+    /// Generate a class type that can include formal type parameters
+    /// This is used when we have access to generic type parameters
+    pub fn generate_random_class_with_formal_types<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&mut Vec<Self>>,
+        current_indentation_layer: Option<usize>,
+        generic_parameters: Option<&[GenericTypeParameter]>,
+    ) -> Self {
+        // If we have generic parameters and want to use them (20% chance)
+        if let Some(params) = generic_parameters {
+            if !params.is_empty() && rng.random_bool(0.2) {
+                // Choose a random generic parameter
+                let chosen_param = params.choose(rng).unwrap();
+                return Self::FormalTypeParameter(chosen_param.clone());
+            }
+        }
+
+        // Otherwise, use the normal generation logic
+        Self::generate_random_class(rng, defined_classes, current_indentation_layer)
     }
 
     pub fn get_name(&self) -> String {
         match self {
             Self::Basic(basic_type) => basic_type.to_string(),
             Self::Custom(custom_class) => custom_class.get_name(),
+            Self::Generic(generic_type) => generic_type.to_string(),
+            Self::FormalTypeParameter(param) => param.get_name(),
         }
     }
 

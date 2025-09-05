@@ -68,14 +68,20 @@ impl Block {
             &mut GenerationConfig::new(
                 external_variables.to_vec(),
                 external_functions,
-                Some(typed_context.get_defined_classes().iter().map(|rc| rc.as_ref().clone()).collect()), // Pass defined classes from typed context
+                Some(
+                    typed_context
+                        .get_defined_classes()
+                        .iter()
+                        .map(|rc| rc.as_ref().clone())
+                        .collect(),
+                ), // Pass defined classes from typed context
                 current_indentation_layer,
                 max_depth,
             ),
             external_variables,
             is_independent,
             typed_context,
-            None,
+            None, // No expected return type for this block
             rng,
         )
     }
@@ -96,6 +102,11 @@ impl Block {
         // Create a child context for this block to ensure proper variable scoping
         // Variables declared in this block won't affect the parent context
         let mut block_context = typed_context.create_child_context();
+
+        // Ensure the block context has access to defined classes for variable generation
+        if let Some(classes) = &config.defined_classes {
+            block_context.set_defined_classes(classes.clone());
+        }
 
         let num_new_vars = rng.random_range(0..=Self::MAX_NUM_NEW_VARS);
         let mut new_variables = Vec::with_capacity(num_new_vars);

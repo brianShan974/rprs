@@ -47,6 +47,24 @@ pub struct TypedGenerationContext {
     current_class_methods: Option<Vec<Function>>,
     /// Defined custom classes for expression generation
     defined_classes: Vec<Rc<Class>>,
+    /// Loop context - tracks if we're inside a loop and what type
+    loop_context: LoopContext,
+}
+
+/// Context information about loops
+#[derive(Clone, Debug, Default)]
+pub struct LoopContext {
+    /// Whether we're currently inside a loop
+    is_inside_loop: bool,
+    /// Type of the current loop (for future extensibility)
+    loop_type: Option<LoopType>,
+}
+
+/// Types of loops
+#[derive(Clone, Debug)]
+pub enum LoopType {
+    For,
+    While,
 }
 
 impl TypedGenerationContext {
@@ -58,6 +76,7 @@ impl TypedGenerationContext {
             external_functions,
             current_class_methods: None,
             defined_classes: Vec::new(),
+            loop_context: LoopContext::default(),
         }
     }
 
@@ -71,6 +90,7 @@ impl TypedGenerationContext {
             external_functions: self.external_functions.clone(),
             current_class_methods: self.current_class_methods.clone(), // TODO: optimize to use Rc<Vec>
             defined_classes: self.defined_classes.clone(), // TODO: optimize to use Rc<Vec>
+            loop_context: self.loop_context.clone(),       // Inherit loop context
         }
     }
 
@@ -110,7 +130,7 @@ impl TypedGenerationContext {
 
     /// Set the defined classes for expression generation
     pub fn set_defined_classes(&mut self, classes: Vec<Class>) {
-        self.defined_classes = classes.into_iter().map(|c| Rc::new(c)).collect();
+        self.defined_classes = classes.into_iter().map(Rc::new).collect();
     }
 
     /// Get the defined classes for expression generation
@@ -412,8 +432,8 @@ impl TypedGenerationContext {
             is_member,
             true,
             Some(&variables),
-            None,  // No external functions
-            false, // Don't allow const
+            Some(self.external_functions.clone()), // Pass available external functions
+            false,                                 // Don't allow const
             Some(
                 &self
                     .defined_classes
@@ -560,6 +580,11 @@ impl TypedGenerationContext {
                     // Object not found in context, but might be external - allow for now
                     Some(())
                 }
+            }
+            SingleStatement::Break | SingleStatement::Continue => {
+                // Break and continue statements are always valid when inside a loop
+                // The loop context check is done at generation time, not validation time
+                Some(())
             }
         }
     }
@@ -874,7 +899,10 @@ impl TypedGenerationContext {
                                 )
                                 .unwrap_or_else(|| {
                                     // Fallback: generate a simple object creation
-                                    Expression::ClassInstantiation(custom_class.get_name())
+                                    Expression::ClassInstantiation(format!(
+                                        "{}()",
+                                        custom_class.get_name()
+                                    ))
                                 });
                             SingleStatement::Return(Some(expr))
                         } else {
@@ -942,7 +970,10 @@ impl TypedGenerationContext {
                 }
                 Type::Basic(Class::Custom(custom_class)) => {
                     // For custom types, generate object instantiation
-                    Some(Expression::ClassInstantiation(custom_class.get_name()))
+                    Some(Expression::ClassInstantiation(format!(
+                        "{}()",
+                        custom_class.get_name()
+                    )))
                 }
                 _ => Some(Expression::generate_random_int_literal(rng)),
             };
@@ -1033,7 +1064,10 @@ impl TypedGenerationContext {
 
                 // 70% chance for object instantiation, 30% chance for property access
                 if rng.random_bool(0.7) {
-                    Some(Expression::ClassInstantiation(custom_class.get_name()))
+                    Some(Expression::ClassInstantiation(format!(
+                        "{}()",
+                        custom_class.get_name()
+                    )))
                 } else {
                     // Try to find a variable of the correct type for property access
                     let compatible_vars: Vec<&Variable> = variables
@@ -1051,7 +1085,10 @@ impl TypedGenerationContext {
                         Some(Expression::VariableReference(var.get_name().to_string()))
                     } else {
                         // Fallback to object instantiation
-                        Some(Expression::ClassInstantiation(custom_class.get_name()))
+                        Some(Expression::ClassInstantiation(format!(
+                            "{}()",
+                            custom_class.get_name()
+                        )))
                     }
                 }
             }
@@ -1218,5 +1255,27 @@ impl TypedGenerationContext {
             Some(&variables),
             rng,
         ))
+    }
+
+    /// Enter a loop context
+    pub fn enter_loop(&mut self, loop_type: LoopType) {
+        self.loop_context.is_inside_loop = true;
+        self.loop_context.loop_type = Some(loop_type);
+    }
+
+    /// Exit the current loop context
+    pub fn exit_loop(&mut self) {
+        self.loop_context.is_inside_loop = false;
+        self.loop_context.loop_type = None;
+    }
+
+    /// Check if we're currently inside a loop
+    pub fn is_inside_loop(&self) -> bool {
+        self.loop_context.is_inside_loop
+    }
+
+    /// Get the current loop type
+    pub fn get_current_loop_type(&self) -> Option<&LoopType> {
+        self.loop_context.loop_type.as_ref()
     }
 }

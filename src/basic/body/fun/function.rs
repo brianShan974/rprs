@@ -10,7 +10,10 @@ use crate::basic::{
         fun::parameter::Parameter,
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
-    cls::class::{BOOLEAN, Class, FLOAT, INT},
+    cls::{
+        class::{BOOLEAN, Class, FLOAT, INT},
+        custom_class::CustomClass,
+    },
     expr::expression::Expression,
     utils::{GenerationConfig, generate_unique_identifier, map_collect_join},
     var::{prefix::visibility::Visibility, variable::Variable},
@@ -61,6 +64,65 @@ impl Function {
         self.is_method
     }
 
+    /// Generate only the function signature (name, parameters, return type) without full implementation
+    pub fn generate_signature_only<T: Rng + SeedableRng>(
+        rng: &mut T,
+        name: String,
+        current_indentation_layer: usize,
+    ) -> Self {
+        let visibility = Visibility::generate_random_visibility(false, rng);
+        // For signature-only functions, we don't have access to defined classes yet
+        // Use empty vectors as placeholders
+        let empty_classes: Vec<Class> = Vec::new();
+        let parameters = Parameter::generate_random_parameters(rng, Some(&empty_classes));
+        let return_type = Self::decide_return_type_with_custom_types(rng, Some(&empty_classes));
+
+        // Create an empty body for signature-only functions
+        let body = Block::new(Vec::new(), current_indentation_layer + 1);
+
+        Self {
+            name,
+            parameters,
+            body,
+            return_type,
+            visibility,
+            current_indentation_layer,
+            is_method: false,
+        }
+    }
+
+    /// Generate function signature with access to defined classes for proper type generation
+    pub fn generate_signature_only_with_classes<T: Rng + SeedableRng>(
+        rng: &mut T,
+        name: String,
+        current_indentation_layer: usize,
+        class_skeletons: &[CustomClass],
+    ) -> Self {
+        let visibility = Visibility::generate_random_visibility(false, rng);
+
+        // Convert class skeletons to Class enum for parameter generation
+        let defined_classes: Vec<Class> = class_skeletons
+            .iter()
+            .map(|c| Class::Custom(c.clone()))
+            .collect();
+
+        let parameters = Parameter::generate_random_parameters(rng, Some(&defined_classes));
+        let return_type = Self::decide_return_type_with_custom_types(rng, Some(&defined_classes));
+
+        // Create an empty body for signature-only functions
+        let body = Block::new(Vec::new(), current_indentation_layer + 1);
+
+        Self {
+            name,
+            parameters,
+            body,
+            return_type,
+            visibility,
+            current_indentation_layer,
+            is_method: false,
+        }
+    }
+
     /// Generate a type-safe function using typed generation context
     pub fn generate_type_safe_function<T: Rng + SeedableRng>(
         config: &mut GenerationConfig,
@@ -83,9 +145,28 @@ impl Function {
 
         // Decide on return type first (before generating body)
         let return_type = if is_method {
+            // For methods, we need to check if we're in a generic class context
+            let generic_params = if let Some(classes) = config.defined_classes.as_deref() {
+                // Find the current class (if any) and get its generic parameters
+                classes.iter().find_map(|class| {
+                    if let Class::Custom(custom_class) = class {
+                        if !custom_class.get_generic_parameters().is_empty() {
+                            Some(custom_class.get_generic_parameters())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+            } else {
+                None
+            };
+
             Self::decide_method_return_type_with_custom_types(
                 rng,
                 config.defined_classes.as_deref(),
+                generic_params,
             )
         } else {
             Self::decide_return_type_with_custom_types(rng, config.defined_classes.as_deref())
@@ -150,6 +231,115 @@ impl Function {
         Some(function)
     }
 
+    /// Generate a concrete type for a generic class by replacing type parameters with concrete types
+    fn generate_concrete_type_for_generic_class<T: Rng + SeedableRng>(
+        custom_class: &CustomClass,
+        rng: &mut T,
+    ) -> Class {
+        let base_name = custom_class.get_base_name();
+        let generic_params = custom_class.get_generic_parameters();
+
+        if generic_params.is_empty() {
+            // Non-generic class, return as is
+            Class::Custom(custom_class.clone())
+        } else {
+            // Generate concrete type arguments
+            let concrete_type_args: Vec<String> = generic_params
+                .iter()
+                .map(|_| {
+                    // Generate random basic types for type arguments
+                    let basic_types = ["String", "Int", "Float", "Boolean"];
+                    basic_types.choose(rng).unwrap().to_string()
+                })
+                .collect();
+
+            // Create a new custom class with concrete type arguments
+            // For method return types, we want concrete types like cu<Float, Boolean> instead of cu<T, T>
+            let concrete_class_name = format!("{}<{}>", base_name, concrete_type_args.join(", "));
+
+            // Create a new custom class with the concrete name but no generic parameters
+            let mut concrete_class = custom_class.clone();
+            concrete_class.name = concrete_class_name;
+            concrete_class.generic_parameters.clear(); // Remove generic parameters since we're using concrete types
+
+            Class::Custom(concrete_class)
+        }
+    }
+
+    /// Generate a type-safe function with access to all classes and function signatures
+    pub fn generate_type_safe_function_with_signatures<T: Rng + SeedableRng>(
+        rng: &mut T,
+        typed_context: &mut TypedGenerationContext,
+        classes: &[CustomClass],
+        function_signatures: &[Self],
+        current_signature: &Self,
+        current_indentation_layer: Option<usize>,
+        _existing_names: Option<&mut Vec<String>>,
+    ) -> Option<Self> {
+        let current_indentation_layer = current_indentation_layer.unwrap_or(0);
+
+        // Start with the current signature
+        let mut function = current_signature.clone();
+
+        // Create a separate typed context for this function
+        let mut function_typed_context =
+            TypedGenerationContext::new(typed_context.get_external_functions());
+
+        // Convert classes to Class enum for the function context
+        let defined_classes: Vec<Class> =
+            classes.iter().map(|c| Class::Custom(c.clone())).collect();
+        function_typed_context.set_defined_classes(defined_classes.clone());
+
+        // Add function signatures to the typed context so functions can call other functions
+        for function_signature in function_signatures {
+            function_typed_context.add_function(function_signature);
+        }
+
+        // Convert class properties to parameters for function generation
+        let external_variables: Vec<_> = classes
+            .iter()
+            .flat_map(|class| {
+                class.properties.iter().map(|var| {
+                    Parameter::new(
+                        format!("other_{}_{}", class.get_base_name(), var.get_name()),
+                        var.get_class()
+                            .map(|c| Rc::new(c.clone()))
+                            .unwrap_or_else(|| Rc::new(FLOAT.clone())),
+                    )
+                })
+            })
+            .collect();
+
+        // Generate function body with access to all classes and functions
+        let external_vars: Vec<Variable> = external_variables
+            .iter()
+            .map(|p| p.clone().into())
+            .collect();
+        let body = Block::generate_type_safe_block_with_config(
+            &mut GenerationConfig::new(
+                external_vars.clone(),
+                typed_context.get_external_functions(),
+                Some(defined_classes),
+                current_indentation_layer,
+                Self::MAX_DEPTH,
+            ),
+            &external_vars,
+            false,
+            &mut function_typed_context,
+            function
+                .return_type
+                .as_ref()
+                .map(|ty| Type::Basic(ty.clone()))
+                .as_ref(),
+            rng,
+        )?;
+
+        // Update the function with the generated body
+        function.body = body;
+
+        Some(function)
+    }
+
     /// Decide on a return type for the function
     fn decide_return_type<T: Rng + SeedableRng>(rng: &mut T) -> Option<Class> {
         match rng.random_range(0..4) {
@@ -187,7 +377,22 @@ impl Function {
                             .collect();
 
                         if !custom_classes.is_empty() {
-                            Some((*custom_classes.choose(rng).unwrap()).clone())
+                            let chosen_class = (*custom_classes.choose(rng).unwrap()).clone();
+
+                            // For method return types, we want concrete types instead of generic parameters
+                            if let Class::Custom(custom_class) = &chosen_class {
+                                if !custom_class.get_generic_parameters().is_empty() {
+                                    // Generate concrete type arguments for generic classes
+                                    Some(Self::generate_concrete_type_for_generic_class(
+                                        custom_class,
+                                        rng,
+                                    ))
+                                } else {
+                                    Some(chosen_class)
+                                }
+                            } else {
+                                Some(chosen_class)
+                            }
                         } else {
                             // Fallback to basic types if no custom classes available
                             match rng.random_range(0..4) {
@@ -210,12 +415,37 @@ impl Function {
         }
     }
 
-    /// Decide on a return type for a method with support for custom types
+    /// Decide on a return type for a method with support for custom types and generic parameters
     fn decide_method_return_type_with_custom_types<T: Rng + SeedableRng>(
         rng: &mut T,
         defined_classes: Option<&[Class]>,
+        generic_parameters: Option<&[crate::basic::cls::generic_type::GenericTypeParameter]>,
     ) -> Option<Class> {
-        // Methods can also return custom types
+        // 20% chance to return a generic type parameter if available
+        if let Some(params) = generic_parameters
+            && !params.is_empty()
+            && rng.random_bool(0.2)
+        {
+            // Filter parameters that can be return types (covariant or invariant)
+            let returnable_params: Vec<_> = params
+                .iter()
+                .filter(|param| param.can_be_return_type())
+                .collect();
+
+            if !returnable_params.is_empty() {
+                let _chosen_param = returnable_params.choose(rng).unwrap();
+                // Return the generic type parameter as a Class::Generic
+                let generic_type = crate::basic::cls::generic_type::GenericType::new(
+                    Class::Basic(crate::basic::cls::basic_type::BasicType::String),
+                    vec![Class::Basic(
+                        crate::basic::cls::basic_type::BasicType::String,
+                    )],
+                );
+                return Some(Class::Generic(Box::new(generic_type)));
+            }
+        }
+
+        // Fallback to normal custom type selection
         Self::decide_return_type_with_custom_types(rng, defined_classes)
     }
 

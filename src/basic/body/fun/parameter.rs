@@ -34,10 +34,66 @@ impl Parameter {
                 ty: Rc::new(BASIC_TYPES.choose(rng).unwrap().clone()),
             }
         } else {
+            // Bias towards basic types for method/function parameters
+            let chosen_class = if rng.random_bool(0.7) {
+                // 70% chance to choose from basic types
+                BASIC_TYPES.choose(rng).unwrap().clone()
+            } else {
+                // 30% chance to choose from all defined classes
+                defined_classes.choose(rng).unwrap().clone()
+            };
+
+            // For method parameters, we want concrete types instead of generic parameters
+            let concrete_type = if let Class::Custom(custom_class) = &chosen_class {
+                if !custom_class.get_generic_parameters().is_empty() {
+                    // Generate concrete type arguments for generic classes
+                    Self::generate_concrete_type_for_generic_class(custom_class, rng)
+                } else {
+                    chosen_class.clone()
+                }
+            } else {
+                chosen_class.clone()
+            };
+
             Self {
                 name: generate_random_identifier(rng),
-                ty: Rc::new(defined_classes.choose(rng).unwrap().clone()),
+                ty: Rc::new(concrete_type),
             }
+        }
+    }
+
+    /// Generate a concrete type for a generic class by replacing type parameters with concrete types
+    fn generate_concrete_type_for_generic_class<T: Rng + SeedableRng>(
+        custom_class: &crate::basic::cls::custom_class::CustomClass,
+        rng: &mut T,
+    ) -> Class {
+        let base_name = custom_class.get_base_name();
+        let generic_params = custom_class.get_generic_parameters();
+
+        if generic_params.is_empty() {
+            // Non-generic class, return as is
+            Class::Custom(custom_class.clone())
+        } else {
+            // Generate concrete type arguments
+            let concrete_type_args: Vec<String> = generic_params
+                .iter()
+                .map(|_| {
+                    // Generate random basic types for type arguments
+                    let basic_types = ["String", "Int", "Float", "Boolean"];
+                    basic_types.choose(rng).unwrap().to_string()
+                })
+                .collect();
+
+            // Create a new custom class with concrete type arguments
+            // For method parameters, we want concrete types like cu<Float, Boolean> instead of cu<T, T>
+            let concrete_class_name = format!("{}<{}>", base_name, concrete_type_args.join(", "));
+
+            // Create a new custom class with the concrete name but no generic parameters
+            let mut concrete_class = custom_class.clone();
+            concrete_class.name = concrete_class_name;
+            concrete_class.generic_parameters.clear(); // Remove generic parameters since we're using concrete types
+
+            Class::Custom(concrete_class)
         }
     }
 

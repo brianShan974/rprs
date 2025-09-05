@@ -8,8 +8,8 @@ use clap::Parser;
     long_about = "Generates type-safe Kotlin code files using multiple CPU cores for maximum performance."
 )]
 pub struct Args {
-    /// Total number of files to generate
-    #[arg(short = 'n', long)]
+    /// Total number of files to generate, defaults to 1
+    #[arg(short = 'n', long, default_value = "1")]
     pub total_files: Option<usize>,
 
     /// Seed for deterministic generation
@@ -47,8 +47,8 @@ impl Args {
 
         // Otherwise, return the number of threads
         let num_cores = num_cpus::get();
-        let threads = self.threads.unwrap_or(num_cores);
-        threads
+        
+        self.threads.unwrap_or(num_cores)
     }
 
     /// Get the number of threads to use
@@ -70,11 +70,10 @@ impl Args {
             return Err("max_functions must be greater than 0".to_string());
         }
 
-        if let Some(threads) = self.threads {
-            if threads == 0 {
+        if let Some(threads) = self.threads
+            && threads == 0 {
                 return Err("threads must be greater than 0".to_string());
             }
-        }
 
         Ok(())
     }

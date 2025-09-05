@@ -21,7 +21,7 @@ impl Display for WhenStatement {
             writeln!(f, "{indentation}{} -> {}", condition, block)?;
         }
 
-        writeln!(f, "{indentation}else -> {}", self.else_arm)?;
+        write!(f, "{indentation}else -> {}", self.else_arm)?;
 
         Ok(())
     }
