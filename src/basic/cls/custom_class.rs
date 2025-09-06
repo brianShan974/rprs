@@ -1,3 +1,4 @@
+use rand::prelude::IndexedRandom;
 use rand::{Rng, SeedableRng};
 use std::cell::RefCell;
 
@@ -21,6 +22,7 @@ pub struct CustomClass {
     pub properties: Vec<Rc<Variable>>,
     pub methods: Vec<Function>,
     pub current_indentation_layer: usize,
+    pub parent_class: Option<Rc<Class>>, // Parent class for inheritance
 }
 
 impl CustomClass {
@@ -34,6 +36,7 @@ impl CustomClass {
             properties: Vec::new(),
             methods: Vec::new(),
             current_indentation_layer,
+            parent_class: None,
         }
     }
 
@@ -63,12 +66,35 @@ impl CustomClass {
         &self.methods
     }
 
+    /// Get only public methods from this class
+    pub fn get_public_methods(&self) -> Vec<&Function> {
+        self.methods
+            .iter()
+            .filter(|method| method.get_visibility().is_public())
+            .collect()
+    }
+
     pub fn get_generic_parameters(&self) -> &[GenericTypeParameter] {
         &self.generic_parameters
     }
 
     pub fn get_base_name(&self) -> String {
         self.name.clone()
+    }
+
+    /// Get the parent class if this class inherits from another class
+    pub fn get_parent_class(&self) -> Option<&Rc<Class>> {
+        self.parent_class.as_ref()
+    }
+
+    /// Set the parent class for inheritance
+    pub fn set_parent_class(&mut self, parent_class: Rc<Class>) {
+        self.parent_class = Some(parent_class);
+    }
+
+    /// Check if this class inherits from another class
+    pub fn has_parent(&self) -> bool {
+        self.parent_class.is_some()
     }
 
     pub fn generate_random_custom_class<T: Rng + SeedableRng>(
@@ -88,10 +114,34 @@ impl CustomClass {
         // Create context for smart generic parameter generation
         let available_types = defined_classes
             .as_ref()
-            .map(|classes| classes.iter().cloned().collect())
+            .map(|classes| classes.to_vec())
             .unwrap_or_default();
 
         let context = GenericParameterContext::new(class_purpose.clone(), available_types);
+
+        // Generate inheritance relationship (30% chance)
+        if let Some(classes) = defined_classes.as_ref()
+            && !classes.is_empty()
+            && rng.random_bool(0.3)
+        {
+            // 30% chance to inherit from an existing class
+            let available_parents: Vec<_> = classes
+                .iter()
+                .filter(|class| {
+                    if let Class::Custom(existing_class) = class {
+                        existing_class.get_base_name() != custom_class.get_base_name()
+                    } else {
+                        false
+                    }
+                })
+                .cloned()
+                .collect();
+
+            if !available_parents.is_empty() {
+                let parent_class = Rc::new(available_parents.choose(rng).unwrap().clone());
+                custom_class.set_parent_class(parent_class);
+            }
+        }
 
         // Generate 0-3 generic parameters with improved logic
         let num_generic_params = if rng.random_bool(0.3) {
@@ -249,7 +299,7 @@ impl CustomClass {
             "mutable".to_string()
         } else {
             // Random purpose for generic classes
-            let purposes = vec![
+            let purposes = [
                 "collection",
                 "numeric",
                 "text",
@@ -408,8 +458,8 @@ impl CustomClass {
                 rng,
                 Some(&custom_class.generic_parameters),
             ) {
-                // Add the method to the main typed context so other methods can call it
-                typed_context.add_function(&method);
+                // Don't add methods to global context to prevent direct calls from other classes
+                // typed_context.add_function(&method);
                 custom_class.add_method(method);
             }
         }
@@ -540,8 +590,8 @@ impl CustomClass {
                 rng,
                 Some(&custom_class.generic_parameters),
             ) {
-                // Add the method to the main typed context so other methods can call it
-                typed_context.add_function(&method);
+                // Don't add methods to global context to prevent direct calls from other classes
+                // typed_context.add_function(&method);
                 custom_class.add_method(method);
             }
         }
@@ -564,6 +614,21 @@ impl CustomClass {
         // Start with the current skeleton
         let mut custom_class = current_skeleton.clone();
         custom_class.current_indentation_layer = current_indentation_layer;
+
+        // Generate inheritance relationship (30% chance) if not already set
+        if !custom_class.has_parent() && !class_skeletons.is_empty() && rng.random_bool(0.3) {
+            // 30% chance to inherit from an existing class skeleton
+            let available_parents: Vec<_> = class_skeletons
+                .iter()
+                .filter(|skeleton| skeleton.get_name() != custom_class.get_name())
+                .map(|skeleton| Rc::new(Class::Custom(skeleton.clone())))
+                .collect();
+
+            if !available_parents.is_empty() {
+                let parent_class = available_parents.choose(rng).unwrap().clone();
+                custom_class.set_parent_class(parent_class);
+            }
+        }
 
         // Update properties with initial values while preserving original property information
         let mut updated_properties = Vec::new();
@@ -677,8 +742,8 @@ impl CustomClass {
                 rng,
                 Some(&custom_class.generic_parameters),
             ) {
-                // Add the method to the main typed context so other methods can call it
-                typed_context.add_function(&method);
+                // Don't add methods to global context to prevent direct calls from other classes
+                // typed_context.add_function(&method);
                 custom_class.add_method(method);
             }
         }
@@ -804,8 +869,8 @@ impl CustomClass {
                 rng,
                 Some(&custom_class.generic_parameters),
             ) {
-                // Add the method to the main typed context so other methods can call it
-                typed_context.add_function(&method);
+                // Don't add methods to global context to prevent direct calls from other classes
+                // typed_context.add_function(&method);
                 custom_class.add_method(method);
             }
         }
@@ -861,99 +926,6 @@ impl CustomClass {
             rng,
         )
     }
-
-    /// Generate a high-quality method with multiple attempts and validation
-    fn generate_quality_method<T: Rng + SeedableRng>(
-        external_variables: &[Parameter],
-        typed_context: &mut TypedGenerationContext,
-        current_indentation_layer: usize,
-        rng: &mut T,
-        generic_parameters: Option<&[GenericTypeParameter]>,
-    ) -> Option<Function> {
-        const MAX_ATTEMPTS: usize = 3;
-        let mut best_method: Option<Function> = None;
-        let mut best_score = 0;
-
-        for _attempt in 0..MAX_ATTEMPTS {
-            if let Some(method) = Self::generate_method_with_return_type(
-                external_variables,
-                typed_context,
-                current_indentation_layer,
-                rng,
-                generic_parameters,
-            ) {
-                let score = Self::evaluate_method_quality(&method, generic_parameters);
-
-                if score > best_score {
-                    best_score = score;
-                    best_method = Some(method);
-                }
-
-                // If we get a perfect score, return immediately
-                if score >= 90 {
-                    break;
-                }
-            }
-        }
-
-        best_method
-    }
-
-    /// Evaluate the quality of a generated method
-    fn evaluate_method_quality(
-        method: &Function,
-        generic_parameters: Option<&[GenericTypeParameter]>,
-    ) -> u32 {
-        let mut score = 0;
-
-        // Check method complexity (prefer simpler methods)
-        let statement_count = method.get_body().get_statements().len();
-        if statement_count <= 3 {
-            score += 30; // Simple methods get high score
-        } else if statement_count <= 6 {
-            score += 20; // Medium complexity
-        } else if statement_count <= 10 {
-            score += 10; // Complex but acceptable
-        }
-
-        // Check parameter count (prefer reasonable number of parameters)
-        let param_count = method.get_parameters().len();
-        if param_count <= 2 {
-            score += 25; // Few parameters
-        } else if param_count <= 4 {
-            score += 15; // Reasonable number
-        } else if param_count <= 6 {
-            score += 5; // Many parameters
-        }
-
-        // Check return type appropriateness
-        if let Some(return_type) = method.get_return_type() {
-            if return_type.get_name().contains("Void") || return_type.get_name().contains("Unit") {
-                score += 20; // Void methods are often appropriate
-            } else {
-                // Check if return type matches generic parameters
-                if let Some(generic_params) = generic_parameters {
-                    for param in generic_params {
-                        if return_type.get_name() == param.get_name() {
-                            score += 25; // Return type matches generic parameter
-                            break;
-                        }
-                    }
-                }
-                score += 15; // Has return type
-            }
-        } else {
-            score += 10; // No return type specified
-        }
-
-        // Check method name appropriateness
-        let method_name = method.get_name().to_lowercase();
-        if !method_name.contains("test") && !method_name.contains("debug") {
-            score += 10; // Avoid test/debug methods
-        }
-
-        score
-    }
 }
 
 impl fmt::Display for CustomClass {
@@ -962,9 +934,19 @@ impl fmt::Display for CustomClass {
         let outer_indentation = SPACE.repeat(self.current_indentation_layer * INDENT_SIZE);
         let inner_indentation = SPACE.repeat(INDENT_SIZE);
 
-        // Start class declaration with generic parameters
+        // Start class declaration with generic parameters and inheritance
+        let inheritance_part = if let Some(parent) = &self.parent_class {
+            format!(" : {}", parent)
+        } else {
+            String::new()
+        };
+
         if self.generic_parameters.is_empty() {
-            writeln!(f, "{}class {} {{", outer_indentation, self.name)?;
+            writeln!(
+                f,
+                "{}class {}{} {{",
+                outer_indentation, self.name, inheritance_part
+            )?;
         } else {
             let params = self
                 .generic_parameters
@@ -972,7 +954,11 @@ impl fmt::Display for CustomClass {
                 .map(|p| p.get_name())
                 .collect::<Vec<_>>()
                 .join(", ");
-            writeln!(f, "{}class {}<{}> {{", outer_indentation, self.name, params)?;
+            writeln!(
+                f,
+                "{}class {}<{}>{} {{",
+                outer_indentation, self.name, params, inheritance_part
+            )?;
         }
 
         for property in &self.properties {

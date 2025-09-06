@@ -542,10 +542,12 @@ impl Variable {
                     let matching_functions: Vec<_> = borrowed_functions
                         .iter()
                         .filter(|f| {
-                            f.get_return_type()
-                                .as_ref()
-                                .map(|rt| rt.get_name() == custom_class.get_name())
-                                .unwrap_or(false)
+                            // Only include functions that are NOT class methods
+                            !f.is_method()
+                                && f.get_return_type()
+                                    .as_ref()
+                                    .map(|rt| rt.get_name() == custom_class.get_name())
+                                    .unwrap_or(false)
                         })
                         .collect();
 
@@ -663,20 +665,23 @@ impl Variable {
                 Expression::Arithmetic(ArithmeticExpression::Char(rng.random_range('a'..='z')))
             }
             Class::Custom(custom_class) => {
-                // For custom type parameters, try to find matching variables first
+                // For custom type parameters, try to find matching variables including subclasses
                 if let Some(variables) = external_variables {
-                    let matching_variables: Vec<_> = variables
+                    let compatible_variables: Vec<_> = variables
                         .iter()
                         .filter(|v| {
-                            v.get_class()
-                                .as_ref()
-                                .map(|c| c.get_name() == custom_class.get_name())
-                                .unwrap_or(false)
+                            if let Some(Class::Custom(var_class)) = v.get_class() {
+                                // Check if variable's class is the same or a subclass
+                                var_class.get_base_name() == custom_class.get_base_name()
+                                    || Self::is_subclass_of(var_class, custom_class)
+                            } else {
+                                false
+                            }
                         })
                         .collect();
 
-                    if !matching_variables.is_empty() {
-                        let chosen_variable = matching_variables.choose(rng).unwrap();
+                    if !compatible_variables.is_empty() {
+                        let chosen_variable = compatible_variables.choose(rng).unwrap();
                         Expression::VariableReference(chosen_variable.get_name().to_string())
                     } else {
                         Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
@@ -700,5 +705,24 @@ impl Variable {
                 Expression::VariableReference(format!("TODO_FORMAL_TYPE_{}", param.get_name()))
             }
         }
+    }
+
+    /// Check if a class is a subclass of another class
+    fn is_subclass_of(subclass: &CustomClass, superclass: &CustomClass) -> bool {
+        if subclass.get_base_name() == superclass.get_base_name() {
+            return true;
+        }
+
+        // Check inheritance chain
+        if let Some(parent_class) = subclass.get_parent_class()
+            && let Class::Custom(parent_custom_class) = parent_class.as_ref()
+        {
+            if parent_custom_class.get_base_name() == superclass.get_base_name() {
+                return true;
+            }
+            // Recursively check parent's inheritance chain
+            return Self::is_subclass_of(parent_custom_class, superclass);
+        }
+        false
     }
 }

@@ -23,8 +23,16 @@ fn main() {
     eprintln!("Configuration:");
     eprintln!("Threads: {}", args.thread_count());
     eprintln!("Total files: {}", args.total_tasks());
-    eprintln!("Max classes: {}", args.max_classes);
-    eprintln!("Max functions: {}", args.max_functions);
+    if let Some(classes) = args.classes {
+        eprintln!("Number of classes: {}", classes);
+    } else if let Some(max_classes) = args.max_classes {
+        eprintln!("Max classes: {}", max_classes);
+    }
+    if let Some(functions) = args.functions {
+        eprintln!("Number of functions: {}", functions);
+    } else if let Some(max_functions) = args.max_functions {
+        eprintln!("Max functions: {}", max_functions);
+    }
     if let Some(ref output_dir) = args.output_dir {
         eprintln!("Output directory: {}", output_dir);
     }
@@ -55,12 +63,18 @@ fn main() {
                 args.max_constants,
                 args.max_classes,
                 args.max_functions,
+                args.classes,
+                args.functions,
             );
             file.to_string()
         })
         .collect();
 
-    eprintln!("Generated {} files successfully", args.total_tasks());
+    eprintln!(
+        "Generated {} file{} successfully",
+        total_tasks,
+        if total_tasks == 1 { "" } else { "s" }
+    );
     for result in _all_results {
         println!("{}", result);
     }

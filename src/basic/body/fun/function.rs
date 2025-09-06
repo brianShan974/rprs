@@ -11,8 +11,10 @@ use crate::basic::{
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
     cls::{
+        basic_type::BasicType,
         class::{BOOLEAN, Class, FLOAT, INT},
         custom_class::CustomClass,
+        generic_type::{GenericType, GenericTypeParameter},
     },
     expr::expression::Expression,
     utils::{GenerationConfig, generate_unique_identifier, map_collect_join},
@@ -419,7 +421,7 @@ impl Function {
     fn decide_method_return_type_with_custom_types<T: Rng + SeedableRng>(
         rng: &mut T,
         defined_classes: Option<&[Class]>,
-        generic_parameters: Option<&[crate::basic::cls::generic_type::GenericTypeParameter]>,
+        generic_parameters: Option<&[GenericTypeParameter]>,
     ) -> Option<Class> {
         // 20% chance to return a generic type parameter if available
         if let Some(params) = generic_parameters
@@ -435,11 +437,9 @@ impl Function {
             if !returnable_params.is_empty() {
                 let _chosen_param = returnable_params.choose(rng).unwrap();
                 // Return the generic type parameter as a Class::Generic
-                let generic_type = crate::basic::cls::generic_type::GenericType::new(
-                    Class::Basic(crate::basic::cls::basic_type::BasicType::String),
-                    vec![Class::Basic(
-                        crate::basic::cls::basic_type::BasicType::String,
-                    )],
+                let generic_type = GenericType::new(
+                    Class::Basic(BasicType::String),
+                    vec![Class::Basic(BasicType::String)],
                 );
                 return Some(Class::Generic(Box::new(generic_type)));
             }

@@ -26,6 +26,12 @@ pub struct CompletenessReport {
     pub summary_text: String,
 }
 
+impl Default for CompletenessReport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CompletenessReport {
     pub fn new() -> Self {
         Self {
@@ -40,9 +46,8 @@ impl CompletenessReport {
     }
 
     pub fn add_issue(&mut self, issue: CompletenessIssue) {
-        match &issue {
-            CompletenessIssue::Error(_) => self.is_complete = false,
-            _ => {}
+        if let CompletenessIssue::Error(_) = &issue {
+            self.is_complete = false
         }
         self.issues.push(issue);
     }
@@ -618,7 +623,7 @@ impl GenericTypeParameter {
                     }
                     3 => {
                         // Interface types
-                        let interfaces = vec![
+                        let interfaces = [
                             "Comparable",
                             "Serializable",
                             "Cloneable",
@@ -640,7 +645,7 @@ impl GenericTypeParameter {
     }
 
     /// Generate intelligent random bound with context awareness
-    fn generate_smart_random_bound<T: Rng + SeedableRng>(
+    fn _generate_smart_random_bound<T: Rng + SeedableRng>(
         rng: &mut T,
         context: &GenericParameterContext,
     ) -> TypeBound {
@@ -821,7 +826,7 @@ impl GenericTypeParameter {
             }
             3 => {
                 // Interface bounds
-                let interfaces = vec![
+                let interfaces = [
                     "Comparable",
                     "Serializable",
                     "Cloneable",
@@ -1136,10 +1141,10 @@ impl GenericType {
         visited.insert(type_name.clone(), true);
 
         for arg in &self.type_arguments {
-            if let Class::Generic(generic_arg) = arg {
-                if generic_arg.check_recursive_structure(visited) {
-                    return true;
-                }
+            if let Class::Generic(generic_arg) = arg
+                && generic_arg.check_recursive_structure(visited)
+            {
+                return true;
             }
         }
 
@@ -1234,12 +1239,14 @@ impl GenericType {
 
     /// Check if two basic types are compatible for unification
     fn basic_types_compatible(basic1: &BasicType, basic2: &BasicType) -> bool {
-        match (basic1, basic2) {
-            (BasicType::Number(_), BasicType::Number(_)) => true,
-            (BasicType::String, _) | (_, BasicType::String) => true,
-            (BasicType::Boolean, _) | (_, BasicType::Boolean) => true,
-            _ => false,
-        }
+        matches!(
+            (basic1, basic2),
+            (BasicType::Number(_), BasicType::Number(_))
+                | (BasicType::String, _)
+                | (_, BasicType::String)
+                | (BasicType::Boolean, _)
+                | (_, BasicType::Boolean)
+        )
     }
 
     /// Get the most general unifier (MGU) between this type and another

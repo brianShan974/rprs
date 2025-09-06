@@ -9,7 +9,7 @@ use clap::Parser;
 )]
 pub struct Args {
     /// Total number of files to generate, defaults to 1
-    #[arg(short = 'n', long, default_value = "1")]
+    #[arg(short = 'n', long)]
     pub total_files: Option<usize>,
 
     /// Seed for deterministic generation
@@ -25,12 +25,20 @@ pub struct Args {
     pub output_dir: Option<String>,
 
     /// Maximum number of classes per file
-    #[arg(long, default_value = "10")]
-    pub max_classes: usize,
+    #[arg(long)]
+    pub max_classes: Option<usize>,
 
     /// Maximum number of functions per file
-    #[arg(long, default_value = "15")]
-    pub max_functions: usize,
+    #[arg(long)]
+    pub max_functions: Option<usize>,
+
+    /// The number of classes per file, overrides max-classes
+    #[arg(short, long)]
+    pub functions: Option<usize>,
+
+    /// The number of functions per file, overrides max-functions
+    #[arg(short, long)]
+    pub classes: Option<usize>,
 
     /// Maximum number of constants per file
     #[arg(long, default_value = "5")]
@@ -40,15 +48,7 @@ pub struct Args {
 impl Args {
     /// Get the total number of tasks to generate
     pub fn total_tasks(&self) -> usize {
-        // If total_files is specified, use it directly
-        if let Some(total_files) = self.total_files {
-            return total_files;
-        }
-
-        // Otherwise, return the number of threads
-        let num_cores = num_cpus::get();
-        
-        self.threads.unwrap_or(num_cores)
+        self.total_files.unwrap_or(1)
     }
 
     /// Get the number of threads to use
@@ -62,18 +62,19 @@ impl Args {
             return Err("total_files must be greater than 0".to_string());
         }
 
-        if self.max_classes == 0 {
+        if self.max_classes == Some(0) {
             return Err("max_classes must be greater than 0".to_string());
         }
 
-        if self.max_functions == 0 {
+        if self.max_functions == Some(0) {
             return Err("max_functions must be greater than 0".to_string());
         }
 
         if let Some(threads) = self.threads
-            && threads == 0 {
-                return Err("threads must be greater than 0".to_string());
-            }
+            && threads == 0
+        {
+            return Err("threads must be greater than 0".to_string());
+        }
 
         Ok(())
     }

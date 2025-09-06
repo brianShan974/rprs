@@ -49,6 +49,8 @@ pub struct TypedGenerationContext {
     defined_classes: Vec<Rc<Class>>,
     /// Loop context - tracks if we're inside a loop and what type
     loop_context: LoopContext,
+    /// Current class context - tracks the current class hierarchy
+    current_class_context: Option<ClassContext>,
 }
 
 /// Context information about loops
@@ -67,6 +69,50 @@ pub enum LoopType {
     While,
 }
 
+/// Context information about the current class hierarchy
+#[derive(Clone, Debug)]
+pub struct ClassContext {
+    /// Current class name
+    current_class_name: String,
+    /// Parent class name (if any)
+    parent_class_name: Option<String>,
+    /// All ancestor class names (for inheritance chain)
+    ancestor_classes: Vec<String>,
+}
+
+impl ClassContext {
+    pub fn new(class_name: String) -> Self {
+        Self {
+            current_class_name: class_name,
+            parent_class_name: None,
+            ancestor_classes: Vec::new(),
+        }
+    }
+
+    pub fn with_parent(mut self, parent_name: String) -> Self {
+        self.parent_class_name = Some(parent_name.clone());
+        self.ancestor_classes.push(parent_name);
+        self
+    }
+
+    pub fn get_current_class_name(&self) -> &str {
+        &self.current_class_name
+    }
+
+    pub fn get_parent_class_name(&self) -> Option<&str> {
+        self.parent_class_name.as_deref()
+    }
+
+    pub fn get_ancestor_classes(&self) -> &[String] {
+        &self.ancestor_classes
+    }
+
+    pub fn is_subclass_of(&self, class_name: &str) -> bool {
+        self.current_class_name == class_name
+            || self.ancestor_classes.contains(&class_name.to_string())
+    }
+}
+
 impl TypedGenerationContext {
     pub fn new(external_functions: Rc<RefCell<Vec<Function>>>) -> Self {
         Self {
@@ -77,6 +123,7 @@ impl TypedGenerationContext {
             current_class_methods: None,
             defined_classes: Vec::new(),
             loop_context: LoopContext::default(),
+            current_class_context: None,
         }
     }
 
@@ -91,6 +138,7 @@ impl TypedGenerationContext {
             current_class_methods: self.current_class_methods.clone(), // TODO: optimize to use Rc<Vec>
             defined_classes: self.defined_classes.clone(), // TODO: optimize to use Rc<Vec>
             loop_context: self.loop_context.clone(),       // Inherit loop context
+            current_class_context: self.current_class_context.clone(), // Inherit class context
         }
     }
 
@@ -181,12 +229,17 @@ impl TypedGenerationContext {
         }
     }
 
-    /// Generate a type-safe function call
+    /// Generate a type-safe function call - only for global functions, not class methods
     pub fn generate_type_safe_function_call<T: Rng + SeedableRng>(
         &self,
         func_name: &str,
         rng: &mut T,
     ) -> TypeResult<SingleStatement> {
+        // Check if this function is actually a method of any defined class
+        if self.is_function_a_class_method(func_name) {
+            return None; // Don't generate direct calls to class methods
+        }
+
         if let Some(func_type) = self.function_signatures.get(func_name) {
             match func_type {
                 Type::Function(param_types, _return_type) => {
@@ -211,6 +264,20 @@ impl TypedGenerationContext {
         }
     }
 
+    /// Check if a function is actually a method of any defined class
+    fn is_function_a_class_method(&self, func_name: &str) -> bool {
+        self.defined_classes.iter().any(|class| {
+            if let Class::Custom(custom_class) = class.as_ref() {
+                custom_class
+                    .get_methods()
+                    .iter()
+                    .any(|method| method.get_name() == func_name)
+            } else {
+                false
+            }
+        })
+    }
+
     /// Generate a type-safe function call expression that returns a specific type
     pub fn generate_type_safe_function_call_expression<T: Rng + SeedableRng>(
         &self,
@@ -230,10 +297,15 @@ impl TypedGenerationContext {
         let functions = &self.external_functions;
         let functions_borrowed = functions.borrow();
 
-        // Find functions that return the target type, but exclude the current function being generated
+        // Find functions that return the target type, but exclude class methods and the current function being generated
         let compatible_functions: Vec<_> = functions_borrowed
             .iter()
             .filter(|func| {
+                // First check if this is a class method - if so, exclude it
+                if self.is_function_a_class_method(func.get_name()) {
+                    return false;
+                }
+
                 if let Some(Type::Function(_, return_type)) =
                     self.function_signatures.get(func.get_name())
                 {
@@ -454,9 +526,14 @@ impl TypedGenerationContext {
     }
 
     /// Get available functions for calling - return owned strings to avoid borrowing issues
+    /// Only returns global functions, not class methods
     pub fn get_available_functions(&self) -> Vec<String> {
         let functions = self.external_functions.borrow();
-        functions.iter().map(|f| f.get_name().to_string()).collect()
+        functions
+            .iter()
+            .filter(|f| !self.is_function_a_class_method(f.get_name()))
+            .map(|f| f.get_name().to_string())
+            .collect()
     }
 
     /// Validate a statement for type safety
@@ -1045,7 +1122,8 @@ impl TypedGenerationContext {
                                 .iter()
                                 .map(|rc| rc.as_ref().clone())
                                 .collect::<Vec<_>>(),
-                        ), // Pass defined classes for method calls
+                        ), // Pass defined classes for relationship checking
+                        self.get_current_class_name(), // Pass current class name
                         rng,
                     ))
                 }
@@ -1106,7 +1184,8 @@ impl TypedGenerationContext {
                             .iter()
                             .map(|rc| rc.as_ref().clone())
                             .collect::<Vec<_>>(),
-                    ), // Pass defined classes for method calls
+                    ), // Pass defined classes for relationship checking
+                    self.get_current_class_name(), // Pass current class name
                     rng,
                 ))
             }
@@ -1277,5 +1356,56 @@ impl TypedGenerationContext {
     /// Get the current loop type
     pub fn get_current_loop_type(&self) -> Option<&LoopType> {
         self.loop_context.loop_type.as_ref()
+    }
+
+    /// Enter a class context
+    pub fn enter_class_context(&mut self, class_name: String, parent_class_name: Option<String>) {
+        let mut class_context = ClassContext::new(class_name);
+        if let Some(parent) = parent_class_name {
+            class_context = class_context.with_parent(parent);
+        }
+        self.current_class_context = Some(class_context);
+    }
+
+    /// Exit the current class context
+    pub fn exit_class_context(&mut self) {
+        self.current_class_context = None;
+    }
+
+    /// Check if we're currently inside a class
+    pub fn is_inside_class(&self) -> bool {
+        self.current_class_context.is_some()
+    }
+
+    /// Get the current class name
+    pub fn get_current_class_name(&self) -> Option<&str> {
+        self.current_class_context
+            .as_ref()
+            .map(|ctx| ctx.get_current_class_name())
+    }
+
+    /// Get the current class context
+    pub fn get_current_class_context(&self) -> Option<&ClassContext> {
+        self.current_class_context.as_ref()
+    }
+
+    /// Check if the current class is a subclass of the given class
+    pub fn is_current_class_subclass_of(&self, class_name: &str) -> bool {
+        self.current_class_context
+            .as_ref()
+            .map(|ctx| ctx.is_subclass_of(class_name))
+            .unwrap_or(false)
+    }
+
+    /// Add a class definition to the type checker
+    pub fn add_class_definition(&mut self, class: CustomClass) {
+        self.type_checker.add_class_definition(class);
+    }
+
+    /// Get accessible members for a class (including inherited)
+    pub fn get_accessible_members(&self, class_name: &str) -> Vec<(String, String, String)> {
+        let current_class = self.get_current_class_name();
+        self.type_checker
+            .get_accessible_members(class_name, current_class)
     }
 }

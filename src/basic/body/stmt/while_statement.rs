@@ -7,7 +7,7 @@ use crate::basic::expr::boolean_expression::BooleanExpression;
 use crate::basic::expr::expression::Expression;
 use crate::basic::utils::GenerationConfig;
 use crate::basic::var::variable::Variable;
-use crate::type_system::{Type, TypedGenerationContext};
+use crate::type_system::{LoopType, Type, TypedGenerationContext};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WhileStatement {
@@ -62,7 +62,7 @@ impl WhileStatement {
         let mut loop_context = typed_context.create_child_context();
 
         // Enter loop context for break/continue support
-        loop_context.enter_loop(crate::type_system::typed_generator::LoopType::While);
+        loop_context.enter_loop(LoopType::While);
 
         // Generate block with return type awareness using loop context
         let block = Block::generate_type_safe_block_with_config(

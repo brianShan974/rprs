@@ -8,7 +8,7 @@ use crate::basic::cls::class::INT;
 use crate::basic::utils::{GenerationConfig, generate_random_identifier};
 use crate::basic::var::prefix::var_prefix::VariablePrefix;
 use crate::basic::var::variable::Variable;
-use crate::type_system::{Type, TypedGenerationContext};
+use crate::type_system::{LoopType, Type, TypedGenerationContext};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum ForLoopType {
@@ -65,7 +65,7 @@ impl ForStatement {
         let mut loop_context = typed_context.create_child_context();
 
         // Enter loop context for break/continue support
-        loop_context.enter_loop(crate::type_system::typed_generator::LoopType::For);
+        loop_context.enter_loop(LoopType::For);
 
         // Add the loop variable to the child context only
         let _ = loop_context.add_variable(&loop_variable);

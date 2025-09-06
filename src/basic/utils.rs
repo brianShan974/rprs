@@ -115,6 +115,7 @@ pub fn generate_random_expression_default<T: Rng + SeedableRng>(
         external_functions,
         external_variables,
         defined_classes,
+        None, // No current class context
         rng,
     )
 }
@@ -125,6 +126,7 @@ pub fn generate_random_expression_with_functions<T: Rng + SeedableRng>(
     external_functions: Rc<RefCell<Vec<Function>>>,
     external_variables: Option<&[Variable]>,
     defined_classes: Option<&[Class]>,
+    current_class: Option<&str>, // 当前正在生成的类名
     rng: &mut T,
 ) -> Expression {
     Expression::generate_random_expression(
@@ -132,6 +134,7 @@ pub fn generate_random_expression_with_functions<T: Rng + SeedableRng>(
         Some(external_functions),
         external_variables,
         defined_classes,
+        current_class,
         rng,
     )
 }

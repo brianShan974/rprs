@@ -21,10 +21,14 @@ pub struct File {
 }
 
 impl File {
-    pub const MAX_FUNCTIONS: usize = 10;
+    pub const MAX_FUNCTIONS: usize = 15;
     pub const MAX_CLASSES: usize = 10;
 
-    pub fn generate_random_file<T: Rng + SeedableRng>(rng: &mut T) -> Self {
+    pub fn generate_random_file<T: Rng + SeedableRng>(
+        rng: &mut T,
+        num_classes: Option<usize>,
+        num_functions: Option<usize>,
+    ) -> Self {
         // Generate random file name
         let name = Self::generate_random_filename(rng);
 
@@ -46,12 +50,17 @@ impl File {
         }
 
         // Generate classes FIRST
-        let num_classes = rng.random_range(0..=Self::MAX_CLASSES);
+        let num_classes = num_classes.unwrap_or_else(|| rng.random_range(0..=Self::MAX_CLASSES));
         let mut classes = Vec::with_capacity(num_classes);
         let mut existing_names = Vec::new();
 
         for _ in 0..num_classes {
-            let class = CustomClass::generate_random_custom_class(rng, None, Some(0), Some(&mut existing_names));
+            let class = CustomClass::generate_random_custom_class(
+                rng,
+                None,
+                Some(0),
+                Some(&mut existing_names),
+            );
             classes.push(class);
         }
 
@@ -62,7 +71,8 @@ impl File {
             .collect();
 
         // Generate type-safe functions with access to defined classes
-        let num_functions = rng.random_range(1..=Self::MAX_FUNCTIONS);
+        let num_functions =
+            num_functions.unwrap_or_else(|| rng.random_range(1..=Self::MAX_FUNCTIONS));
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
 
@@ -100,8 +110,10 @@ impl File {
     pub fn generate_type_safe_file<T: Rng + SeedableRng>(
         rng: &mut T,
         max_constants: usize,
-        max_classes: usize,
-        max_functions: usize,
+        max_classes: Option<usize>,
+        max_functions: Option<usize>,
+        num_classes: Option<usize>,
+        num_functions: Option<usize>,
     ) -> Self {
         // Generate random file name
         let name = Self::generate_random_filename(rng);
@@ -109,14 +121,14 @@ impl File {
         // Generate top-level constants
         let num_constants = rng.random_range(0..=max_constants);
         let mut top_level_constants = Vec::with_capacity(num_constants);
-        
+
         // For top-level constants, we don't have external variables yet, so we'll use an empty vector
         let external_variables: Vec<Variable> = Vec::new();
-        
+
         for _ in 0..num_constants {
             let constant = Variable::generate_random_variable(
-                false, // not a member variable
-                true,  // with initial value
+                false,                     // not a member variable
+                true,                      // with initial value
                 Some(&external_variables), // Use empty external variables for now
                 rng,
             );
@@ -124,8 +136,10 @@ impl File {
         }
 
         // Generate type-safe classes and functions
-        let num_classes = rng.random_range(1..=max_classes);
-        let num_functions = rng.random_range(1..=max_functions);
+        let num_classes = num_classes
+            .unwrap_or_else(|| rng.random_range(1..=max_classes.unwrap_or(Self::MAX_CLASSES)));
+        let num_functions = num_functions
+            .unwrap_or_else(|| rng.random_range(1..=max_functions.unwrap_or(Self::MAX_FUNCTIONS)));
         let mut classes = Vec::with_capacity(num_classes);
         let mut functions = Vec::with_capacity(num_functions);
         let mut existing_names = Vec::new();
@@ -213,7 +227,7 @@ impl File {
         shared_typed_context.set_defined_classes(defined_classes.clone());
 
         // Generate type-safe functions with access to defined classes
-        let num_functions = rng.random_range(1..=max_functions);
+        let num_functions = rng.random_range(1..=max_functions.unwrap_or(Self::MAX_FUNCTIONS));
         let mut functions = Vec::with_capacity(num_functions);
         let external_functions = Rc::new(RefCell::new(Vec::new()));
         let mut all_variables = Vec::new(); // Collect variables from all functions
@@ -285,30 +299,38 @@ impl File {
 impl Display for File {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Write top-level constants first
-        let mut constants = self.top_level_constants.iter();
-        if let Some(constant) = constants.next() {
+        for constant in self.top_level_constants.iter() {
             if let Some(init) = constant.output_init() {
-                writeln!(f, "{}", init)?;
+                writeln!(f, "\n{}", init)?;
             } else {
-                writeln!(f, "{}", constant.output_declaration())?;
+                writeln!(f, "\n{}", constant.output_declaration())?;
             }
         }
-        for constant in constants {
-            if let Some(init) = constant.output_init() {
-                write!(f, "\n{}", init)?;
-            } else {
-                write!(f, "\n{}", constant.output_declaration())?;
-            }
+
+        if !self.classes.is_empty() {
+            writeln!(f)?;
         }
 
         // Write classes
+        let mut class_iter = self.classes.iter();
+        if let Some(class) = class_iter.next() {
+            writeln!(f, "{}", class)?;
+        }
         for class in self.classes.iter() {
-            write!(f, "\n\n{}", class)?;
+            writeln!(f, "\n{}", class)?;
+        }
+
+        if !self.functions.is_empty() {
+            writeln!(f)?;
         }
 
         // Write functions
+        let mut function_iter = self.functions.iter();
+        if let Some(function) = function_iter.next() {
+            writeln!(f, "{}", function)?;
+        }
         for function in self.functions.iter() {
-            write!(f, "\n\n{}", function)?;
+            writeln!(f, "\n{}", function)?;
         }
 
         Ok(())

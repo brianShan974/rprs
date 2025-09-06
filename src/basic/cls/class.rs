@@ -76,13 +76,12 @@ impl Class {
         generic_parameters: Option<&[GenericTypeParameter]>,
     ) -> Self {
         // If we have generic parameters and want to use them (20% chance)
-        if let Some(params) = generic_parameters {
-            if !params.is_empty() && rng.random_bool(0.2) {
+        if let Some(params) = generic_parameters
+            && !params.is_empty() && rng.random_bool(0.2) {
                 // Choose a random generic parameter
                 let chosen_param = params.choose(rng).unwrap();
                 return Self::FormalTypeParameter(chosen_param.clone());
             }
-        }
 
         // Otherwise, use the normal generation logic
         Self::generate_random_class(rng, defined_classes, current_indentation_layer)

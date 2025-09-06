@@ -4,7 +4,10 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::basic::{
-    cls::class::{BASIC_TYPES, Class},
+    cls::{
+        class::{BASIC_TYPES, Class},
+        custom_class::CustomClass,
+    },
     utils::generate_random_identifier,
     var::{prefix::var_prefix::VariablePrefix, variable::Variable},
 };
@@ -64,7 +67,7 @@ impl Parameter {
 
     /// Generate a concrete type for a generic class by replacing type parameters with concrete types
     fn generate_concrete_type_for_generic_class<T: Rng + SeedableRng>(
-        custom_class: &crate::basic::cls::custom_class::CustomClass,
+        custom_class: &CustomClass,
         rng: &mut T,
     ) -> Class {
         let base_name = custom_class.get_base_name();

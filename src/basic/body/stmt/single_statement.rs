@@ -8,8 +8,9 @@ use std::rc::Rc;
 use crate::basic::body::fun::function::Function;
 use crate::basic::cls::class::Class;
 use crate::basic::expr::arithmetic_expression::ArithmeticExpression;
-use crate::basic::expr::expression::Expression;
+use crate::basic::expr::expression::{CallerRelationship, Expression};
 use crate::basic::obj::object_instance::ObjectInstance;
+use crate::basic::var::prefix::visibility::Visibility;
 use crate::basic::var::variable::Variable;
 use crate::type_system::{Type, TypedGenerationContext};
 
@@ -103,11 +104,14 @@ impl SingleStatement {
             let _ = typed_context.add_variable(var);
         }
 
-        // Add external functions to typed context
+        // Add external functions to typed context (but not class methods)
         {
             let functions = external_functions.borrow();
             for func in functions.iter() {
-                let _ = typed_context.add_function(func);
+                // Only add functions that are not class methods
+                if !func.is_method() {
+                    let _ = typed_context.add_function(func);
+                }
             }
         }
 
@@ -291,14 +295,38 @@ impl SingleStatement {
                             // Find the class of this object to get its real properties
                             let object_class = object.get_class();
                             if let Some(Class::Custom(custom_class)) = object_class {
-                                // Get real properties from the class - only public var properties for compound assignment
+                                // Determine the relationship between caller and target class
+                                let relationship = Expression::determine_caller_relationship(
+                                    typed_context.get_current_class_name(),
+                                    custom_class,
+                                    Some(_defined_classes),
+                                );
+
+                                // Get real properties from the class based on visibility rules
                                 let mutable_numeric_properties: Vec<_> = custom_class
                                     .properties
                                     .iter()
                                     .filter(|prop| {
-                                        prop.is_numeric()
-                                            && prop.get_prefix().get_visibility().is_public()
-                                            && prop.is_mutable()
+                                        if !prop.is_numeric() || !prop.is_mutable() {
+                                            return false;
+                                        }
+
+                                        let visibility = prop.get_prefix().get_visibility();
+                                        match relationship {
+                                            CallerRelationship::SameClass => {
+                                                // Same class - can access all properties
+                                                true
+                                            }
+                                            CallerRelationship::Subclass => {
+                                                // Subclass - can access public and protected properties
+                                                visibility.is_public()
+                                                    || matches!(visibility, Visibility::Protected)
+                                            }
+                                            CallerRelationship::Unrelated => {
+                                                // Unrelated class - only public properties
+                                                visibility.is_public()
+                                            }
+                                        }
                                     })
                                     .collect();
 
@@ -361,18 +389,54 @@ impl SingleStatement {
             6..=7 => {
                 // Generate method call (20% probability - new)
                 if let Some(defined_classes) = _defined_classes {
-                    let class_methods: Vec<_> = defined_classes
-                        .iter()
-                        .filter_map(|class| {
-                            if let Class::Custom(custom_class) = class {
-                                Some(custom_class.get_methods())
-                            } else {
-                                None
+                    let mut available_methods = Vec::new();
+
+                    // Get current class name from typed context
+                    let current_class_name = typed_context.get_current_class_name();
+
+                    for class in defined_classes.iter() {
+                        if let Class::Custom(custom_class) = class {
+                            // Determine the relationship between caller and target class
+                            let relationship = Expression::determine_caller_relationship(
+                                current_class_name,
+                                custom_class,
+                                Some(defined_classes),
+                            );
+
+                            match relationship {
+                                CallerRelationship::SameClass => {
+                                    // Same class - can call all methods (private, protected, internal, public)
+                                    for method in custom_class.get_methods() {
+                                        available_methods.push(method);
+                                    }
+                                }
+                                CallerRelationship::Subclass => {
+                                    // Subclass - can call public and protected methods
+                                    for method in custom_class.get_methods() {
+                                        let visibility = method.get_visibility();
+                                        if visibility.is_public()
+                                            || matches!(visibility, Visibility::Protected)
+                                        {
+                                            available_methods.push(method);
+                                        }
+                                    }
+                                }
+                                CallerRelationship::Unrelated => {
+                                    // Unrelated class - can call public and internal methods (same module)
+                                    for method in custom_class.get_methods() {
+                                        let visibility = method.get_visibility();
+                                        if visibility.is_public()
+                                            || matches!(visibility, Visibility::Internal)
+                                        {
+                                            available_methods.push(method);
+                                        }
+                                    }
+                                }
                             }
-                        })
-                        .flatten()
-                        .filter(|method| method.get_visibility().is_public())
-                        .collect();
+                        }
+                    }
+
+                    let class_methods = available_methods;
 
                     if !class_methods.is_empty() {
                         let method = class_methods.choose(rng).unwrap();
@@ -386,15 +450,68 @@ impl SingleStatement {
 
                         // Use a simple object name for method calls
                         if !external_variables.is_empty() {
-                            let objects: Vec<_> = external_variables
+                            // Find objects that can actually call this method
+                            let compatible_objects: Vec<_> = external_variables
                                 .iter()
                                 .filter(|v| {
-                                    v.get_class().is_some_and(|c| matches!(c, Class::Custom(_)))
+                                    if let Some(Class::Custom(custom_class)) = v.get_class() {
+                                        // Check if this object's class can call the method
+                                        let relationship =
+                                            Expression::determine_caller_relationship(
+                                                current_class_name,
+                                                custom_class,
+                                                Some(defined_classes),
+                                            );
+
+                                        match relationship {
+                                            CallerRelationship::SameClass => {
+                                                // Same class - can call all methods
+                                                custom_class
+                                                    .get_methods()
+                                                    .iter()
+                                                    .any(|m| m.get_name() == method.get_name())
+                                            }
+                                            CallerRelationship::Subclass => {
+                                                // Subclass - can call public and protected methods
+                                                let visibility = method.get_visibility();
+                                                if visibility.is_public()
+                                                    || matches!(visibility, Visibility::Protected)
+                                                {
+                                                    custom_class
+                                                        .get_methods()
+                                                        .iter()
+                                                        .any(|m| m.get_name() == method.get_name())
+                                                } else {
+                                                    false
+                                                }
+                                            }
+                                            CallerRelationship::Unrelated => {
+                                                // Unrelated class - can call public and internal methods (same module)
+                                                let visibility = method.get_visibility();
+                                                if visibility.is_public()
+                                                    || matches!(visibility, Visibility::Internal)
+                                                {
+                                                    custom_class
+                                                        .get_methods()
+                                                        .iter()
+                                                        .any(|m| m.get_name() == method.get_name())
+                                                } else {
+                                                    false
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        false
+                                    }
                                 })
                                 .collect();
-                            if !objects.is_empty() {
-                                let object_name =
-                                    objects.choose(rng).unwrap().get_name().to_string();
+
+                            if !compatible_objects.is_empty() {
+                                let object_name = compatible_objects
+                                    .choose(rng)
+                                    .unwrap()
+                                    .get_name()
+                                    .to_string();
                                 SingleStatement::MethodCall(
                                     object_name,
                                     method.get_name().to_string(),

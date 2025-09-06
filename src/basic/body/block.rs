@@ -18,7 +18,7 @@ pub const INDENT_SIZE: usize = 4;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Block {
-    is_independent: bool,
+    is_independent: bool, // controls whether the first curly bracket needs to be on a new line
     statements: Vec<Statement>,
     current_indentation_layer: usize,
 }
