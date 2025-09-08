@@ -6,8 +6,8 @@ use rand::{SeedableRng, rngs::StdRng};
 use rayon::prelude::*;
 
 use clap::Parser;
-use randprog_rs::config::Args;
-use randprog_rs::file::src_file::File;
+use rprs::config::Args;
+use rprs::file::src_file::File;
 
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
@@ -15,28 +15,40 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 pub const SEED_GAP: usize = 42;
 
+// const BASE_SRC: &str = "
+// fun answer(): Int {
+//     return 42
+// }
+//
+// fun main() {
+//     answer(42)
+// }
+// ";
+
 fn main() {
     // Parse command line arguments
     let args = Args::parse();
 
-    eprintln!("Starting multi-threaded Kotlin code generator");
-    eprintln!("Configuration:");
-    eprintln!("Threads: {}", args.thread_count());
-    eprintln!("Total files: {}", args.total_tasks());
-    if let Some(classes) = args.classes {
-        eprintln!("Number of classes: {}", classes);
-    } else if let Some(max_classes) = args.max_classes {
-        eprintln!("Max classes: {}", max_classes);
+    if args.verbose {
+        eprintln!("Starting multi-threaded Kotlin code generator");
+        eprintln!("Configuration:");
+        eprintln!("Threads: {}", args.thread_count());
+        eprintln!("Total files: {}", args.total_tasks());
+        if let Some(classes) = args.classes {
+            eprintln!("Number of classes: {}", classes);
+        } else if let Some(max_classes) = args.max_classes {
+            eprintln!("Max classes: {}", max_classes);
+        }
+        if let Some(functions) = args.functions {
+            eprintln!("Number of functions: {}", functions);
+        } else if let Some(max_functions) = args.max_functions {
+            eprintln!("Max functions: {}", max_functions);
+        }
+        if let Some(ref output_dir) = args.output_dir {
+            eprintln!("Output directory: {}", output_dir);
+        }
+        eprintln!();
     }
-    if let Some(functions) = args.functions {
-        eprintln!("Number of functions: {}", functions);
-    } else if let Some(max_functions) = args.max_functions {
-        eprintln!("Max functions: {}", max_functions);
-    }
-    if let Some(ref output_dir) = args.output_dir {
-        eprintln!("Output directory: {}", output_dir);
-    }
-    eprintln!();
 
     // Configure rayon thread pool for optimal performance
     rayon::ThreadPoolBuilder::new()
@@ -70,11 +82,14 @@ fn main() {
         })
         .collect();
 
-    eprintln!(
-        "Generated {} file{} successfully",
-        total_tasks,
-        if total_tasks == 1 { "" } else { "s" }
-    );
+    if args.verbose {
+        eprintln!(
+            "Generated {} file{} successfully",
+            total_tasks,
+            if total_tasks == 1 { "" } else { "s" }
+        );
+    }
+
     for result in _all_results {
         println!("{}", result);
     }

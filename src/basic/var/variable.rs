@@ -263,24 +263,26 @@ impl Variable {
             match &ty {
                 Some(Class::Basic(BasicType::Number(NumberType::SignedInteger(_)))) => {
                     // Generate integer arithmetic expression
+                    // For property initialization, avoid variable references that might be undefined
                     Some(Expression::Arithmetic(
                         ArithmeticExpression::generate_typed_expression(
-                            2,                          // Allow some complexity
+                            2,                          // Keep original complexity
                             true,                       // target_is_int = true
                             external_functions.clone(), // Use external functions if available
-                            external_variables,
+                            None, // Don't use external variables to avoid undefined references
                             rng,
                         ),
                     ))
                 }
                 Some(FLOAT) | Some(DOUBLE) => {
                     // Generate float arithmetic expression
+                    // For property initialization, avoid variable references that might be undefined
                     Some(Expression::Arithmetic(
                         ArithmeticExpression::generate_typed_expression(
-                            2,                          // Allow some complexity
+                            2,                          // Keep original complexity
                             false,                      // target_is_int = false
                             external_functions.clone(), // Use external functions if available
-                            external_variables,
+                            None, // Don't use external variables to avoid undefined references
                             rng,
                         ),
                     ))
@@ -309,10 +311,10 @@ impl Variable {
                         // Fallback to integer expression for unknown types
                         Some(Expression::Arithmetic(
                             ArithmeticExpression::generate_typed_expression(
-                                2,                          // Allow some complexity
+                                2,                          // Keep original complexity
                                 true,                       // target_is_int = true
                                 external_functions.clone(), // Use external functions if available
-                                external_variables,
+                                None, // Don't use external variables to avoid undefined references
                                 rng,
                             ),
                         ))
@@ -374,7 +376,10 @@ impl Variable {
         external_variables: Option<&[Variable]>,
         rng: &mut T,
     ) -> Self {
-        let prefix = VariablePrefix::generate_random_prefix(is_member, rng);
+        // For local variables (not members), don't allow const val
+        let allow_const = is_member;
+        let prefix =
+            VariablePrefix::generate_random_prefix_with_const_control(is_member, allow_const, rng);
         let name = generate_random_identifier(rng);
 
         let (value, ty) = if with_initial_value {
@@ -444,32 +449,105 @@ impl Variable {
                     (Some(expr), target_type.clone().map(Rc::new))
                 }
                 Some(Class::Custom(custom_class)) => {
-                    // Generate custom class instantiation or use existing variable
-                    let expr = if let Some(variables) = external_variables {
-                        // Try to find a variable of the same type
-                        let matching_vars: Vec<_> = variables
-                            .iter()
-                            .filter(|v| {
-                                v.get_class()
-                                    .as_ref()
-                                    .map(|c| c.get_name() == custom_class.get_name())
-                                    .unwrap_or(false)
-                            })
-                            .collect();
-
-                        if !matching_vars.is_empty() && rng.random_bool(0.6) {
-                            // 60% chance to use existing variable instead of creating new instance
-                            let chosen_var = matching_vars.choose(rng).unwrap();
-                            Expression::VariableReference(chosen_var.get_name().to_string())
+                    // For const val, we cannot use generic types as they are not compile-time constants
+                    if prefix.get_init().is_const() {
+                        // For const val, only use basic types or non-generic custom classes
+                        if custom_class.generic_parameters.is_empty() {
+                            // Non-generic custom class - can be used in const val
+                            let expr = Expression::ClassInstantiation(format!(
+                                "{}()",
+                                custom_class.get_name()
+                            ));
+                            (Some(expr), target_type.clone().map(Rc::new))
                         } else {
-                            // 40% chance to create new instance
-                            Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                            // Generic class - cannot be used in const val, fallback to basic type
+                            let fallback_type = Some(Rc::new(INT));
+                            let expr = Expression::Arithmetic(
+                                ArithmeticExpression::generate_random_int_literal(rng),
+                            );
+                            (Some(expr), fallback_type)
                         }
                     } else {
-                        // No external variables, always create new instance
-                        Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
-                    };
-                    (Some(expr), target_type.clone().map(Rc::new))
+                        // For var/val, can use any type including generic classes
+                        let expr = if let Some(variables) = external_variables {
+                            // Try to find a variable of the same type
+                            let matching_vars: Vec<_> = variables
+                                .iter()
+                                .filter(|v| {
+                                    v.get_class()
+                                        .as_ref()
+                                        .map(|c| c.get_name() == custom_class.get_name())
+                                        .unwrap_or(false)
+                                })
+                                .collect();
+
+                            if !matching_vars.is_empty() && rng.random_bool(0.6) {
+                                // 60% chance to use existing variable instead of creating new instance
+                                let chosen_var = matching_vars.choose(rng).unwrap();
+                                Expression::VariableReference(chosen_var.get_name().to_string())
+                            } else {
+                                // 40% chance to create new instance
+                                if custom_class.generic_parameters.is_empty() {
+                                    // Non-generic class - can instantiate directly
+                                    Expression::ClassInstantiation(format!(
+                                        "{}()",
+                                        custom_class.get_name()
+                                    ))
+                                } else {
+                                    // Generic class - need to provide concrete type arguments
+                                    let concrete_type_args: Vec<String> = custom_class
+                                        .generic_parameters
+                                        .iter()
+                                        .map(|_| {
+                                            // Generate random basic types for type arguments
+                                            let basic_types = ["String", "Int", "Float", "Boolean"];
+                                            basic_types.choose(rng).unwrap().to_string()
+                                        })
+                                        .collect();
+
+                                    let concrete_class_name = format!(
+                                        "{}<{}>",
+                                        custom_class.get_base_name(),
+                                        concrete_type_args.join(", ")
+                                    );
+
+                                    Expression::ClassInstantiation(format!(
+                                        "{}()",
+                                        concrete_class_name
+                                    ))
+                                }
+                            }
+                        } else {
+                            // No external variables, always create new instance
+                            if custom_class.generic_parameters.is_empty() {
+                                // Non-generic class - can instantiate directly
+                                Expression::ClassInstantiation(format!(
+                                    "{}()",
+                                    custom_class.get_name()
+                                ))
+                            } else {
+                                // Generic class - need to provide concrete type arguments
+                                let concrete_type_args: Vec<String> = custom_class
+                                    .generic_parameters
+                                    .iter()
+                                    .map(|_| {
+                                        // Generate random basic types for type arguments
+                                        let basic_types = ["String", "Int", "Float", "Boolean"];
+                                        basic_types.choose(rng).unwrap().to_string()
+                                    })
+                                    .collect();
+
+                                let concrete_class_name = format!(
+                                    "{}<{}>",
+                                    custom_class.get_base_name(),
+                                    concrete_type_args.join(", ")
+                                );
+
+                                Expression::ClassInstantiation(format!("{}()", concrete_class_name))
+                            }
+                        };
+                        (Some(expr), target_type.clone().map(Rc::new))
+                    }
                 }
                 _ => {
                     // Default to integer arithmetic expression with possible variable references
@@ -532,7 +610,29 @@ impl Variable {
         match rng.random_range(0..3) {
             0 => {
                 // Constructor call (e.g., cn3())
-                Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                if custom_class.generic_parameters.is_empty() {
+                    // Non-generic class - can instantiate directly
+                    Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                } else {
+                    // Generic class - need to provide concrete type arguments
+                    let concrete_type_args: Vec<String> = custom_class
+                        .generic_parameters
+                        .iter()
+                        .map(|_| {
+                            // Generate random basic types for type arguments
+                            let basic_types = ["String", "Int", "Float", "Boolean"];
+                            basic_types.choose(rng).unwrap().to_string()
+                        })
+                        .collect();
+
+                    let concrete_class_name = format!(
+                        "{}<{}>",
+                        custom_class.get_base_name(),
+                        concrete_type_args.join(", ")
+                    );
+
+                    Expression::ClassInstantiation(format!("{}()", concrete_class_name))
+                }
             }
             1 => {
                 // Function call that returns the same type
@@ -562,11 +662,55 @@ impl Variable {
                         Expression::FunctionCall(chosen_function.get_name().to_string(), args)
                     } else {
                         // Fallback to constructor if no matching functions
-                        Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                        if custom_class.generic_parameters.is_empty() {
+                            // Non-generic class - can instantiate directly
+                            Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                        } else {
+                            // Generic class - need to provide concrete type arguments
+                            let concrete_type_args: Vec<String> = custom_class
+                                .generic_parameters
+                                .iter()
+                                .map(|_| {
+                                    // Generate random basic types for type arguments
+                                    let basic_types = ["String", "Int", "Float", "Boolean"];
+                                    basic_types.choose(rng).unwrap().to_string()
+                                })
+                                .collect();
+
+                            let concrete_class_name = format!(
+                                "{}<{}>",
+                                custom_class.get_base_name(),
+                                concrete_type_args.join(", ")
+                            );
+
+                            Expression::ClassInstantiation(format!("{}()", concrete_class_name))
+                        }
                     }
                 } else {
                     // Fallback to constructor if no external functions
-                    Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                    if custom_class.generic_parameters.is_empty() {
+                        // Non-generic class - can instantiate directly
+                        Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                    } else {
+                        // Generic class - need to provide concrete type arguments
+                        let concrete_type_args: Vec<String> = custom_class
+                            .generic_parameters
+                            .iter()
+                            .map(|_| {
+                                // Generate random basic types for type arguments
+                                let basic_types = ["String", "Int", "Float", "Boolean"];
+                                basic_types.choose(rng).unwrap().to_string()
+                            })
+                            .collect();
+
+                        let concrete_class_name = format!(
+                            "{}<{}>",
+                            custom_class.get_base_name(),
+                            concrete_type_args.join(", ")
+                        );
+
+                        Expression::ClassInstantiation(format!("{}()", concrete_class_name))
+                    }
                 }
             }
             _ => {
@@ -588,11 +732,55 @@ impl Variable {
                         Expression::VariableReference(chosen_variable.get_name().to_string())
                     } else {
                         // Fallback to constructor if no matching variables
-                        Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                        if custom_class.generic_parameters.is_empty() {
+                            // Non-generic class - can instantiate directly
+                            Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                        } else {
+                            // Generic class - need to provide concrete type arguments
+                            let concrete_type_args: Vec<String> = custom_class
+                                .generic_parameters
+                                .iter()
+                                .map(|_| {
+                                    // Generate random basic types for type arguments
+                                    let basic_types = ["String", "Int", "Float", "Boolean"];
+                                    basic_types.choose(rng).unwrap().to_string()
+                                })
+                                .collect();
+
+                            let concrete_class_name = format!(
+                                "{}<{}>",
+                                custom_class.get_base_name(),
+                                concrete_type_args.join(", ")
+                            );
+
+                            Expression::ClassInstantiation(format!("{}()", concrete_class_name))
+                        }
                     }
                 } else {
                     // Fallback to constructor if no external variables
-                    Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                    if custom_class.generic_parameters.is_empty() {
+                        // Non-generic class - can instantiate directly
+                        Expression::ClassInstantiation(format!("{}()", custom_class.get_name()))
+                    } else {
+                        // Generic class - need to provide concrete type arguments
+                        let concrete_type_args: Vec<String> = custom_class
+                            .generic_parameters
+                            .iter()
+                            .map(|_| {
+                                // Generate random basic types for type arguments
+                                let basic_types = ["String", "Int", "Float", "Boolean"];
+                                basic_types.choose(rng).unwrap().to_string()
+                            })
+                            .collect();
+
+                        let concrete_class_name = format!(
+                            "{}<{}>",
+                            custom_class.get_base_name(),
+                            concrete_type_args.join(", ")
+                        );
+
+                        Expression::ClassInstantiation(format!("{}()", concrete_class_name))
+                    }
                 }
             }
         }

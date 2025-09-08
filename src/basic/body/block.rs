@@ -1,6 +1,5 @@
 use crate::basic::{
     body::{
-        fun::function::Function,
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
     utils::GenerationConfig,
@@ -9,9 +8,7 @@ use crate::basic::{
 use crate::type_system::{Type, TypedGenerationContext};
 use rand::{Rng, SeedableRng};
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::fmt::Display;
-use std::rc::Rc;
 
 pub const SPACE: &str = " ";
 pub const INDENT_SIZE: usize = 4;
@@ -54,37 +51,6 @@ impl Block {
         self.current_indentation_layer
     }
 
-    /// Generate a type-safe block using typed generation context
-    pub fn generate_type_safe_block<T: Rng + SeedableRng>(
-        external_variables: &[Variable],
-        external_functions: Rc<RefCell<Vec<Function>>>,
-        current_indentation_layer: usize,
-        is_independent: bool,
-        max_depth: usize,
-        typed_context: &mut TypedGenerationContext,
-        rng: &mut T,
-    ) -> Option<Self> {
-        Self::generate_type_safe_block_with_config(
-            &mut GenerationConfig::new(
-                external_variables.to_vec(),
-                external_functions,
-                Some(
-                    typed_context
-                        .get_defined_classes()
-                        .iter()
-                        .map(|rc| rc.as_ref().clone())
-                        .collect(),
-                ), // Pass defined classes from typed context
-                current_indentation_layer,
-                max_depth,
-            ),
-            external_variables,
-            is_independent,
-            typed_context,
-            None, // No expected return type for this block
-            rng,
-        )
-    }
 
     /// Generate a type-safe block with expected return type (using GenerationConfig)
     pub fn generate_type_safe_block_with_config<T: Rng + SeedableRng>(
@@ -106,6 +72,11 @@ impl Block {
         // Ensure the block context has access to defined classes for variable generation
         if let Some(classes) = &config.defined_classes {
             block_context.set_defined_classes(classes.clone());
+        }
+
+        // Add external variables to the block context so they can be referenced
+        for var in external_variables {
+            let _ = block_context.add_variable(var);
         }
 
         let num_new_vars = rng.random_range(0..=Self::MAX_NUM_NEW_VARS);

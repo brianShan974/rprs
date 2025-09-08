@@ -43,6 +43,10 @@ pub struct Args {
     /// Maximum number of constants per file
     #[arg(long, default_value = "5")]
     pub max_constants: usize,
+
+    /// Outputs the config of the program
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 impl Args {

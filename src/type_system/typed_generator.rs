@@ -474,7 +474,19 @@ impl TypedGenerationContext {
             // 30% chance to generate a custom type variable
             let custom_class = self.defined_classes.choose(rng).unwrap();
             match &**custom_class {
-                Class::Custom(custom_class) => Some(Rc::new(Class::Custom(custom_class.clone()))),
+                Class::Custom(custom_class) => {
+                    // If the class has generic parameters, create a concrete type
+                    if custom_class.generic_parameters.is_empty() {
+                        // Non-generic class - can use directly
+                        Some(Rc::new(Class::Custom(custom_class.clone())))
+                    } else {
+                        // Generic class - create a concrete type with specific type arguments
+                        // For now, we'll avoid using generic classes for local variables
+                        // to prevent "unresolved reference T" errors
+                        // Fallback to basic type instead
+                        Some(Rc::new(FLOAT))
+                    }
+                }
                 _ => Some(Rc::new(FLOAT)), // Fallback to FLOAT for non-custom classes
             }
         } else {
@@ -912,91 +924,88 @@ impl TypedGenerationContext {
     }
 
     /// Generate a type-safe return statement with specific return type
+    /// Returns None if we cannot generate a compatible expression
     pub fn generate_type_safe_return_statement_with_type<T: Rng + SeedableRng>(
         &self,
         expected_return_type: Option<&Type>,
         rng: &mut T,
-    ) -> SingleStatement {
+    ) -> Option<SingleStatement> {
         match expected_return_type {
             Some(return_type) => {
                 // If we have an expected return type, generate appropriate return
                 match return_type {
                     Type::Basic(Class::Basic(BasicType::Number(_))) => {
                         // Numeric return type - generate return with expression that strictly matches the type
-                        let expr = self
-                            .generate_expression_for_type(
-                                return_type,
-                                Some(self.external_functions.clone()),
-                                rng,
-                            )
-                            .unwrap_or(
-                                // Fallback: generate type-specific literal
-                                match return_type {
-                                    Type::Basic(Class::Basic(BasicType::Number(
-                                        NumberType::FloatingPoint(_),
-                                    ))) => Expression::generate_random_float_literal(rng),
-                                    Type::Basic(Class::Basic(BasicType::Number(
-                                        NumberType::SignedInteger(_),
-                                    ))) => Expression::generate_random_int_literal(rng),
-                                    _ => Expression::generate_random_int_literal(rng),
-                                },
-                            );
-                        SingleStatement::Return(Some(expr))
-                    }
-                    Type::Basic(BOOLEAN) => {
-                        // Boolean return type - generate boolean expression
-                        let expr = self
-                            .generate_expression_for_type(
-                                return_type,
-                                Some(self.external_functions.clone()),
-                                rng,
-                            )
-                            .unwrap_or(self.generate_boolean_expression(rng));
-                        SingleStatement::Return(Some(expr))
-                    }
-                    Type::Basic(STRING) => {
-                        // String return type - generate string expression
-                        let expr = self
-                            .generate_expression_for_type(
-                                return_type,
-                                Some(self.external_functions.clone()),
-                                rng,
-                            )
-                            .unwrap_or(Expression::generate_random_string_literal(rng));
-                        SingleStatement::Return(Some(expr))
-                    }
-                    Type::Basic(Class::Custom(_)) => {
-                        // Custom class return type - generate object creation
-                        if let Type::Basic(Class::Custom(custom_class)) = return_type {
-                            let expr = self
-                                .generate_expression_for_type(
-                                    return_type,
-                                    Some(self.external_functions.clone()),
-                                    rng,
-                                )
-                                .unwrap_or_else(|| {
-                                    // Fallback: generate a simple object creation
-                                    Expression::ClassInstantiation(format!(
-                                        "{}()",
-                                        custom_class.get_name()
-                                    ))
-                                });
-                            SingleStatement::Return(Some(expr))
-                        } else {
-                            // This should never happen, but just in case
-                            SingleStatement::Return(None)
-                        }
-                    }
-                    _ => {
-                        // Other types - try to generate appropriate expression or fallback to empty return
                         if let Some(expr) = self.generate_expression_for_type(
                             return_type,
                             Some(self.external_functions.clone()),
                             rng,
                         ) {
-                            SingleStatement::Return(Some(expr))
+                            Some(SingleStatement::Return(Some(expr)))
                         } else {
-                            SingleStatement::Return(None)
+                            None // Cannot generate compatible expression
+                        }
+                    }
+                    Type::Basic(BOOLEAN) => {
+                        // Boolean return type - generate boolean expression
+                        if let Some(expr) = self.generate_expression_for_type(
+                            return_type,
+                            Some(self.external_functions.clone()),
+                            rng,
+                        ) {
+                            Some(SingleStatement::Return(Some(expr)))
+                        } else {
+                            None // Cannot generate compatible expression
+                        }
+                    }
+                    Type::Basic(STRING) => {
+                        // String return type - generate string expression
+                        if let Some(expr) = self.generate_expression_for_type(
+                            return_type,
+                            Some(self.external_functions.clone()),
+                            rng,
+                        ) {
+                            Some(SingleStatement::Return(Some(expr)))
+                        } else {
+                            None // Cannot generate compatible expression
+                        }
+                    }
+                    Type::Basic(Class::Custom(_)) => {
+                        // Custom class return type - generate object creation
+                        if let Some(expr) = self.generate_expression_for_type(
+                            return_type,
+                            Some(self.external_functions.clone()),
+                            rng,
+                        ) {
+                            Some(SingleStatement::Return(Some(expr)))
+                        } else {
+                            None // Cannot generate compatible expression
+                        }
+                    }
+                    Type::Basic(Class::FormalTypeParameter(_)) => {
+                        // For generic type parameters, we must ensure we can generate a compatible expression
+                        // If we can't, this indicates a bug in our return type selection logic
+                        // We should never reach this point if our logic is correct
+                        if let Some(expr) = self.generate_expression_for_type(
+                            return_type,
+                            Some(self.external_functions.clone()),
+                            rng,
+                        ) {
+                            Some(SingleStatement::Return(Some(expr)))
+                        } else {
+                            None // Cannot generate compatible expression
+                        }
+                    }
+                    _ => {
+                        // Other types - try to generate appropriate expression
+                        if let Some(expr) = self.generate_expression_for_type(
+                            return_type,
+                            Some(self.external_functions.clone()),
+                            rng,
+                        ) {
+                            Some(SingleStatement::Return(Some(expr)))
+                        } else {
+                            None // Cannot generate compatible expression
                         }
                     }
                 }
@@ -1004,7 +1013,7 @@ impl TypedGenerationContext {
             None => {
                 // No expected return type - only generate empty return
                 // Functions without return type annotation should only have empty returns
-                SingleStatement::Return(None)
+                Some(SingleStatement::Return(None))
             }
         }
     }
@@ -1045,12 +1054,44 @@ impl TypedGenerationContext {
                         char_value,
                     )))
                 }
+                Type::Basic(Class::FormalTypeParameter(_)) => {
+                    // For generic type parameters, we cannot safely generate a literal
+                    // as we don't know the concrete type. Return None to avoid type mismatches.
+                    None
+                }
                 Type::Basic(Class::Custom(custom_class)) => {
                     // For custom types, generate object instantiation
-                    Some(Expression::ClassInstantiation(format!(
-                        "{}()",
-                        custom_class.get_name()
-                    )))
+                    // If the class has generic parameters, we need to provide concrete type arguments
+                    if custom_class.generic_parameters.is_empty() {
+                        // Non-generic class - can instantiate directly
+                        Some(Expression::ClassInstantiation(format!(
+                            "{}()",
+                            custom_class.get_name()
+                        )))
+                    } else {
+                        // Generic class - need to provide concrete type arguments
+                        // For now, we'll use basic types as type arguments
+                        let concrete_type_args: Vec<String> = custom_class
+                            .generic_parameters
+                            .iter()
+                            .map(|_| {
+                                // Generate random basic types for type arguments
+                                let basic_types = ["String", "Int", "Float", "Boolean"];
+                                basic_types.choose(rng).unwrap().to_string()
+                            })
+                            .collect();
+
+                        let concrete_class_name = format!(
+                            "{}<{}>",
+                            custom_class.get_base_name(),
+                            concrete_type_args.join(", ")
+                        );
+
+                        Some(Expression::ClassInstantiation(format!(
+                            "{}()",
+                            concrete_class_name
+                        )))
+                    }
                 }
                 _ => Some(Expression::generate_random_int_literal(rng)),
             };
@@ -1134,6 +1175,28 @@ impl TypedGenerationContext {
                 Some(Expression::Arithmetic(ArithmeticExpression::Char(
                     char_value,
                 )))
+            }
+            Type::Basic(Class::FormalTypeParameter(generic_param)) => {
+                // For generic type parameters, try to find a method parameter with the same generic type
+                // This ensures type compatibility
+                let variables: Vec<Variable> = self.variable_types.keys().cloned().collect();
+
+                // Look for a variable that has the same generic type parameter
+                for var in &variables {
+                    if let Some(var_type) = var.get_class()
+                        && let Class::FormalTypeParameter(var_generic_param) = var_type
+                        && var_generic_param.get_name() == generic_param.get_name()
+                    {
+                        // Found a matching generic type parameter, return a reference to it
+                        return Some(Expression::VariableReference(var.get_name().to_string()));
+                    }
+                }
+
+                // If no matching parameter found, we cannot safely generate a return value
+                // for a generic type parameter. This should not happen with our improved
+                // return type selection logic, but if it does, we return None to avoid
+                // type mismatches.
+                None
             }
             Type::Basic(Class::Custom(custom_class)) => {
                 // For custom types, generate object instantiation or property access

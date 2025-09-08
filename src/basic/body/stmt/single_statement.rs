@@ -547,8 +547,16 @@ impl SingleStatement {
             }
             8 => {
                 // Generate type-aware return statement (9% probability)
-                typed_context
+                if let Some(return_stmt) = typed_context
                     .generate_type_safe_return_statement_with_type(expected_return_type, rng)
+                {
+                    return_stmt
+                } else {
+                    // If we cannot generate a compatible return statement, fallback to variable assignment
+                    let var = typed_context.generate_type_compatible_variable_no_const(false, rng);
+                    let _ = typed_context.add_variable(&var);
+                    SingleStatement::VariableDeclaration(var)
+                }
             }
             9 => {
                 // Generate break/continue statements (8% probability, only inside loops)

@@ -43,7 +43,13 @@ impl Statement {
         let mut shared_config = GenerationConfig::new(
             external_vars_cow.to_vec(), // Only clone when necessary
             external_functions,
-            Some(typed_context.get_defined_classes().iter().map(|rc| rc.as_ref().clone()).collect()), // TODO: optimize to avoid cloning
+            Some(
+                typed_context
+                    .get_defined_classes()
+                    .iter()
+                    .map(|rc| rc.as_ref().clone())
+                    .collect(),
+            ), // TODO: optimize to avoid cloning
             current_indentation_layer,
             max_depth.unwrap_or(Self::MAX_DEPTH),
         );

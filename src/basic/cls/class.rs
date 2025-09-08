@@ -1,5 +1,4 @@
 use derive_more::Display;
-use rand::prelude::IndexedRandom;
 use rand::{Rng, SeedableRng};
 
 use crate::basic::cls::basic_type::BasicType;
@@ -67,25 +66,6 @@ impl Class {
         }
     }
 
-    /// Generate a class type that can include formal type parameters
-    /// This is used when we have access to generic type parameters
-    pub fn generate_random_class_with_formal_types<T: Rng + SeedableRng>(
-        rng: &mut T,
-        defined_classes: Option<&mut Vec<Self>>,
-        current_indentation_layer: Option<usize>,
-        generic_parameters: Option<&[GenericTypeParameter]>,
-    ) -> Self {
-        // If we have generic parameters and want to use them (20% chance)
-        if let Some(params) = generic_parameters
-            && !params.is_empty() && rng.random_bool(0.2) {
-                // Choose a random generic parameter
-                let chosen_param = params.choose(rng).unwrap();
-                return Self::FormalTypeParameter(chosen_param.clone());
-            }
-
-        // Otherwise, use the normal generation logic
-        Self::generate_random_class(rng, defined_classes, current_indentation_layer)
-    }
 
     pub fn get_name(&self) -> String {
         match self {

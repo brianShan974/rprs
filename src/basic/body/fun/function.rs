@@ -11,10 +11,9 @@ use crate::basic::{
         stmt::{single_statement::SingleStatement, statement::Statement},
     },
     cls::{
-        basic_type::BasicType,
         class::{BOOLEAN, Class, FLOAT, INT},
         custom_class::CustomClass,
-        generic_type::{GenericType, GenericTypeParameter},
+        generic_type::GenericTypeParameter,
     },
     expr::expression::Expression,
     utils::{GenerationConfig, generate_unique_identifier, map_collect_join},
@@ -137,8 +136,20 @@ impl Function {
             return None;
         }
 
-        let parameters =
-            Parameter::generate_random_parameters(rng, config.defined_classes.as_deref());
+        // Get generic parameters from the config if available
+        let generic_params = config.generic_parameters.as_deref();
+
+        let parameters = if is_method && generic_params.is_some() {
+            // For methods in generic classes, use the new parameter generation method
+            Parameter::generate_random_parameters_with_generics(
+                rng,
+                config.defined_classes.as_deref(),
+                generic_params,
+            )
+        } else {
+            // For regular functions or non-generic methods, use the original method
+            Parameter::generate_random_parameters(rng, config.defined_classes.as_deref())
+        };
         let all_identifiers: Vec<Variable> = external_variables
             .iter()
             .chain(parameters.iter())
@@ -169,6 +180,7 @@ impl Function {
                 rng,
                 config.defined_classes.as_deref(),
                 generic_params,
+                &parameters,
             )
         } else {
             Self::decide_return_type_with_custom_types(rng, config.defined_classes.as_deref())
@@ -297,25 +309,12 @@ impl Function {
             function_typed_context.add_function(function_signature);
         }
 
-        // Convert class properties to parameters for function generation
-        let external_variables: Vec<_> = classes
-            .iter()
-            .flat_map(|class| {
-                class.properties.iter().map(|var| {
-                    Parameter::new(
-                        format!("other_{}_{}", class.get_base_name(), var.get_name()),
-                        var.get_class()
-                            .map(|c| Rc::new(c.clone()))
-                            .unwrap_or_else(|| Rc::new(FLOAT.clone())),
-                    )
-                })
-            })
-            .collect();
+        let external_variables: Vec<_> = Vec::new();
 
         // Generate function body with access to all classes and functions
         let external_vars: Vec<Variable> = external_variables
             .iter()
-            .map(|p| p.clone().into())
+            .map(|p: &Parameter| p.clone().into())
             .collect();
         let body = Block::generate_type_safe_block_with_config(
             &mut GenerationConfig::new(
@@ -421,29 +420,12 @@ impl Function {
     fn decide_method_return_type_with_custom_types<T: Rng + SeedableRng>(
         rng: &mut T,
         defined_classes: Option<&[Class]>,
-        generic_parameters: Option<&[GenericTypeParameter]>,
+        _generic_parameters: Option<&[GenericTypeParameter]>,
+        _method_parameters: &[Parameter],
     ) -> Option<Class> {
-        // 20% chance to return a generic type parameter if available
-        if let Some(params) = generic_parameters
-            && !params.is_empty()
-            && rng.random_bool(0.2)
-        {
-            // Filter parameters that can be return types (covariant or invariant)
-            let returnable_params: Vec<_> = params
-                .iter()
-                .filter(|param| param.can_be_return_type())
-                .collect();
-
-            if !returnable_params.is_empty() {
-                let _chosen_param = returnable_params.choose(rng).unwrap();
-                // Return the generic type parameter as a Class::Generic
-                let generic_type = GenericType::new(
-                    Class::Basic(BasicType::String),
-                    vec![Class::Basic(BasicType::String)],
-                );
-                return Some(Class::Generic(Box::new(generic_type)));
-            }
-        }
+        // Temporarily disable generic return types until we can ensure 100% compatibility
+        // This prevents any fallback issues
+        // TODO: Re-enable when we can guarantee compatible expression generation
 
         // Fallback to normal custom type selection
         Self::decide_return_type_with_custom_types(rng, defined_classes)
@@ -637,12 +619,14 @@ impl Function {
         rng: &mut T,
     ) -> Option<Block> {
         // Create a return statement based on expected return type
-        let return_statement = Statement::Single(
-            typed_context.generate_type_safe_return_statement_with_type(expected_return_type, rng),
-        );
-
-        // Add return statement to the end of function body
-        body.get_statements_mut().push(return_statement);
+        if let Some(return_statement) =
+            typed_context.generate_type_safe_return_statement_with_type(expected_return_type, rng)
+        {
+            // Add return statement to the end of function body
+            body.get_statements_mut()
+                .push(Statement::Single(return_statement));
+        }
+        // If we cannot generate a compatible return statement, don't add any return statement
 
         // Create new block with return statement
         Some(body)

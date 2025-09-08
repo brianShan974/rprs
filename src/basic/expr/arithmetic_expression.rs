@@ -46,6 +46,36 @@ pub enum ArithmeticExpression {
 }
 
 impl ArithmeticExpression {
+    /// Generate a safe variable reference that only uses defined variables
+    /// Returns None if no matching variables are found
+    fn generate_safe_variable_reference<T: Rng + SeedableRng>(
+        external_variables: Option<&[Variable]>,
+        target_is_int: bool,
+        rng: &mut T,
+    ) -> Option<Self> {
+        if let Some(variables) = external_variables {
+            let matching_vars: Vec<_> = variables
+                .iter()
+                .filter(|var| {
+                    var.is_numeric()
+                        && if target_is_int {
+                            var.get_class().is_some_and(|t| t.is_integer_type())
+                        } else {
+                            var.get_class().is_some_and(|t| t.is_float_type())
+                        }
+                })
+                .collect();
+
+            if !matching_vars.is_empty() {
+                let variable = choose_random_item_unwrap(&matching_vars, rng);
+                return Some(ArithmeticExpression::VariableReference(
+                    variable.get_name().to_string(),
+                ));
+            }
+        }
+        None
+    }
+
     /// Check if this expression is primarily an integer type
     pub fn is_int(&self, external_variables: Option<&[Variable]>) -> bool {
         match self {
@@ -179,11 +209,12 @@ impl ArithmeticExpression {
                 let matching_vars: Vec<_> = filter_numeric_variables(variables)
                     .into_iter()
                     .filter(|var| {
-                        if target_is_int {
+                        let type_matches = if target_is_int {
                             var.get_class().is_some_and(|t| t.is_integer_type())
                         } else {
                             var.get_class().is_some_and(|t| t.is_float_type())
-                        }
+                        };
+                        type_matches
                     })
                     .collect();
 
@@ -211,28 +242,12 @@ impl ArithmeticExpression {
             }
             2..=9 => {
                 // Generate variable reference of matching type if available (40% probability - increased from 30%)
-                if let Some(variables) = external_variables {
-                    let matching_vars: Vec<_> = variables
-                        .iter()
-                        .filter(|var| {
-                            var.is_numeric()
-                                && if target_is_int {
-                                    var.get_class().is_some_and(|t| t.is_integer_type())
-                                } else {
-                                    var.get_class().is_some_and(|t| t.is_float_type())
-                                }
-                        })
-                        .collect();
-
-                    if !matching_vars.is_empty() {
-                        let variable = choose_random_item_unwrap(&matching_vars, rng);
-                        return ArithmeticExpression::VariableReference(
-                            variable.get_name().to_string(),
-                        );
-                    }
+                if let Some(variable_ref) =
+                    Self::generate_safe_variable_reference(external_variables, target_is_int, rng)
+                {
+                    return variable_ref;
                 }
-                // Fallback to literal of target type (removed aggressive variable usage)
-                // Last resort fallback to literal
+                // If no matching variables found, fallback to literal
                 generate_literal_by_type(target_is_int, rng)
             }
             10..=15 => {
@@ -251,28 +266,14 @@ impl ArithmeticExpression {
 
                 let left = if left_is_variable {
                     // Try to generate variable reference of matching type
-                    if let Some(variables) = external_variables {
-                        let matching_vars: Vec<_> = variables
-                            .iter()
-                            .filter(|var| {
-                                var.is_numeric()
-                                    && if target_is_int {
-                                        var.get_class().is_some_and(|t| t.is_integer_type())
-                                    } else {
-                                        var.get_class().is_some_and(|t| t.is_float_type())
-                                    }
-                            })
-                            .collect();
-
-                        if !matching_vars.is_empty() {
-                            let variable = choose_random_item_unwrap(&matching_vars, rng);
-                            ArithmeticExpression::VariableReference(variable.get_name().to_string())
-                        } else {
-                            // Fallback to literal of target type
-                            generate_literal_by_type(target_is_int, rng)
-                        }
+                    if let Some(variable_ref) = Self::generate_safe_variable_reference(
+                        external_variables,
+                        target_is_int,
+                        rng,
+                    ) {
+                        variable_ref
                     } else {
-                        // Fallback to literal of target type
+                        // If no matching variables found, fallback to literal
                         generate_literal_by_type(target_is_int, rng)
                     }
                 } else {
@@ -282,28 +283,14 @@ impl ArithmeticExpression {
 
                 let right = if right_is_variable {
                     // Try to generate variable reference of matching type
-                    if let Some(variables) = external_variables {
-                        let matching_vars: Vec<_> = variables
-                            .iter()
-                            .filter(|v| {
-                                v.is_numeric()
-                                    && if target_is_int {
-                                        v.get_class().is_some_and(|t| t.is_integer_type())
-                                    } else {
-                                        v.get_class().is_some_and(|t| t.is_float_type())
-                                    }
-                            })
-                            .collect();
-
-                        if !matching_vars.is_empty() {
-                            let variable = choose_random_item_unwrap(&matching_vars, rng);
-                            ArithmeticExpression::VariableReference(variable.get_name().to_string())
-                        } else {
-                            // Fallback to literal of target type
-                            generate_literal_by_type(target_is_int, rng)
-                        }
+                    if let Some(variable_ref) = Self::generate_safe_variable_reference(
+                        external_variables,
+                        target_is_int,
+                        rng,
+                    ) {
+                        variable_ref
                     } else {
-                        // Fallback to literal of target type
+                        // If no matching variables found, fallback to literal
                         generate_literal_by_type(target_is_int, rng)
                     }
                 } else {

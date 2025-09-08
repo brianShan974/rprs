@@ -25,6 +25,30 @@ impl Parameter {
         Self { name, ty }
     }
 
+    /// Generate a parameter that can use generic type parameters from the current class
+    pub fn generate_random_parameter_with_generics<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&[Class]>,
+        current_class_generic_params: Option<
+            &[crate::basic::cls::generic_type::GenericTypeParameter],
+        >,
+    ) -> Self {
+        let defined_classes = defined_classes.unwrap_or(BASIC_TYPES);
+
+        // 30% chance to use a generic type parameter from the current class
+        if let Some(generic_params) = current_class_generic_params
+            && !generic_params.is_empty() && rng.random_bool(0.3) {
+                let chosen_param = generic_params.choose(rng).unwrap();
+                return Self {
+                    name: generate_random_identifier(rng),
+                    ty: Rc::new(Class::FormalTypeParameter(chosen_param.clone())),
+                };
+            }
+
+        // Fall back to the original logic
+        Self::generate_random_parameter(rng, Some(defined_classes))
+    }
+
     pub fn generate_random_parameter<T: Rng + SeedableRng>(
         rng: &mut T,
         defined_classes: Option<&[Class]>,
@@ -98,6 +122,28 @@ impl Parameter {
 
             Class::Custom(concrete_class)
         }
+    }
+
+    /// Generate parameters that can use generic type parameters from the current class
+    pub fn generate_random_parameters_with_generics<T: Rng + SeedableRng>(
+        rng: &mut T,
+        defined_classes: Option<&[Class]>,
+        current_class_generic_params: Option<
+            &[crate::basic::cls::generic_type::GenericTypeParameter],
+        >,
+    ) -> Vec<Self> {
+        let num_params = rng.random_range(0..=3);
+        let mut parameters = Vec::with_capacity(num_params);
+
+        for _ in 0..num_params {
+            parameters.push(Self::generate_random_parameter_with_generics(
+                rng,
+                defined_classes,
+                current_class_generic_params,
+            ));
+        }
+
+        parameters
     }
 
     pub fn generate_random_parameters<T: Rng + SeedableRng>(

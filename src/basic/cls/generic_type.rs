@@ -400,8 +400,12 @@ impl GenericTypeParameter {
         rng: &mut T,
         existing_names: Option<&mut Vec<String>>,
     ) -> Self {
-        let mut existing_names = existing_names.unwrap_or(&mut Vec::new()).clone();
-        let name = Self::generate_unique_parameter_name(rng, &mut existing_names);
+        let name = if let Some(existing_names) = existing_names {
+            Self::generate_unique_parameter_name(rng, existing_names)
+        } else {
+            let mut temp_names = Vec::new();
+            Self::generate_unique_parameter_name(rng, &mut temp_names)
+        };
 
         // 30% chance to have bounds
         let bounds = if rng.random_bool(0.3) {
@@ -440,8 +444,12 @@ impl GenericTypeParameter {
         existing_names: Option<&mut Vec<String>>,
         context: &GenericParameterContext,
     ) -> Self {
-        let mut existing_names = existing_names.unwrap_or(&mut Vec::new()).clone();
-        let name = Self::generate_unique_parameter_name(rng, &mut existing_names);
+        let name = if let Some(existing_names) = existing_names {
+            Self::generate_unique_parameter_name(rng, existing_names)
+        } else {
+            let mut temp_names = Vec::new();
+            Self::generate_unique_parameter_name(rng, &mut temp_names)
+        };
 
         // Generate context-aware bounds
         let bounds = Self::generate_smart_constraints(rng, context);

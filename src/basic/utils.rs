@@ -102,23 +102,6 @@ pub fn filter_boolean_functions(functions: &[Function]) -> Vec<&Function> {
     })
 }
 
-/// Generate a random expression with default parameters
-pub fn generate_random_expression_default<T: Rng + SeedableRng>(
-    max_depth: usize,
-    external_variables: Option<&[Variable]>,
-    external_functions: Option<Rc<RefCell<Vec<Function>>>>,
-    defined_classes: Option<&[Class]>,
-    rng: &mut T,
-) -> Expression {
-    Expression::generate_random_expression(
-        max_depth,
-        external_functions,
-        external_variables,
-        defined_classes,
-        None, // No current class context
-        rng,
-    )
-}
 
 /// Generate a random expression with functions
 pub fn generate_random_expression_with_functions<T: Rng + SeedableRng>(

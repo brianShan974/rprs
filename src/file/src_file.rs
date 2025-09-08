@@ -316,7 +316,7 @@ impl Display for File {
         if let Some(class) = class_iter.next() {
             writeln!(f, "{}", class)?;
         }
-        for class in self.classes.iter() {
+        for class in class_iter {
             writeln!(f, "\n{}", class)?;
         }
 
@@ -329,7 +329,7 @@ impl Display for File {
         if let Some(function) = function_iter.next() {
             writeln!(f, "{}", function)?;
         }
-        for function in self.functions.iter() {
+        for function in function_iter {
             writeln!(f, "\n{}", function)?;
         }
 
