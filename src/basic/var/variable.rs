@@ -890,7 +890,7 @@ impl Variable {
             Class::FormalTypeParameter(param) => {
                 // For formal type parameters, we cannot generate a concrete expression
                 // Return a placeholder that indicates this needs manual attention
-                Expression::VariableReference(format!("TODO_FORMAL_TYPE_{}", param.get_name()))
+                unimplemented!()
             }
         }
     }
