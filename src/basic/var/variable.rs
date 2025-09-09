@@ -129,104 +129,43 @@ impl Variable {
         // First determine the type, then generate matching expression
         let ty = if with_initial_value {
             // Choose type with adjusted probabilities, prioritizing basic types
-            if let Some(classes) = defined_classes {
-                if !classes.is_empty() {
-                    // 30% chance for custom classes, 70% for basic types
-                    if rng.random_bool(0.3) {
-                        // Prefer other classes over the current class if available
-                        // We'll use a simpler approach: just randomly select from all available classes
-                        // The filtering will be done at a higher level when we have context about which class we're in
-                        let other_classes: Vec<_> = classes.iter().collect();
+            if let Some(classes) = defined_classes
+                && !classes.is_empty()
+                && rng.random_bool(0.3)
+            // 30% chance for custom classes, 70% for basic types
+            {
+                // Prefer other classes over the current class if available
+                // We'll use a simpler approach: just randomly select from all available classes
+                // The filtering will be done at a higher level when we have context about which class we're in
+                let other_classes: Vec<_> = classes.iter().collect();
 
-                        if !other_classes.is_empty() && rng.random_bool(0.95) {
-                            // 95% chance to use other classes
-                            let custom_class = other_classes.choose(rng).unwrap();
-                            // For variable declarations, use concrete types instead of generic parameters
-                            if let Class::Custom(custom_class_ref) = custom_class {
-                                if !custom_class_ref.get_generic_parameters().is_empty() {
-                                    // Generate concrete type arguments for generic classes
-                                    let concrete_type =
-                                        Self::generate_concrete_type_for_generic_class(
-                                            custom_class_ref,
-                                            rng,
-                                        );
-                                    Some(concrete_type)
-                                } else {
-                                    Some((*custom_class).clone())
-                                }
-                            } else {
-                                Some((*custom_class).clone())
-                            }
-                        } else {
-                            // 5% chance to use any class (including current)
-                            let custom_class = classes.choose(rng).unwrap();
-                            if let Class::Custom(custom_class_ref) = custom_class {
-                                if !custom_class_ref.get_generic_parameters().is_empty() {
-                                    // Generate concrete type arguments for generic classes
-                                    let concrete_type =
-                                        Self::generate_concrete_type_for_generic_class(
-                                            custom_class_ref,
-                                            rng,
-                                        );
-                                    Some(concrete_type)
-                                } else {
-                                    Some(custom_class.clone())
-                                }
-                            } else {
-                                Some(custom_class.clone())
-                            }
-                        }
+                if !other_classes.is_empty() && rng.random_bool(0.95) {
+                    // 95% chance to use other classes
+                    let custom_class = other_classes.choose(rng).unwrap();
+                    // For variable declarations, use concrete types instead of generic parameters
+                    if let Class::Custom(custom_class_ref) = custom_class
+                        && !custom_class_ref.get_generic_parameters().is_empty()
+                    {
+                        // Generate concrete type arguments for generic classes
+                        let concrete_type =
+                            Self::generate_concrete_type_for_generic_class(custom_class_ref, rng);
+                        Some(concrete_type)
                     } else {
-                        // Choose from basic types
-                        let basic_types = [
-                            Some(INT.clone()),
-                            Some(INT.clone()),
-                            Some(INT.clone()),
-                            Some(INT.clone()),
-                            Some(INT.clone()),
-                            Some(INT.clone()),
-                            Some(INT.clone()), // 35% Int
-                            Some(FLOAT.clone()),
-                            Some(FLOAT.clone()),
-                            Some(FLOAT.clone()),
-                            Some(FLOAT.clone()),
-                            Some(FLOAT.clone()),
-                            Some(FLOAT.clone()),
-                            Some(FLOAT.clone()),   // 35% Float
-                            Some(BOOLEAN.clone()), // 10% Boolean
-                            Some(STRING.clone()),  // 10% String
-                            Some(INT.clone()),
-                            Some(INT.clone()),
-                            Some(INT.clone()),
-                            Some(INT.clone()), // 10% Int (fallback)
-                        ];
-                        basic_types[rng.random_range(0..20)].clone()
+                        Some((*custom_class).clone())
                     }
                 } else {
-                    // No custom classes available, use basic types
-                    let basic_types = [
-                        Some(INT.clone()),
-                        Some(INT.clone()),
-                        Some(INT.clone()),
-                        Some(INT.clone()),
-                        Some(INT.clone()),
-                        Some(INT.clone()),
-                        Some(INT.clone()), // 35% Int
-                        Some(FLOAT.clone()),
-                        Some(FLOAT.clone()),
-                        Some(FLOAT.clone()),
-                        Some(FLOAT.clone()),
-                        Some(FLOAT.clone()),
-                        Some(FLOAT.clone()),
-                        Some(FLOAT.clone()),   // 35% Float
-                        Some(BOOLEAN.clone()), // 10% Boolean
-                        Some(STRING.clone()),  // 10% String
-                        Some(INT.clone()),
-                        Some(INT.clone()),
-                        Some(INT.clone()),
-                        Some(INT.clone()), // 10% Int (fallback)
-                    ];
-                    basic_types[rng.random_range(0..20)].clone()
+                    // 5% chance to use any class (including current)
+                    let custom_class = classes.choose(rng).unwrap();
+                    if let Class::Custom(custom_class_ref) = custom_class
+                        && !custom_class_ref.get_generic_parameters().is_empty()
+                    {
+                        // Generate concrete type arguments for generic classes
+                        let concrete_type =
+                            Self::generate_concrete_type_for_generic_class(custom_class_ref, rng);
+                        Some(concrete_type)
+                    } else {
+                        Some(custom_class.clone())
+                    }
                 }
             } else {
                 // No defined classes provided, use basic types
@@ -269,7 +208,7 @@ impl Variable {
                             2,                          // Keep original complexity
                             true,                       // target_is_int = true
                             external_functions.clone(), // Use external functions if available
-                            None, // Don't use external variables to avoid undefined references
+                            external_variables,
                             rng,
                         ),
                     ))
@@ -282,7 +221,7 @@ impl Variable {
                             2,                          // Keep original complexity
                             false,                      // target_is_int = false
                             external_functions.clone(), // Use external functions if available
-                            None, // Don't use external variables to avoid undefined references
+                            external_variables,
                             rng,
                         ),
                     ))

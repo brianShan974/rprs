@@ -102,7 +102,6 @@ pub fn filter_boolean_functions(functions: &[Function]) -> Vec<&Function> {
     })
 }
 
-
 /// Generate a random expression with functions
 pub fn generate_random_expression_with_functions<T: Rng + SeedableRng>(
     max_depth: usize,
