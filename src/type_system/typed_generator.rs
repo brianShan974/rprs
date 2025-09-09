@@ -936,77 +936,59 @@ impl TypedGenerationContext {
                 match return_type {
                     Type::Basic(Class::Basic(BasicType::Number(_))) => {
                         // Numeric return type - generate return with expression that strictly matches the type
-                        if let Some(expr) = self.generate_expression_for_type(
+                        self.generate_expression_for_type(
                             return_type,
                             Some(self.external_functions.clone()),
                             rng,
-                        ) {
-                            Some(SingleStatement::Return(Some(expr)))
-                        } else {
-                            None // Cannot generate compatible expression
-                        }
+                        )
+                        .map(|expr| SingleStatement::Return(Some(expr)))
                     }
                     Type::Basic(BOOLEAN) => {
                         // Boolean return type - generate boolean expression
-                        if let Some(expr) = self.generate_expression_for_type(
+                        self.generate_expression_for_type(
                             return_type,
                             Some(self.external_functions.clone()),
                             rng,
-                        ) {
-                            Some(SingleStatement::Return(Some(expr)))
-                        } else {
-                            None // Cannot generate compatible expression
-                        }
+                        )
+                        .map(|expr| SingleStatement::Return(Some(expr)))
                     }
                     Type::Basic(STRING) => {
                         // String return type - generate string expression
-                        if let Some(expr) = self.generate_expression_for_type(
+                        self.generate_expression_for_type(
                             return_type,
                             Some(self.external_functions.clone()),
                             rng,
-                        ) {
-                            Some(SingleStatement::Return(Some(expr)))
-                        } else {
-                            None // Cannot generate compatible expression
-                        }
+                        )
+                        .map(|expr| SingleStatement::Return(Some(expr)))
                     }
                     Type::Basic(Class::Custom(_)) => {
                         // Custom class return type - generate object creation
-                        if let Some(expr) = self.generate_expression_for_type(
+                        self.generate_expression_for_type(
                             return_type,
                             Some(self.external_functions.clone()),
                             rng,
-                        ) {
-                            Some(SingleStatement::Return(Some(expr)))
-                        } else {
-                            None // Cannot generate compatible expression
-                        }
+                        )
+                        .map(|expr| SingleStatement::Return(Some(expr)))
                     }
                     Type::Basic(Class::FormalTypeParameter(_)) => {
                         // For generic type parameters, we must ensure we can generate a compatible expression
                         // If we can't, this indicates a bug in our return type selection logic
                         // We should never reach this point if our logic is correct
-                        if let Some(expr) = self.generate_expression_for_type(
+                        self.generate_expression_for_type(
                             return_type,
                             Some(self.external_functions.clone()),
                             rng,
-                        ) {
-                            Some(SingleStatement::Return(Some(expr)))
-                        } else {
-                            None // Cannot generate compatible expression
-                        }
+                        )
+                        .map(|expr| SingleStatement::Return(Some(expr)))
                     }
                     _ => {
                         // Other types - try to generate appropriate expression
-                        if let Some(expr) = self.generate_expression_for_type(
+                        self.generate_expression_for_type(
                             return_type,
                             Some(self.external_functions.clone()),
                             rng,
-                        ) {
-                            Some(SingleStatement::Return(Some(expr)))
-                        } else {
-                            None // Cannot generate compatible expression
-                        }
+                        )
+                        .map(|expr| SingleStatement::Return(Some(expr)))
                     }
                 }
             }

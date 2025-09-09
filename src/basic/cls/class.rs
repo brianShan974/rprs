@@ -66,7 +66,6 @@ impl Class {
         }
     }
 
-
     pub fn get_name(&self) -> String {
         match self {
             Self::Basic(basic_type) => basic_type.to_string(),

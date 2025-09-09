@@ -37,13 +37,15 @@ impl Parameter {
 
         // 30% chance to use a generic type parameter from the current class
         if let Some(generic_params) = current_class_generic_params
-            && !generic_params.is_empty() && rng.random_bool(0.3) {
-                let chosen_param = generic_params.choose(rng).unwrap();
-                return Self {
-                    name: generate_random_identifier(rng),
-                    ty: Rc::new(Class::FormalTypeParameter(chosen_param.clone())),
-                };
-            }
+            && !generic_params.is_empty()
+            && rng.random_bool(0.3)
+        {
+            let chosen_param = generic_params.choose(rng).unwrap();
+            return Self {
+                name: generate_random_identifier(rng),
+                ty: Rc::new(Class::FormalTypeParameter(chosen_param.clone())),
+            };
+        }
 
         // Fall back to the original logic
         Self::generate_random_parameter(rng, Some(defined_classes))

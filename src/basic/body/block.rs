@@ -1,7 +1,5 @@
 use crate::basic::{
-    body::{
-        stmt::{single_statement::SingleStatement, statement::Statement},
-    },
+    body::stmt::{single_statement::SingleStatement, statement::Statement},
     utils::GenerationConfig,
     var::variable::Variable,
 };
@@ -50,7 +48,6 @@ impl Block {
     pub fn get_current_indentation_layer(&self) -> usize {
         self.current_indentation_layer
     }
-
 
     /// Generate a type-safe block with expected return type (using GenerationConfig)
     pub fn generate_type_safe_block_with_config<T: Rng + SeedableRng>(

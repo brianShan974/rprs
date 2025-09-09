@@ -209,12 +209,11 @@ impl ArithmeticExpression {
                 let matching_vars: Vec<_> = filter_numeric_variables(variables)
                     .into_iter()
                     .filter(|var| {
-                        let type_matches = if target_is_int {
+                        if target_is_int {
                             var.get_class().is_some_and(|t| t.is_integer_type())
                         } else {
                             var.get_class().is_some_and(|t| t.is_float_type())
-                        };
-                        type_matches
+                        }
                     })
                     .collect();
 

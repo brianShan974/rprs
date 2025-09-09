@@ -826,7 +826,7 @@ impl Variable {
                     rng,
                 )
             }
-            Class::FormalTypeParameter(param) => {
+            Class::FormalTypeParameter(_param) => {
                 // For formal type parameters, we cannot generate a concrete expression
                 // Return a placeholder that indicates this needs manual attention
                 unimplemented!()
