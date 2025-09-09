@@ -149,6 +149,7 @@ impl File {
         let mut shared_typed_context = TypedGenerationContext::new(shared_external_functions);
 
         // First pass: Generate all class names only
+        // TODO: rewrite this with iterators
         let mut class_names = Vec::with_capacity(num_classes);
         for _ in 0..num_classes {
             let class_name = generate_random_identifier(rng);
@@ -157,6 +158,7 @@ impl File {
         }
 
         // Second pass: Generate all function names only
+        // TODO: rewrite this with iterators
         let mut function_names = Vec::with_capacity(num_functions);
         for _ in 0..num_functions {
             let function_name = generate_random_identifier(rng);
